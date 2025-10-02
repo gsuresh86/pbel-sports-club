@@ -6,17 +6,17 @@ A comprehensive sports tournament management system built with Next.js 15, Fireb
 
 ### Public Features
 - **Home Page**: Overview of sports categories and quick links
-- **Tournament Listings**: Browse all tournaments by sport
-- **Registration Form**: Register for tournaments with personal details
+- **Tournament Listings**: Browse all tournaments by sport with beautiful sport-specific banners
+- **Registration Form**: Register for tournaments with personal details, apartment info, and partner details for doubles
 - **Match Schedules**: View upcoming matches and fixtures
 - **Live Scores**: Real-time score updates for ongoing matches
 - **Winners Gallery**: Hall of fame showcasing tournament champions
 
 ### Admin Features
-- **Tournament Management**: Create, edit, and delete tournaments
+- **Tournament Management**: Create, edit, and delete tournaments with category management
 - **Match Scheduling**: Schedule matches and manage fixtures
 - **Live Score Updates**: Update scores in real-time during matches
-- **Participant Management**: View and manage registered participants
+- **Participant Management**: View and manage registered participants with CSV export
 - **Winner Announcements**: Declare tournament winners and prizes
 - **Authentication**: Secure admin access with role-based permissions
 
@@ -44,8 +44,8 @@ npm install
 ```
 
 2. Configure Firebase:
-   - The `.env.local` file is already set up with your Firebase credentials
-   - Firebase config is located in `lib/firebase.ts`
+   - The Firebase config is located in `lib/firebase.ts`
+   - Firebase credentials are configured directly in the code
 
 3. Set up Firebase Firestore Collections:
    Create the following collections in your Firebase project:
@@ -79,12 +79,15 @@ pbel-sports-club/
 ├── app/
 │   ├── admin/              # Admin dashboard pages
 │   │   ├── tournaments/    # Manage tournaments
+│   │   ├── participants/   # Manage participants
+│   │   ├── matches/        # Manage matches
 │   │   └── live-scores/    # Update live scores
 │   ├── login/              # Authentication page
 │   ├── register/           # Tournament registration
 │   ├── schedules/          # Match schedules
 │   ├── live-scores/        # Public live scores
 │   ├── winners/            # Winners display
+│   ├── tournament/[id]/    # Tournament details and registration
 │   └── page.tsx            # Home page
 ├── components/
 │   ├── ui/                 # shadcn/ui components
@@ -94,9 +97,28 @@ pbel-sports-club/
 ├── lib/
 │   ├── firebase.ts         # Firebase configuration
 │   └── utils.ts            # Utility functions
+├── scripts/                # Utility scripts
 └── types/
     └── index.ts            # TypeScript type definitions
 ```
+
+## Tournament Categories
+
+### Individual Tournaments
+- Girls Under 13
+- Boys Under 13
+- Girls Under 18
+- Boys Under 18
+- Mens Single
+- Womens Single
+- Mens Doubles
+- Mixed Doubles
+
+### Team Tournaments
+- Mens Team
+- Womens Team
+- Kids Team (U13)
+- Kids Team (U18)
 
 ## Firebase Security Rules
 
@@ -145,13 +167,13 @@ service cloud.firestore {
 
 ## Creating the First Admin User
 
-To create the first admin user, you'll need to:
+To create the first admin user, run:
 
-1. Sign up through the app or Firebase Console
-2. Manually update the user's role in Firestore:
-   - Go to Firebase Console > Firestore
-   - Find the user document in the `users` collection
-   - Set the `role` field to `'admin'`
+```bash
+node scripts/create-admin-user.ts
+```
+
+This will create an admin user with email `admin@pbelcity.com` and password `admin123`.
 
 ## Available Sports
 
