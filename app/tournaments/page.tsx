@@ -65,6 +65,19 @@ export default function TournamentsPage() {
     }
   };
 
+  const getSportBanner = (sport: string) => {
+    switch (sport) {
+      case 'badminton':
+        return 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      case 'table-tennis':
+        return 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      case 'volleyball':
+        return 'https://images.unsplash.com/photo-1612872087720-b8768760e99a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+    }
+  };
+
   const getSportIcon = (sport: string) => {
     switch (sport) {
       case 'badminton': return '🏸';
@@ -148,7 +161,18 @@ export default function TournamentsPage() {
         {/* Tournaments Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTournaments.map((tournament) => (
-            <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
+            <Card key={tournament.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+              {/* Sport Banner */}
+              <div className="relative h-32 w-full overflow-hidden">
+                <img
+                  src={getSportBanner(tournament.sport)}
+                  alt={`${tournament.sport} tournament`}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                  <span className="text-3xl">{getSportIcon(tournament.sport)}</span>
+                </div>
+              </div>
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>

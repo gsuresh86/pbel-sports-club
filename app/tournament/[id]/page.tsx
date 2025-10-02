@@ -117,6 +117,19 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const getSportBanner = (sport: string) => {
+    switch (sport) {
+      case 'badminton':
+        return 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
+      case 'table-tennis':
+        return 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
+      case 'volleyball':
+        return 'https://images.unsplash.com/photo-1612872087720-b8768760e99a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
+    }
+  };
+
   const getSportIcon = (sport: string) => {
     switch (sport) {
       case 'badminton': return '🏸';
@@ -157,10 +170,26 @@ export default function TournamentDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Tournament Header */}
-        <Card className="mb-8">
+    <div className="min-h-screen bg-gray-50">
+      {/* Sport Banner */}
+      <div className="relative h-64 w-full overflow-hidden">
+        <img
+          src={getSportBanner(tournament.sport)}
+          alt={`${tournament.sport} tournament`}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="text-center text-white">
+            <h1 className="text-4xl font-bold mb-2">{tournament.name}</h1>
+            <p className="text-xl capitalize">{tournament.sport} Tournament</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Tournament Header */}
+          <Card className="mb-8">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
