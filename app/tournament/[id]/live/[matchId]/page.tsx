@@ -80,7 +80,6 @@ export default function LiveMatchPage() {
       if (doc.exists()) {
         const data = doc.data();
         setLiveScore({
-          id: doc.id,
           ...data,
           lastUpdated: data.lastUpdated?.toDate(),
         } as LiveScore);
@@ -192,7 +191,7 @@ export default function LiveMatchPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <span className="text-2xl">{getSportIcon(tournament.sport)}</span>
-                    {match.player1} vs {match.player2}
+                     {match.player1Name} vs {match.player2Name}
                   </CardTitle>
                   <CardDescription className="mt-2">
                     <div className="flex items-center gap-4 text-sm">

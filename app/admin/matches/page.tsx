@@ -184,9 +184,9 @@ export default function ManageMatchesPage() {
     }
   };
 
-  const handleStatusChange = async (matchId: string, newStatus: string) => {
+  const handleStatusChange = async (matchId: string, newStatus: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => {
     try {
-      const updateData: any = {
+      const updateData: Partial<Match> = {
         status: newStatus,
         updatedAt: new Date(),
       };
@@ -405,7 +405,7 @@ export default function ManageMatchesPage() {
                   </div>
                   <div>
                     <Label htmlFor="status">Status</Label>
-                    <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
+                    <Select value={formData.status} onValueChange={(value: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => setFormData({ ...formData, status: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>

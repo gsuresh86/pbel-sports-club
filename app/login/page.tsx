@@ -24,7 +24,7 @@ export default function LoginPage() {
       await signIn(email, password);
       console.log('Sign in successful, redirecting to admin...');
       router.push('/admin');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sign in error:', err);
       setError('Failed to sign in. Please check your credentials.');
     }
@@ -67,7 +67,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center text-sm">
             <p className="text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/signup" className="text-blue-600 hover:underline">
                 Sign up
               </Link>

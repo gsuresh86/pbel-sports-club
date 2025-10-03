@@ -42,11 +42,11 @@ export default function PublicBracketPage() {
           ...bracketDoc.data(),
           createdAt: bracketDoc.data().createdAt?.toDate(),
           updatedAt: bracketDoc.data().updatedAt?.toDate(),
-          rounds: bracketDoc.data().rounds?.map((round: any) => ({
+          rounds: bracketDoc.data().rounds?.map((round: BracketRound) => ({
             ...round,
-            matches: round.matches?.map((match: any) => ({
+            matches: round.matches?.map((match: BracketMatch) => ({
               ...match,
-              scheduledTime: match.scheduledTime?.toDate(),
+              scheduledTime: match.scheduledTime,
             })),
           })),
         } as TournamentBracket;
@@ -89,11 +89,11 @@ export default function PublicBracketPage() {
           ...bracketDoc.data(),
           createdAt: bracketDoc.data().createdAt?.toDate(),
           updatedAt: bracketDoc.data().updatedAt?.toDate(),
-          rounds: bracketDoc.data().rounds?.map((round: any) => ({
+          rounds: bracketDoc.data().rounds?.map((round: BracketRound) => ({
             ...round,
-            matches: round.matches?.map((match: any) => ({
+            matches: round.matches?.map((match: BracketMatch) => ({
               ...match,
-              scheduledTime: match.scheduledTime?.toDate(),
+              scheduledTime: match.scheduledTime,
             })),
           })),
         } as TournamentBracket;

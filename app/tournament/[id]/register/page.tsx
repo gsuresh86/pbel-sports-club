@@ -185,9 +185,9 @@ export default function TournamentRegistrationPage() {
       });
 
       setSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
-      setError(error.message || 'Failed to register. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to register. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -624,7 +624,7 @@ export default function TournamentRegistrationPage() {
                     <div className="bg-blue-50 p-4 rounded-lg mb-6">
                       <h3 className="text-lg font-semibold text-blue-900 mb-2">Partner Details Required</h3>
                       <p className="text-sm text-blue-700">
-                        This is a doubles tournament. Please provide your partner's details below.
+                        This is a doubles tournament. Please provide your partner&apos;s details below.
                       </p>
                     </div>
                     

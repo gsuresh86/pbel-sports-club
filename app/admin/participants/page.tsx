@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import AdminLayout from '@/components/AdminLayout';
 import { collection, getDocs, updateDoc, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -72,9 +73,8 @@ export default function ManageParticipantsPage() {
 
   const handleStatusChange = async (participantId: string, newStatus: 'approved' | 'rejected') => {
     try {
-      const updateData: any = {
+      const updateData: Partial<Participant> = {
         registrationStatus: newStatus,
-        updatedAt: new Date(),
       };
 
       if (newStatus === 'approved') {
@@ -191,8 +191,8 @@ export default function ManageParticipantsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <AdminLayout moduleName="Participants">
+      <div className="p-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Participant Management</h1>
           <p className="text-gray-600">Manage tournament registrations and approvals</p>
@@ -454,6 +454,6 @@ export default function ManageParticipantsPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, where, onSnapshot } from 'firebase
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LiveScore, Match, Tournament } from '@/types';
 import { Target, Clock, Trophy, Play, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
@@ -65,7 +66,6 @@ export default function LiveScoresPage() {
     const liveScoresRef = collection(db, 'liveScores');
     return onSnapshot(liveScoresRef, (snapshot) => {
       const liveScoresData = snapshot.docs.map(doc => ({
-        id: doc.id,
         ...doc.data(),
         lastUpdated: doc.data().lastUpdated?.toDate(),
       })) as LiveScore[];

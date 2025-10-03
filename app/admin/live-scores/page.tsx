@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navbar } from '@/components/Navbar';
+import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +22,14 @@ export default function UpdateLiveScoresPage() {
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
-  const [scores, setScores] = useState<Record<string, any>>({});
+  const [scores, setScores] = useState<Record<string, {
+    currentSet: number;
+    player1Sets: number;
+    player2Sets: number;
+    player1CurrentScore: number;
+    player2CurrentScore: number;
+    isLive: boolean;
+  }>>({});
   const [selectedTournament, setSelectedTournament] = useState<string>('all');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -87,7 +94,14 @@ export default function UpdateLiveScoresPage() {
 
       // Load existing live scores
       const liveScoresSnapshot = await getDocs(collection(db, 'liveScores'));
-      const existingScores: Record<string, any> = {};
+      const existingScores: Record<string, {
+        currentSet: number;
+        player1Sets: number;
+        player2Sets: number;
+        player1CurrentScore: number;
+        player2CurrentScore: number;
+        isLive: boolean;
+      }> = {};
       liveScoresSnapshot.docs.forEach(doc => {
         const data = doc.data();
         existingScores[data.matchId] = {
@@ -101,7 +115,14 @@ export default function UpdateLiveScoresPage() {
       });
 
       // Initialize scores state for new live matches
-      const initialScores: Record<string, any> = { ...existingScores };
+      const initialScores: Record<string, {
+        currentSet: number;
+        player1Sets: number;
+        player2Sets: number;
+        player1CurrentScore: number;
+        player2CurrentScore: number;
+        isLive: boolean;
+      }> = { ...existingScores };
       liveMatchesData.forEach(match => {
         if (!initialScores[match.id]) {
           initialScores[match.id] = {
@@ -126,13 +147,19 @@ export default function UpdateLiveScoresPage() {
     const liveScoresRef = collection(db, 'liveScores');
     return onSnapshot(liveScoresRef, (snapshot) => {
       const liveScoresData = snapshot.docs.map(doc => ({
-        id: doc.id,
         ...doc.data(),
         lastUpdated: doc.data().lastUpdated?.toDate(),
       })) as LiveScore[];
       
       // Update scores state with real-time data
-      const updatedScores: Record<string, any> = {};
+      const updatedScores: Record<string, {
+        currentSet: number;
+        player1Sets: number;
+        player2Sets: number;
+        player1CurrentScore: number;
+        player2CurrentScore: number;
+        isLive: boolean;
+      }> = {};
       liveScoresData.forEach(score => {
         updatedScores[score.matchId] = {
           currentSet: score.currentSet || 1,
@@ -154,8 +181,8 @@ export default function UpdateLiveScoresPage() {
         ...scores[matchId],
         matchId,
         tournamentId: match?.tournamentId,
-        player1Name: match?.player1,
-        player2Name: match?.player2,
+        player1Name: match?.player1Name,
+        player2Name: match?.player2Name,
         isLive: true,
         lastUpdated: new Date(),
       };
@@ -184,8 +211,8 @@ export default function UpdateLiveScoresPage() {
       const scoreData = {
         matchId,
         tournamentId: match.tournamentId,
-        player1Name: match.player1,
-        player2Name: match.player2,
+        player1Name: match.player1Name,
+        player2Name: match.player2Name,
         currentSet: 1,
         player1Sets: 0,
         player2Sets: 0,
@@ -240,7 +267,7 @@ export default function UpdateLiveScoresPage() {
           status: 'completed',
           player1Score: score.player1Sets,
           player2Score: score.player2Sets,
-          winner: score.player1Sets > score.player2Sets ? match?.player1 : match?.player2,
+          winner: score.player1Sets > score.player2Sets ? match?.player1Name : match?.player2Name,
           actualEndTime: new Date(),
           updatedAt: new Date(),
         });
@@ -286,36 +313,34 @@ export default function UpdateLiveScoresPage() {
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-                <Target className="h-10 w-10 text-red-500" />
-                Live Score Management
-              </h1>
-              <p className="text-gray-600">Manage live matches and real-time scoring</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
-                <span className="text-sm text-gray-500">
-                  Last updated: {lastUpdate.toLocaleTimeString()}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setAutoRefresh(!autoRefresh)}
-              >
-                {autoRefresh ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {autoRefresh ? 'Pause' : 'Resume'} Auto-refresh
-              </Button>
-            </div>
+    <AdminLayout moduleName="Live Scores">
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <Target className="h-8 w-8 text-red-500" />
+              Live Score Management
+            </h1>
+            <p className="text-gray-600">Manage live matches and real-time scoring</p>
           </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
+              <span className="text-sm text-gray-500">
+                Last updated: {lastUpdate.toLocaleTimeString()}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+            >
+              {autoRefresh ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {autoRefresh ? 'Pause' : 'Resume'} Auto-refresh
+            </Button>
+          </div>
+        </div>
 
           {/* Filters */}
           <Card className="mb-6">
@@ -376,14 +401,14 @@ export default function UpdateLiveScoresPage() {
                         {/* Score Display */}
                         <div className="grid grid-cols-2 gap-4 text-center">
                           <div className="bg-blue-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-blue-600">{match.player1}</h3>
+                            <h3 className="font-semibold text-blue-600">{match.player1Name}</h3>
                             <div className="text-2xl font-bold text-blue-600 mt-2">
                               {score.player1CurrentScore || 0}
                             </div>
                             <div className="text-sm text-gray-600">Sets: {score.player1Sets || 0}</div>
                           </div>
                           <div className="bg-red-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-red-600">{match.player2}</h3>
+                            <h3 className="font-semibold text-red-600">{match.player2Name}</h3>
                             <div className="text-2xl font-bold text-red-600 mt-2">
                               {score.player2CurrentScore || 0}
                             </div>
@@ -394,7 +419,7 @@ export default function UpdateLiveScoresPage() {
                         {/* Score Controls */}
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <h4 className="font-medium text-blue-600">{match.player1}</h4>
+                            <h4 className="font-medium text-blue-600">{match.player1Name}</h4>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label className="text-xs">Sets</Label>
@@ -432,7 +457,7 @@ export default function UpdateLiveScoresPage() {
                           </div>
 
                           <div className="space-y-3">
-                            <h4 className="font-medium text-red-600">{match.player2}</h4>
+                            <h4 className="font-medium text-red-600">{match.player2Name}</h4>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label className="text-xs">Sets</Label>
@@ -551,7 +576,7 @@ export default function UpdateLiveScoresPage() {
                             )}
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
-                            {match.player1} vs {match.player2} • {match.venue}
+                            {match.player1Name} vs {match.player2Name} • {match.venue}
                           </p>
                           {match.scheduledTime && (
                             <p className="text-xs text-gray-500">
@@ -611,8 +636,7 @@ export default function UpdateLiveScoresPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </main>
-    </>
+      </div>
+    </AdminLayout>
   );
 }

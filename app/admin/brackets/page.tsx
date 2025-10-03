@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navbar } from '@/components/Navbar';
+import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,11 +59,11 @@ export default function ManageBracketsPage() {
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
-        rounds: doc.data().rounds?.map((round: any) => ({
+        rounds: doc.data().rounds?.map((round: BracketRound) => ({
           ...round,
-          matches: round.matches?.map((match: any) => ({
+          matches: round.matches?.map((match: BracketMatch) => ({
             ...match,
-            scheduledTime: match.scheduledTime?.toDate(),
+            scheduledTime: match.scheduledTime,
           })),
         })),
       })) as TournamentBracket[];
@@ -285,19 +285,17 @@ export default function ManageBracketsPage() {
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-gray-50 py-12 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-                <Trophy className="h-10 w-10 text-yellow-500" />
-                Tournament Brackets
-              </h1>
-              <p className="text-gray-600">Manage tournament brackets and match results</p>
-            </div>
+    <AdminLayout moduleName="Tournament Brackets">
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <Trophy className="h-8 w-8 text-yellow-500" />
+              Tournament Brackets
+            </h1>
+            <p className="text-gray-600">Manage tournament brackets and match results</p>
+          </div>
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
                 <Button>
@@ -531,8 +529,7 @@ export default function ManageBracketsPage() {
               )}
             </DialogContent>
           </Dialog>
-        </div>
-      </main>
-    </>
+      </div>
+    </AdminLayout>
   );
 }

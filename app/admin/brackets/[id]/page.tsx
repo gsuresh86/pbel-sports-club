@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navbar } from '@/components/Navbar';
+import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,11 +42,11 @@ export default function BracketDetailPage() {
           ...bracketDoc.data(),
           createdAt: bracketDoc.data().createdAt?.toDate(),
           updatedAt: bracketDoc.data().updatedAt?.toDate(),
-          rounds: bracketDoc.data().rounds?.map((round: any) => ({
+          rounds: bracketDoc.data().rounds?.map((round: BracketRound) => ({
             ...round,
-            matches: round.matches?.map((match: any) => ({
+            matches: round.matches?.map((match: BracketMatch) => ({
               ...match,
-              scheduledTime: match.scheduledTime?.toDate(),
+              scheduledTime: match.scheduledTime,
             })),
           })),
         } as TournamentBracket;
@@ -83,11 +83,11 @@ export default function BracketDetailPage() {
           ...doc.data(),
           createdAt: doc.data().createdAt?.toDate(),
           updatedAt: doc.data().updatedAt?.toDate(),
-          rounds: doc.data().rounds?.map((round: any) => ({
+          rounds: doc.data().rounds?.map((round: BracketRound) => ({
             ...round,
-            matches: round.matches?.map((match: any) => ({
+            matches: round.matches?.map((match: BracketMatch) => ({
               ...match,
-              scheduledTime: match.scheduledTime?.toDate(),
+              scheduledTime: match.scheduledTime,
             })),
           })),
         } as TournamentBracket;
@@ -188,34 +188,32 @@ export default function BracketDetailPage() {
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-gray-50 py-8 px-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/admin/brackets')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Brackets
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Trophy className="h-8 w-8 text-yellow-500" />
-                {tournament.name}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {getCategoryDisplayName(bracket.category)} • {bracket.participants.length} participants
-              </p>
-            </div>
-            <div className="ml-auto">
-              <Badge className={getStatusColor(bracket.status)}>
-                {bracket.status}
-              </Badge>
-            </div>
+    <AdminLayout moduleName="Bracket Details">
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/admin/brackets')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Brackets
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <Trophy className="h-8 w-8 text-yellow-500" />
+              {tournament.name}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {getCategoryDisplayName(bracket.category)} • {bracket.participants.length} participants
+            </p>
           </div>
+          <div className="ml-auto">
+            <Badge className={getStatusColor(bracket.status)}>
+              {bracket.status}
+            </Badge>
+          </div>
+        </div>
 
           {/* Bracket Visualization */}
           <div className="space-y-8">
@@ -391,8 +389,7 @@ export default function BracketDetailPage() {
               )}
             </DialogContent>
           </Dialog>
-        </div>
-      </main>
-    </>
+      </div>
+    </AdminLayout>
   );
 }

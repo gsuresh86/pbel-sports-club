@@ -151,9 +151,9 @@ export default function SchedulesPage() {
                     <div className="grid md:grid-cols-3 gap-6">
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Players</p>
-                        <p className="font-semibold">{match.player1}</p>
+                        <p className="font-semibold">{match.player1Name}</p>
                         <p className="text-gray-400 my-1">vs</p>
-                        <p className="font-semibold">{match.player2}</p>
+                        <p className="font-semibold">{match.player2Name}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Date & Time</p>

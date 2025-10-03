@@ -94,7 +94,7 @@ export default function RegisterPage() {
             <CardContent>
               {success && (
                 <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                  Registration successful! We'll contact you with more details.
+                  Registration successful! We&apos;ll contact you with more details.
                 </div>
               )}
 
