@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tournament, Participant, Match, TournamentBracket } from '@/types';
+import { Tournament, Participant, Match, TournamentBracket, BracketRound, BracketMatch } from '@/types';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -124,9 +124,9 @@ export default function TournamentDetailsPage() {
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
-        rounds: doc.data().rounds?.map((round: any) => ({
+        rounds: doc.data().rounds?.map((round: BracketRound) => ({
           ...round,
-          matches: round.matches?.map((match: any) => ({
+          matches: round.matches?.map((match: BracketMatch) => ({
             ...match,
             scheduledTime: match.scheduledTime,
           })),
@@ -239,7 +239,7 @@ export default function TournamentDetailsPage() {
           <div className="text-center py-12">
             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Tournament not found</h3>
-            <p className="text-gray-600 mb-4">The tournament you're looking for doesn't exist or has been removed.</p>
+            <p className="text-gray-600 mb-4">The tournament you&apos;re looking for doesn&apos;t exist or has been removed.</p>
             <Button onClick={() => router.push('/admin/tournaments')}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Tournaments
