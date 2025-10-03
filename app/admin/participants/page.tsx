@@ -19,7 +19,7 @@ import { Search, Users, CheckCircle, XCircle, Clock, Download, Filter } from 'lu
 export default function ManageParticipantsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<(Participant & { tournamentId: string; tournamentName: string })[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTournament, setSelectedTournament] = useState<string>('all');
@@ -30,10 +30,21 @@ export default function ManageParticipantsPage() {
     if (!authLoading && (!user || user.role !== 'admin')) {
       router.push('/login');
     } else if (user?.role === 'admin') {
-      loadTournaments();
-      loadParticipants();
+      loadData();
     }
   }, [user, authLoading, router]);
+
+  const loadData = async () => {
+    setLoading(true);
+    await loadTournaments();
+    // loadParticipants will be called after tournaments are loaded
+  };
+
+  useEffect(() => {
+    if (tournaments.length > 0) {
+      loadParticipants();
+    }
+  }, [tournaments]);
 
   const loadTournaments = async () => {
     try {
@@ -55,15 +66,27 @@ export default function ManageParticipantsPage() {
 
   const loadParticipants = async () => {
     try {
-      const q = query(collection(db, 'participants'), orderBy('registeredAt', 'desc'));
-      const snapshot = await getDocs(q);
-      const participantsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-      })) as Participant[];
-      setParticipants(participantsData);
+      const allParticipants: (Participant & { tournamentId: string; tournamentName: string })[] = [];
+      
+      // Load participants from all tournaments' subcollections
+      for (const tournament of tournaments) {
+        const participantsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'participants'));
+        const tournamentParticipants = participantsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          tournamentId: tournament.id, // Add tournamentId for reference
+          tournamentName: tournament.name, // Add tournament name for display
+          registeredAt: doc.data().registeredAt?.toDate(),
+          approvedAt: doc.data().approvedAt?.toDate(),
+        })) as (Participant & { tournamentId: string; tournamentName: string })[];
+        
+        allParticipants.push(...tournamentParticipants);
+      }
+      
+      // Sort by registration date
+      allParticipants.sort((a, b) => (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0));
+      
+      setParticipants(allParticipants);
     } catch (error) {
       console.error('Error loading participants:', error);
     } finally {
@@ -82,7 +105,12 @@ export default function ManageParticipantsPage() {
         updateData.approvedBy = user?.id;
       }
 
-      await updateDoc(doc(db, 'participants', participantId), updateData);
+      const participant = participants.find(p => p.id === participantId);
+      if (!participant || !participant.tournamentId) {
+        throw new Error('Participant or tournament ID not found');
+      }
+
+      await updateDoc(doc(db, 'tournaments', participant.tournamentId, 'participants', participantId), updateData);
       
       // Update local state
       setParticipants(prev => prev.map(p => 
@@ -92,9 +120,9 @@ export default function ManageParticipantsPage() {
       ));
 
       // Update tournament participant count
-      const participant = participants.find(p => p.id === participantId);
-      if (participant && newStatus === 'approved') {
-        const tournament = tournaments.find(t => t.id === participant.tournamentId);
+      const participantForCount = participants.find(p => p.id === participantId);
+      if (participantForCount && newStatus === 'approved') {
+        const tournament = tournaments.find(t => t.id === participantForCount.tournamentId);
         if (tournament) {
           await updateDoc(doc(db, 'tournaments', tournament.id), {
             currentParticipants: tournament.currentParticipants + 1

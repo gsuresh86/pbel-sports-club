@@ -43,11 +43,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } as User);
           } else {
             console.log('User document not found in Firestore');
-            setUser(null);
+            // Don't set user to null immediately - keep Firebase user info
+            // This prevents redirect loops when Firestore document is missing
+            setUser({
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || '',
+              role: 'public' as UserRole,
+              createdAt: new Date(),
+            } as User);
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
-          setUser(null);
+          // Don't set user to null on error - keep Firebase user info
+          setUser({
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || '',
+            role: 'public' as UserRole,
+            createdAt: new Date(),
+          } as User);
         }
       } else {
         setUser(null);

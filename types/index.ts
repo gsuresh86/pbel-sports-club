@@ -1,11 +1,15 @@
-export type UserRole = 'admin' | 'public';
+export type UserRole = 'admin' | 'public' | 'tournament-admin';
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  assignedTournaments?: string[]; // Array of tournament IDs this user can manage
   createdAt: Date;
+  updatedAt?: Date;
+  createdBy?: string; // ID of the admin who created this user
+  isActive?: boolean;
 }
 
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball';

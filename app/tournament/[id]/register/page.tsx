@@ -177,7 +177,8 @@ export default function TournamentRegistrationPage() {
         registeredAt: new Date(),
       };
 
-      await addDoc(collection(db, 'participants'), registrationData);
+      // Add participant to tournament's participants subcollection
+      await addDoc(collection(db, 'tournaments', tournamentId, 'participants'), registrationData);
       
       // Update tournament participant count
       await updateDoc(doc(db, 'tournaments', tournamentId), {

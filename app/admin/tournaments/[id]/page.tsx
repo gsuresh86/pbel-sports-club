@@ -4,14 +4,20 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tournament, Participant, Match, TournamentBracket, BracketRound, BracketMatch } from '@/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tournament, Participant, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -48,11 +54,29 @@ export default function TournamentDetailsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    sport: 'badminton' as SportType,
+    tournamentType: 'individual' as TournamentType,
+    categories: [] as CategoryType[],
+    startDate: '',
+    endDate: '',
+    venue: '',
+    description: '',
+    registrationDeadline: '',
+    maxParticipants: '',
+    entryFee: '',
+    prizePool: '',
+    rules: '',
+    status: 'upcoming' as 'upcoming' | 'ongoing' | 'completed' | 'cancelled',
+    registrationOpen: true,
+  });
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'tournament-admin'))) {
       router.push('/login');
-    } else if (user?.role === 'admin') {
+    } else if (user?.role === 'admin' || user?.role === 'tournament-admin') {
       loadTournamentData();
     }
   }, [user, authLoading, router, tournamentId]);
@@ -76,15 +100,18 @@ export default function TournamentDetailsPage() {
         updatedAt: tournamentDoc.data()?.updatedAt?.toDate(),
       } as Tournament;
 
+      // Check if user has permission to access this tournament
+      if (user?.role === 'tournament-admin' && user.assignedTournaments) {
+        if (!user.assignedTournaments.includes(tournamentId)) {
+          router.push('/admin/tournaments');
+          return;
+        }
+      }
+
       setTournament(tournamentData);
 
-      // Load participants for this tournament
-      const participantsQuery = query(
-        collection(db, 'participants'),
-        where('tournamentId', '==', tournamentId),
-        orderBy('registeredAt', 'desc')
-      );
-      const participantsSnapshot = await getDocs(participantsQuery);
+      // Load participants for this tournament from subcollection
+      const participantsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'participants'));
       const participantsData = participantsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -140,6 +167,86 @@ export default function TournamentDetailsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = () => {
+    if (!tournament) return;
+    
+    setFormData({
+      name: tournament.name,
+      sport: tournament.sport,
+      tournamentType: tournament.tournamentType || 'individual',
+      categories: tournament.categories || [],
+      startDate: new Date(tournament.startDate).toISOString().split('T')[0],
+      endDate: new Date(tournament.endDate).toISOString().split('T')[0],
+      venue: tournament.venue,
+      description: tournament.description,
+      registrationDeadline: new Date(tournament.registrationDeadline).toISOString().split('T')[0],
+      maxParticipants: tournament.maxParticipants.toString(),
+      entryFee: tournament.entryFee?.toString() || '',
+      prizePool: tournament.prizePool?.toString() || '',
+      rules: tournament.rules || '',
+      status: tournament.status,
+      registrationOpen: tournament.registrationOpen,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tournament) return;
+    
+    try {
+      const tournamentData = {
+        name: formData.name,
+        sport: formData.sport,
+        tournamentType: formData.tournamentType,
+        categories: formData.categories,
+        startDate: new Date(formData.startDate),
+        endDate: new Date(formData.endDate),
+        venue: formData.venue,
+        description: formData.description,
+        registrationDeadline: new Date(formData.registrationDeadline),
+        maxParticipants: parseInt(formData.maxParticipants),
+        entryFee: formData.entryFee ? parseFloat(formData.entryFee) : undefined,
+        prizePool: formData.prizePool ? parseFloat(formData.prizePool) : undefined,
+        rules: formData.rules,
+        status: formData.status,
+        registrationOpen: formData.registrationOpen,
+        updatedAt: new Date(),
+      };
+
+      await updateDoc(doc(db, 'tournaments', tournament.id), tournamentData);
+      
+      // Reload tournament data
+      await loadTournamentData();
+      
+      setDialogOpen(false);
+      alert('Tournament updated successfully!');
+    } catch (error) {
+      console.error('Error updating tournament:', error);
+      alert('Failed to update tournament');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      sport: 'badminton',
+      tournamentType: 'individual',
+      categories: [],
+      startDate: '',
+      endDate: '',
+      venue: '',
+      description: '',
+      registrationDeadline: '',
+      maxParticipants: '',
+      entryFee: '',
+      prizePool: '',
+      rules: '',
+      status: 'upcoming',
+      registrationOpen: true,
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -267,20 +374,12 @@ export default function TournamentDetailsPage() {
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => router.push('/admin/tournaments')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Tournaments
-            </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-gray-900">{tournament.name}</h1>
               <p className="text-gray-600 mt-1">{tournament.description}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={handleEdit}>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Tournament
               </Button>
@@ -851,6 +950,211 @@ export default function TournamentDetailsPage() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Tournament Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Tournament</DialogTitle>
+              <DialogDescription>
+                Update tournament details and settings
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Tournament Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="sport">Sport</Label>
+                  <Select value={formData.sport} onValueChange={(value: SportType) => setFormData({ ...formData, sport: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="badminton">Badminton</SelectItem>
+                      <SelectItem value="table-tennis">Table Tennis</SelectItem>
+                      <SelectItem value="volleyball">Volleyball</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="tournamentType">Tournament Type</Label>
+                  <Select value={formData.tournamentType} onValueChange={(value: TournamentType) => setFormData({ ...formData, tournamentType: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Categories</Label>
+                  <p className="text-sm text-gray-600 mb-2">Select tournament categories</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                    {[
+                      'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
+                      'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles',
+                      'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18'
+                    ].map((category) => (
+                      <div key={category} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`category-${category}`}
+                          checked={formData.categories.includes(category as CategoryType)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormData({
+                                ...formData,
+                                categories: [...formData.categories, category as CategoryType]
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                categories: formData.categories.filter(cat => cat !== category)
+                              });
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`category-${category}`} className="text-sm capitalize">
+                          {category.replace('-', ' ')}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="venue">Venue</Label>
+                  <Input
+                    id="venue"
+                    value={formData.venue}
+                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">End Date</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="registrationDeadline">Registration Deadline</Label>
+                  <Input
+                    id="registrationDeadline"
+                    type="date"
+                    value={formData.registrationDeadline}
+                    onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="maxParticipants">Max Participants</Label>
+                  <Input
+                    id="maxParticipants"
+                    type="number"
+                    value={formData.maxParticipants}
+                    onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="entryFee">Entry Fee (₹)</Label>
+                  <Input
+                    id="entryFee"
+                    type="number"
+                    value={formData.entryFee}
+                    onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="prizePool">Prize Pool (₹)</Label>
+                  <Input
+                    id="prizePool"
+                    type="number"
+                    value={formData.prizePool}
+                    onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="ongoing">Ongoing</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="rules">Rules</Label>
+                <Textarea
+                  id="rules"
+                  value={formData.rules}
+                  onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="registrationOpen"
+                  checked={formData.registrationOpen}
+                  onChange={(e) => setFormData({ ...formData, registrationOpen: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="registrationOpen">Registration Open</Label>
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Update Tournament
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

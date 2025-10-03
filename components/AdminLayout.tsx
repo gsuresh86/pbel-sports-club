@@ -55,6 +55,12 @@ const adminMenuItems = [
     description: 'View and manage participants'
   },
   {
+    title: 'User Management',
+    href: '/admin/users',
+    icon: User,
+    description: 'Manage admin users and permissions'
+  },
+  {
     title: 'Matches',
     href: '/admin/matches',
     icon: Target,

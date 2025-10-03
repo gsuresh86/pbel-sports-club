@@ -48,9 +48,9 @@ export default function ManageTournamentsPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'tournament-admin'))) {
       router.push('/login');
-    } else if (user?.role === 'admin') {
+    } else if (user?.role === 'admin' || user?.role === 'tournament-admin') {
       loadTournaments();
     }
   }, [user, authLoading, router]);
@@ -85,7 +85,7 @@ export default function ManageTournamentsPage() {
     try {
       const q = query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
-      const tournamentsData = snapshot.docs.map(doc => ({
+      let tournamentsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         startDate: doc.data().startDate?.toDate(),
@@ -94,6 +94,14 @@ export default function ManageTournamentsPage() {
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
+
+      // Filter tournaments based on user permissions
+      if (user?.role === 'tournament-admin' && user.assignedTournaments) {
+        tournamentsData = tournamentsData.filter(tournament => 
+          user.assignedTournaments?.includes(tournament.id)
+        );
+      }
+
       setTournaments(tournamentsData);
     } catch (error) {
       console.error('Error loading tournaments:', error);
