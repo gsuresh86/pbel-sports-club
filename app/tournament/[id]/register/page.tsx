@@ -42,6 +42,9 @@ export default function TournamentRegistrationPage() {
     partnerEmail: '',
     partnerTower: '',
     partnerFlatNumber: '',
+    // Payment details
+    paymentReference: '',
+    paymentMethod: 'qr_code',
   });
 
   useEffect(() => {
@@ -157,12 +160,17 @@ export default function TournamentRegistrationPage() {
         expertiseLevel: formData.expertiseLevel as 'beginner' | 'intermediate' | 'advanced' | 'expert',
         previousExperience: formData.previousExperience || null,
         isResident: formData.isResident,
+        selectedCategory: formData.selectedCategory as CategoryType,
         // Partner details
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
         partnerEmail: formData.partnerEmail || null,
         partnerTower: formData.partnerTower || null,
         partnerFlatNumber: formData.partnerFlatNumber || null,
+        // Payment details
+        paymentReference: formData.paymentReference || null,
+        paymentAmount: tournament?.entryFee || 0,
+        paymentMethod: formData.paymentMethod,
         registrationStatus: 'pending',
         paymentStatus: 'pending',
         registrationCode: generateRegistrationCode(),
@@ -509,6 +517,85 @@ export default function TournamentRegistrationPage() {
                   />
                 </div>
 
+                {/* Payment Section */}
+                {tournament?.entryFee && tournament.entryFee > 0 && (
+                  <div className="border-t pt-6 mt-6">
+                    <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+                      <h3 className="text-lg font-semibold text-yellow-900 mb-2">Payment Required</h3>
+                      <p className="text-sm text-yellow-700">
+                        Entry fee: <strong>₹{tournament.entryFee}</strong>. Please complete payment and provide reference number.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="paymentMethod" className="mb-2 block">Payment Method *</Label>
+                        <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="qr_code">QR Code</SelectItem>
+                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                            <SelectItem value="cash">Cash</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="paymentReference" className="mb-2 block">Payment Reference Number *</Label>
+                        <Input
+                          id="paymentReference"
+                          value={formData.paymentReference}
+                          onChange={(e) => setFormData({ ...formData, paymentReference: e.target.value })}
+                          placeholder="Enter transaction/UPI reference number"
+                          required
+                        />
+                      </div>
+
+                      {formData.paymentMethod === 'qr_code' && (
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-blue-900 mb-2">QR Code Payment</h4>
+                          <div className="text-center">
+                            <div className="bg-white p-4 rounded-lg inline-block mb-2">
+                              {/* QR Code placeholder - you can replace with actual QR code */}
+                              <div className="w-32 h-32 bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                                QR Code
+                                <br />
+                                ₹{tournament.entryFee}
+                              </div>
+                            </div>
+                            <p className="text-sm text-blue-700">
+                              Scan QR code and pay ₹{tournament.entryFee}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.paymentMethod === 'bank_transfer' && (
+                        <div className="bg-green-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-green-900 mb-2">Bank Transfer Details</h4>
+                          <div className="text-sm text-green-700 space-y-1">
+                            <p><strong>Account Name:</strong> PBEL Sports Club</p>
+                            <p><strong>Account Number:</strong> 1234567890</p>
+                            <p><strong>IFSC Code:</strong> SBIN0001234</p>
+                            <p><strong>Amount:</strong> ₹{tournament.entryFee}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {formData.paymentMethod === 'cash' && (
+                        <div className="bg-orange-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-orange-900 mb-2">Cash Payment</h4>
+                          <p className="text-sm text-orange-700">
+                            Pay ₹{tournament.entryFee} in cash to the tournament organizers before the event.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="previousExperience" className="mb-2 block">Previous Experience (Optional)</Label>
                   <Textarea
@@ -640,6 +727,7 @@ export default function TournamentRegistrationPage() {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

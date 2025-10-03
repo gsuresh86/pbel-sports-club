@@ -49,6 +49,12 @@ export default function AdminDashboard() {
       href: '/admin/live-scores',
     },
     {
+      title: 'Tournament Brackets',
+      description: 'Generate and manage tournament brackets',
+      icon: '🏆',
+      href: '/admin/brackets',
+    },
+    {
       title: 'Announce Winners',
       description: 'Declare tournament winners and prizes',
       icon: '🏅',

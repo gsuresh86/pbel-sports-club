@@ -263,6 +263,34 @@ export default function TournamentDetailPage() {
                     </Button>
                   </Link>
                 </div>
+
+                {/* Bracket Links */}
+                {tournament.categories && tournament.categories.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="font-semibold mb-3">Tournament Brackets</h3>
+                    <div className="space-y-2">
+                      {tournament.categories.map((category) => (
+                        <Link key={category} href={`/tournament/${tournament.id}/bracket/${category}`}>
+                          <Button variant="outline" className="w-full text-sm">
+                            <Trophy className="h-4 w-4 mr-1" />
+                            {category === 'girls-under-13' ? 'Girls Under 13' :
+                             category === 'boys-under-13' ? 'Boys Under 13' :
+                             category === 'girls-under-18' ? 'Girls Under 18' :
+                             category === 'boys-under-18' ? 'Boys Under 18' :
+                             category === 'mens-single' ? 'Mens Single' :
+                             category === 'womens-single' ? 'Womens Single' :
+                             category === 'mens-doubles' ? 'Mens Doubles' :
+                             category === 'mixed-doubles' ? 'Mixed Doubles' :
+                             category === 'mens-team' ? 'Mens Team' :
+                             category === 'womens-team' ? 'Womens Team' :
+                             category === 'kids-team-u13' ? 'Kids Team (U13)' :
+                             category === 'kids-team-u18' ? 'Kids Team (U18)' : category}
+                          </Button>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -523,6 +551,7 @@ export default function TournamentDetailPage() {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

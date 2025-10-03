@@ -128,6 +128,16 @@ export default function ManageParticipantsPage() {
     }
   };
 
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'failed': return 'bg-red-100 text-red-800';
+      case 'refunded': return 'bg-blue-100 text-blue-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'approved': return <CheckCircle className="h-4 w-4" />;
@@ -321,6 +331,7 @@ export default function ManageParticipantsPage() {
                     <TableHead>Level</TableHead>
                     <TableHead>Tournament</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Payment</TableHead>
                     <TableHead>Registration Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -354,6 +365,28 @@ export default function ManageParticipantsPage() {
                               {participant.registrationStatus}
                             </span>
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge className={getPaymentStatusColor(participant.paymentStatus)}>
+                              {participant.paymentStatus}
+                            </Badge>
+                            {participant.paymentReference && (
+                              <div className="text-xs text-gray-500">
+                                Ref: {participant.paymentReference}
+                              </div>
+                            )}
+                            {participant.paymentMethod && (
+                              <div className="text-xs text-gray-500">
+                                {participant.paymentMethod.replace('_', ' ')}
+                              </div>
+                            )}
+                            {participant.paymentAmount && (
+                              <div className="text-xs text-gray-500">
+                                ₹{participant.paymentAmount}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
                         <TableCell>

@@ -64,6 +64,13 @@ export interface Participant {
   previousExperience?: string;
   // Additional community details
   isResident: boolean;
+  selectedCategory: CategoryType;
+  // Payment details
+  paymentReference?: string;
+  paymentAmount?: number;
+  paymentMethod?: 'qr_code' | 'cash' | 'bank_transfer';
+  paymentVerifiedAt?: Date;
+  paymentVerifiedBy?: string;
 }
 
 export interface Match {
@@ -126,10 +133,50 @@ export interface LiveScore {
 export interface TournamentBracket {
   id: string;
   tournamentId: string;
-  round: string;
-  matches: string[]; // Match IDs
-  participants: string[]; // Participant IDs
+  category: CategoryType;
+  rounds: BracketRound[];
+  participants: BracketParticipant[];
+  status: 'pending' | 'active' | 'completed';
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BracketRound {
+  roundNumber: number;
+  roundName: string; // e.g., "Round of 16", "Quarterfinals", "Semifinals", "Final"
+  matches: BracketMatch[];
+  isCompleted: boolean;
+}
+
+export interface BracketMatch {
+  id: string;
+  matchNumber: number;
+  player1Id?: string;
+  player2Id?: string;
+  player1Name?: string;
+  player2Name?: string;
+  player1Seed?: number;
+  player2Seed?: number;
+  winnerId?: string;
+  winnerName?: string;
+  status: 'pending' | 'ready' | 'live' | 'completed';
+  scheduledTime?: Date;
+  venue?: string;
+  court?: string;
+  score?: {
+    player1Sets: number;
+    player2Sets: number;
+    sets: MatchSet[];
+  };
+}
+
+export interface BracketParticipant {
+  id: string;
+  name: string;
+  seed?: number;
+  isEliminated: boolean;
+  eliminatedInRound?: number;
+  finalPosition?: number;
 }
 
 export interface RegistrationForm {

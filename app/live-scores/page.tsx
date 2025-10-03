@@ -65,6 +65,7 @@ export default function LiveScoresPage() {
     const liveScoresRef = collection(db, 'liveScores');
     return onSnapshot(liveScoresRef, (snapshot) => {
       const liveScoresData = snapshot.docs.map(doc => ({
+        id: doc.id,
         ...doc.data(),
         lastUpdated: doc.data().lastUpdated?.toDate(),
       })) as LiveScore[];
@@ -88,6 +89,28 @@ export default function LiveScoresPage() {
 
   const getScoreDisplay = (score: number) => {
     return score.toString().padStart(2, '0');
+  };
+
+  const getSportIcon = (sport: string) => {
+    switch (sport) {
+      case 'badminton': return '🏸';
+      case 'table-tennis': return '🏓';
+      case 'volleyball': return '🏐';
+      default: return '🏆';
+    }
+  };
+
+  const getSportBanner = (sport: string) => {
+    switch (sport) {
+      case 'badminton':
+        return 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      case 'table-tennis':
+        return 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      case 'volleyball':
+        return 'https://images.unsplash.com/photo-1612872087720-b8768760e99a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=200&q=80';
+    }
   };
 
   if (loading) {
@@ -130,40 +153,53 @@ export default function LiveScoresPage() {
             const tournament = tournaments.find(t => t.id === liveScore.tournamentId);
             
             return (
-              <Card key={liveScore.matchId} className="hover:shadow-lg transition-shadow border-l-4 border-l-red-500">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{getTournamentName(liveScore.tournamentId)}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {match?.round} - Match {match?.matchNumber}
-                      </CardDescription>
-                    </div>
+              <Card key={liveScore.matchId} className="hover:shadow-lg transition-shadow border-l-4 border-l-red-500 overflow-hidden">
+                {/* Sport Banner */}
+                <div className="relative h-24 w-full overflow-hidden">
+                  <img
+                    src={getSportBanner(tournament?.sport || 'badminton')}
+                    alt={`${tournament?.sport} tournament`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                    <span className="text-2xl">{getSportIcon(tournament?.sport || 'badminton')}</span>
+                  </div>
+                  <div className="absolute top-2 right-2">
                     <Badge className="bg-red-100 text-red-800 animate-pulse">
                       <Play className="h-3 w-3 mr-1" />
                       LIVE
                     </Badge>
                   </div>
+                </div>
+                
+                <CardHeader className="pb-3">
+                  <div>
+                    <CardTitle className="text-lg">{getTournamentName(liveScore.tournamentId)}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {match?.round} - Match {match?.matchNumber}
+                    </CardDescription>
+                  </div>
                 </CardHeader>
-                <CardContent>
+                
+                <CardContent className="pt-0">
                   <div className="space-y-4">
                     {/* Players */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center">
-                        <h3 className="font-semibold text-blue-600">{liveScore.player1Name}</h3>
-                        <div className="text-3xl font-bold text-blue-600 mt-2">
+                      <div className="text-center bg-blue-50 p-3 rounded-lg">
+                        <h3 className="font-semibold text-blue-600 text-sm">{liveScore.player1Name}</h3>
+                        <div className="text-2xl font-bold text-blue-600 mt-1">
                           {getScoreDisplay(liveScore.player1CurrentScore)}
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="text-xs text-gray-600 mt-1">
                           Sets: {liveScore.player1Sets}
                         </div>
                       </div>
-                      <div className="text-center">
-                        <h3 className="font-semibold text-red-600">{liveScore.player2Name}</h3>
-                        <div className="text-3xl font-bold text-red-600 mt-2">
+                      <div className="text-center bg-red-50 p-3 rounded-lg">
+                        <h3 className="font-semibold text-red-600 text-sm">{liveScore.player2Name}</h3>
+                        <div className="text-2xl font-bold text-red-600 mt-1">
                           {getScoreDisplay(liveScore.player2CurrentScore)}
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">
+                        <div className="text-xs text-gray-600 mt-1">
                           Sets: {liveScore.player2Sets}
                         </div>
                       </div>
