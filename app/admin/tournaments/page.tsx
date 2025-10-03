@@ -15,16 +15,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
-import { Plus, Edit, Trash2, Eye, Copy, Calendar, Users, Trophy, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ManageTournamentsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sportFilter, setSportFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
     name: '',
     sport: 'badminton' as SportType,
@@ -50,6 +54,32 @@ export default function ManageTournamentsPage() {
       loadTournaments();
     }
   }, [user, authLoading, router]);
+
+  // Filter tournaments based on search and filters
+  useEffect(() => {
+    let filtered = tournaments;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(tournament =>
+        tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tournament.sport.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tournament.venue.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(tournament => tournament.status === statusFilter);
+    }
+
+    // Sport filter
+    if (sportFilter !== 'all') {
+      filtered = filtered.filter(tournament => tournament.sport === sportFilter);
+    }
+
+    setFilteredTournaments(filtered);
+  }, [tournaments, searchTerm, statusFilter, sportFilter]);
 
   const loadTournaments = async () => {
     try {
@@ -183,12 +213,29 @@ export default function ManageTournamentsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return 'bg-blue-100 text-blue-800';
-      case 'ongoing': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-gray-100 text-gray-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'upcoming': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ongoing': return 'bg-green-100 text-green-800 border-green-200';
+      case 'completed': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const getSportIcon = (sport: string) => {
+    switch (sport) {
+      case 'badminton': return '🏸';
+      case 'table-tennis': return '🏓';
+      case 'volleyball': return '🏐';
+      default: return '🏆';
+    }
+  };
+
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (loading || authLoading) {
@@ -204,375 +251,202 @@ export default function ManageTournamentsPage() {
 
   return (
     <AdminLayout moduleName="Tournaments">
-      <div className="p-4">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tournament Management</h1>
-            <p className="text-gray-600 mt-2">Create and manage tournaments</p>
+      <div className="p-6">
+   
+
+        {/* Search and Filters */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search tournaments by name, sport, or venue..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="ongoing">Ongoing</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sportFilter} onValueChange={setSportFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Sport" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sports</SelectItem>
+                  <SelectItem value="badminton">Badminton</SelectItem>
+                  <SelectItem value="table-tennis">Table Tennis</SelectItem>
+                  <SelectItem value="volleyball">Volleyball</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm} className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Create Tournament
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingTournament ? 'Edit Tournament' : 'Create New Tournament'}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingTournament ? 'Update tournament details' : 'Fill in the tournament information'}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Tournament Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sport">Sport *</Label>
-                    <Select value={formData.sport} onValueChange={(value: SportType) => setFormData({ ...formData, sport: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="badminton">Badminton</SelectItem>
-                        <SelectItem value="table-tennis">Table Tennis</SelectItem>
-                        <SelectItem value="volleyball">Volleyball</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="tournamentType">Tournament Type *</Label>
-                    <Select value={formData.tournamentType} onValueChange={(value: TournamentType) => setFormData({ ...formData, tournamentType: value, categories: [] })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="team">Team</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="categories">Categories *</Label>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {formData.tournamentType === 'individual' ? (
-                        // Individual categories
-                        ['girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18', 'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles'].map((cat) => (
-                          <div key={cat} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={cat}
-                              checked={formData.categories.includes(cat as CategoryType)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setFormData({ ...formData, categories: [...formData.categories, cat as CategoryType] });
-                                } else {
-                                  setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
-                                }
-                              }}
-                              className="rounded"
-                            />
-                            <Label htmlFor={cat} className="text-sm">
-                              {cat === 'girls-under-13' ? 'Girls Under 13' :
-                               cat === 'boys-under-13' ? 'Boys Under 13' :
-                               cat === 'girls-under-18' ? 'Girls Under 18' :
-                               cat === 'boys-under-18' ? 'Boys Under 18' :
-                               cat === 'mens-single' ? 'Mens Single' :
-                               cat === 'womens-single' ? 'Womens Single' :
-                               cat === 'mens-doubles' ? 'Mens Doubles' :
-                               cat === 'mixed-doubles' ? 'Mixed Doubles' : cat}
-                            </Label>
-                          </div>
-                        ))
-                      ) : (
-                        // Team categories
-                        ['mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18'].map((cat) => (
-                          <div key={cat} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={cat}
-                              checked={formData.categories.includes(cat as CategoryType)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setFormData({ ...formData, categories: [...formData.categories, cat as CategoryType] });
-                                } else {
-                                  setFormData({ ...formData, categories: formData.categories.filter(c => c !== cat) });
-                                }
-                              }}
-                              className="rounded"
-                            />
-                            <Label htmlFor={cat} className="text-sm">
-                              {cat === 'mens-team' ? 'Mens Team' :
-                               cat === 'womens-team' ? 'Womens Team' :
-                               cat === 'kids-team-u13' ? 'Kids Team (U13)' :
-                               cat === 'kids-team-u18' ? 'Kids Team (U18)' : cat}
-                            </Label>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="maxParticipants">Max Participants *</Label>
-                    <Input
-                      id="maxParticipants"
-                      type="number"
-                      value={formData.maxParticipants}
-                      onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="startDate">Start Date *</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="endDate">End Date *</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="venue">Venue *</Label>
-                    <Input
-                      id="venue"
-                      value={formData.venue}
-                      onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="registrationDeadline">Registration Deadline *</Label>
-                    <Input
-                      id="registrationDeadline"
-                      type="date"
-                      value={formData.registrationDeadline}
-                      onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="entryFee">Entry Fee (₹)</Label>
-                    <Input
-                      id="entryFee"
-                      type="number"
-                      step="0.01"
-                      value={formData.entryFee}
-                      onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="prizePool">Prize Pool (₹)</Label>
-                    <Input
-                      id="prizePool"
-                      type="number"
-                      step="0.01"
-                      value={formData.prizePool}
-                      onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="rules">Rules & Regulations</Label>
-                  <Textarea
-                    id="rules"
-                    value={formData.rules}
-                    onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
-                    rows={4}
-                    placeholder="Enter tournament rules and regulations..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="upcoming">Upcoming</SelectItem>
-                        <SelectItem value="ongoing">Ongoing</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center space-x-2 mt-6">
-                    <input
-                      type="checkbox"
-                      id="registrationOpen"
-                      checked={formData.registrationOpen}
-                      onChange={(e) => setFormData({ ...formData, registrationOpen: e.target.checked })}
-                      className="rounded"
-                    />
-                    <Label htmlFor="registrationOpen">Registration Open</Label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">
-                    {editingTournament ? 'Update Tournament' : 'Create Tournament'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          
+          {/* Results count */}
+          <div className="text-sm text-gray-600">
+            Showing {filteredTournaments.length} of {tournaments.length} tournaments
+          </div>
         </div>
 
-        <div className="grid gap-6">
-          {tournaments.map((tournament) => (
-            <Card key={tournament.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
+        {/* Tournaments Grid */}
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          {filteredTournaments.map((tournament) => (
+            <Card key={tournament.id} className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
+              <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5 text-yellow-500" />
-                      {tournament.name}
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <span className="text-2xl">{getSportIcon(tournament.sport)}</span>
+                      <span className="truncate">{tournament.name}</span>
                     </CardTitle>
-                    <CardDescription className="mt-2">
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {new Date(tournament.startDate).toLocaleDateString()} - {new Date(tournament.endDate).toLocaleDateString()}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Users className="h-4 w-4" />
-                          {tournament.currentParticipants || 0} participants
-                        </span>
+                    <CardDescription className="mt-2 space-y-1">
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-3 w-3" />
+                        <span>{formatDate(tournament.startDate)} - {formatDate(tournament.endDate)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{tournament.venue}</span>
                       </div>
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(tournament.status)}>
+                  <div className="flex flex-col gap-1 ml-2">
+                    <Badge className={`${getStatusColor(tournament.status)} text-xs`}>
                       {tournament.status}
                     </Badge>
                     {tournament.registrationOpen && (
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        Registration Open
+                      <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+                        Open
                       </Badge>
                     )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold mb-2">Tournament Details</h4>
-                    <div className="space-y-1 text-sm text-gray-600">
-                      <p><strong>Sport:</strong> {tournament.sport}</p>
-                      <p><strong>Type:</strong> {tournament.tournamentType || 'individual'}</p>
-                      <p><strong>Categories:</strong> {tournament.categories?.join(', ') || 'None'}</p>
-                      <p><strong>Venue:</strong> {tournament.venue}</p>
-                      <p><strong>Registration Deadline:</strong> {new Date(tournament.registrationDeadline).toLocaleDateString()}</p>
-                      {tournament.entryFee && <p><strong>Entry Fee:</strong> ₹{tournament.entryFee}</p>}
-                      {tournament.prizePool && <p><strong>Prize Pool:</strong> ₹{tournament.prizePool}</p>}
-                      <p><strong>Current Participants:</strong> {tournament.currentParticipants || 0}</p>
+              <CardContent className="pt-0">
+                <div className="space-y-4">
+                  {/* Key Stats */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Participants</p>
+                        <p className="text-sm font-semibold">{tournament.currentParticipants || 0}/{tournament.maxParticipants}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <Clock className="h-4 w-4 text-orange-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Deadline</p>
+                        <p className="text-sm font-semibold">{formatDate(tournament.registrationDeadline)}</p>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold mb-2">Registration Link</h4>
+
+                  {/* Entry Fee & Prize Pool */}
+                  {(tournament.entryFee || tournament.prizePool) && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {tournament.entryFee && (
+                        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                          <DollarSign className="h-4 w-4 text-green-500" />
+                          <div>
+                            <p className="text-xs text-gray-500">Entry Fee</p>
+                            <p className="text-sm font-semibold">₹{tournament.entryFee}</p>
+                          </div>
+                        </div>
+                      )}
+                      {tournament.prizePool && (
+                        <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-lg">
+                          <Trophy className="h-4 w-4 text-yellow-500" />
+                          <div>
+                            <p className="text-xs text-gray-500">Prize Pool</p>
+                            <p className="text-sm font-semibold">₹{tournament.prizePool}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Registration Link */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-gray-700">Registration Link</Label>
                     <div className="flex items-center gap-2">
                       <Input
                         value={tournament.publicRegistrationLink || generateRegistrationLink(tournament.id)}
                         readOnly
-                        className="text-sm"
+                        className="text-xs h-8"
                       />
                       <Button
                         size="sm"
                         variant="outline"
+                        className="h-8 px-2"
                         onClick={() => copyRegistrationLink(tournament.publicRegistrationLink || generateRegistrationLink(tournament.id))}
                       >
-                        <Copy className="h-4 w-4" />
+                        <Copy className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
-                </div>
-                
-                {tournament.description && (
-                  <div className="mt-4">
-                    <h4 className="font-semibold mb-2">Description</h4>
-                    <p className="text-sm text-gray-600">{tournament.description}</p>
-                  </div>
-                )}
 
-                <div className="flex justify-end gap-2 mt-6">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => window.open(tournament.publicRegistrationLink || generateRegistrationLink(tournament.id), '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open Link
-                  </Button>
-                  <Link href={`/admin/tournaments/${tournament.id}`}>
-                    <Button size="sm" variant="outline">
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Details
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 text-xs"
+                      onClick={() => router.push(`/admin/tournaments/${tournament.id}`)}
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      Details
                     </Button>
-                  </Link>
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(tournament)}>
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDelete(tournament.id)}>
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1 text-xs"
+                      onClick={() => window.open(tournament.publicRegistrationLink || generateRegistrationLink(tournament.id), '_blank')}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => handleEdit(tournament)}>
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" className="text-xs" onClick={() => handleDelete(tournament.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        {/* Empty States */}
+        {filteredTournaments.length === 0 && tournaments.length > 0 && !loading && (
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No tournaments found</h3>
+            <p className="text-gray-600 mb-4">Try adjusting your search or filter criteria</p>
+            <Button variant="outline" onClick={() => {
+              setSearchTerm('');
+              setStatusFilter('all');
+              setSportFilter('all');
+            }}>
+              Clear Filters
+            </Button>
+          </div>
+        )}
 
         {tournaments.length === 0 && !loading && (
           <div className="text-center py-12">

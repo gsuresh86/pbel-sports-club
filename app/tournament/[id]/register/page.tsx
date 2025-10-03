@@ -233,29 +233,27 @@ export default function TournamentRegistrationPage() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
-              <p className="text-gray-600 mb-4">
-                Thank you for registering for <strong>{tournament?.name}</strong>. 
-                Your registration is pending approval.
-              </p>
-              <p className="text-sm text-gray-500 mb-6">
-                You will receive a confirmation email once your registration is approved.
-              </p>
-              <div className="space-y-2">
-                <Link href="/" className="block">
-                  <Button className="w-full">Go Home</Button>
-                </Link>
-                <Link href="/schedules" className="block">
-                  <Button variant="outline" className="w-full">View Schedules</Button>
-                </Link>
-              </div>
+        <div className="w-full max-w-md bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
+            <p className="text-gray-600 mb-4">
+              Thank you for registering for <strong>{tournament?.name}</strong>. 
+              Your registration is pending approval.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              You will receive a confirmation email once your registration is approved.
+            </p>
+            <div className="space-y-2">
+              <Link href="/" className="block">
+                <Button className="w-full">Go Home</Button>
+              </Link>
+              <Link href="/schedules" className="block">
+                <Button variant="outline" className="w-full">View Schedules</Button>
+              </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -275,17 +273,30 @@ export default function TournamentRegistrationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sport Banner */}
-      <div className="relative h-64 w-full overflow-hidden">
+      {/* Enhanced Sport Banner */}
+      <div className="relative h-80 w-full overflow-hidden">
         <img
           src={getSportBanner(tournament?.sport || 'badminton')}
           alt={`${tournament?.sport} tournament`}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-          <div className="text-center text-white">
-            <h1 className="text-4xl font-bold mb-2">{tournament?.name}</h1>
-            <p className="text-xl capitalize">{tournament?.sport} Tournament Registration</p>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60 flex items-center justify-center">
+          <div className="text-center text-white max-w-4xl px-4">
+            <div className="mb-4">
+              <Trophy className="h-16 w-16 mx-auto mb-4 text-yellow-400" />
+            </div>
+            <h1 className="text-5xl font-bold mb-3 drop-shadow-lg">{tournament?.name}</h1>
+            <p className="text-2xl capitalize mb-4 drop-shadow-md">{tournament?.sport} Tournament Registration</p>
+            <div className="flex items-center justify-center gap-6 text-lg">
+              <span className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                {new Date(tournament!.startDate).toLocaleDateString()} - {new Date(tournament!.endDate).toLocaleDateString()}
+              </span>
+              <span className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                {tournament?.venue}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -293,30 +304,27 @@ export default function TournamentRegistrationPage() {
       <div className="py-8 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Tournament Info */}
-          <Card className="mb-8">
-          <CardHeader>
-            <div className="flex justify-between items-start">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8 p-6">
+            <div className="flex justify-between items-start mb-4">
               <div>
-                <CardTitle className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-2">
                   <Trophy className="h-6 w-6 text-yellow-500" />
                   {tournament?.name}
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(tournament!.startDate).toLocaleDateString()} - {new Date(tournament!.endDate).toLocaleDateString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      {tournament?.venue}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {tournament?.currentParticipants || 0} participants
-                    </span>
-                  </div>
-                </CardDescription>
+                </h2>
+                <div className="flex items-center gap-6 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4" />
+                    {new Date(tournament!.startDate).toLocaleDateString()} - {new Date(tournament!.endDate).toLocaleDateString()}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {tournament?.venue}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    {tournament?.currentParticipants || 0} participants
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <Badge className="bg-blue-100 text-blue-800">
@@ -333,40 +341,37 @@ export default function TournamentRegistrationPage() {
                 )}
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
+            
             {tournament?.description && (
               <div className="mb-4">
-                <h3 className="font-semibold mb-2">Description</h3>
+                <h3 className="font-semibold mb-2 text-gray-900">Description</h3>
                 <p className="text-gray-600">{tournament.description}</p>
               </div>
             )}
             
-            <div className="text-sm">
+            <div className="text-sm mb-4">
               <p><strong>Registration Deadline:</strong> {new Date(tournament!.registrationDeadline).toLocaleDateString()}</p>
             </div>
 
             {tournament?.rules && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Rules & Regulations</h3>
+              <div>
+                <h3 className="font-semibold mb-2 text-gray-900">Rules & Regulations</h3>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-700 whitespace-pre-line">{tournament.rules}</p>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
         {/* Registration Form */}
         {isRegistrationOpen() ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Registration Form</CardTitle>
-              <CardDescription>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Registration Form</h2>
+              <p className="text-gray-600">
                 Fill in your details to register for this tournament
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+              </p>
+            </div>
               {error && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-600">{error}</p>
@@ -709,23 +714,20 @@ export default function TournamentRegistrationPage() {
                   </Button>
                 </div>
               </form>
-            </CardContent>
-          </Card>
+          </div>
         ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Registration Closed</h3>
-              <p className="text-gray-600 mb-4">
-                Registration for this tournament is currently closed.
-                {!tournament!.registrationOpen && ' Registration is disabled.'}
-                {new Date() > tournament!.registrationDeadline && ' The registration deadline has passed.'}
-              </p>
-              <Link href="/">
-                <Button>Go Home</Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+            <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Registration Closed</h3>
+            <p className="text-gray-600 mb-4">
+              Registration for this tournament is currently closed.
+              {!tournament!.registrationOpen && ' Registration is disabled.'}
+              {new Date() > tournament!.registrationDeadline && ' The registration deadline has passed.'}
+            </p>
+            <Link href="/">
+              <Button>Go Home</Button>
+            </Link>
+          </div>
         )}
         </div>
       </div>

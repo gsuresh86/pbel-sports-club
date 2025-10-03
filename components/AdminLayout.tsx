@@ -155,7 +155,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               <Button
                 key={item.href}
                 variant={isActive ? "default" : "ghost"}
-                className={`w-full justify-start h-auto p-2 ${
+                className={`w-full justify-start h-10 px-3 ${
                   isActive 
                     ? 'bg-blue-600 text-white hover:bg-blue-700' 
                     : 'text-gray-700 hover:bg-gray-100'
@@ -166,14 +166,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                 }}
               >
                 <Icon className="h-5 w-5 mr-3" />
-                <div className="text-left">
-                  <div className="font-medium">{item.title}</div>
-                  <div className={`text-xs ${
-                    isActive ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
-                    {item.description}
-                  </div>
-                </div>
+                <span className="font-medium">{item.title}</span>
               </Button>
             );
           })}
@@ -201,7 +194,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-56 flex-1 min-w-0">
+      <div className="flex-1 min-w-0">
         {/* Top bar */}
         <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between h-14 px-4">
