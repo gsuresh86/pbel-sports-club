@@ -262,6 +262,7 @@ export default function ManageTournamentsPage() {
       case 'badminton': return '🏸';
       case 'table-tennis': return '🏓';
       case 'volleyball': return '🏐';
+      case 'throw-ball': return '🏐';
       default: return '🏆';
     }
   };
@@ -290,22 +291,25 @@ export default function ManageTournamentsPage() {
       <div className="p-6">
    
 
-        {/* Search and Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+        {/* Search and Filters - Compact Layout */}
+        <div className="mb-6">
+          <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center">
+            {/* Search Input - More Compact */}
+            <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search tournaments by name, sport, or venue..."
+                placeholder="Search tournaments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-9 focus-ring-thin"
               />
             </div>
-            <div className="flex gap-2">
+            
+            {/* Filter Dropdowns - Improved Layout */}
+            <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
-                  <Filter className="h-4 w-4 mr-2" />
+                <SelectTrigger className="w-36 h-9 focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -316,8 +320,9 @@ export default function ManageTournamentsPage() {
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
+              
               <Select value={sportFilter} onValueChange={setSportFilter}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-36 h-9 focus-ring-thin">
                   <SelectValue placeholder="Sport" />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,19 +330,21 @@ export default function ManageTournamentsPage() {
                   <SelectItem value="badminton">Badminton</SelectItem>
                   <SelectItem value="table-tennis">Table Tennis</SelectItem>
                   <SelectItem value="volleyball">Volleyball</SelectItem>
+                  <SelectItem value="throw-ball">Throw Ball</SelectItem>
                 </SelectContent>
               </Select>
+              
               {(user?.role === 'admin' || user?.role === 'super-admin') && (
-                <Button onClick={() => setDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button onClick={() => setDialogOpen(true)} className="h-9">
+                  <Plus className="h-4 w-4 mr-1" />
                   Add Tournament
                 </Button>
               )}
             </div>
           </div>
           
-          {/* Results count */}
-          <div className="text-sm text-gray-600">
+          {/* Results count - Compact */}
+          <div className="mt-2 text-sm text-gray-600">
             Showing {filteredTournaments.length} of {tournaments.length} tournaments
           </div>
         </div>
@@ -347,7 +354,7 @@ export default function ManageTournamentsPage() {
           {filteredTournaments.map((tournament) => (
             <Card key={tournament.id} className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
               <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <span className="text-2xl">{getSportIcon(tournament.sport)}</span>
@@ -364,21 +371,23 @@ export default function ManageTournamentsPage() {
                       </div>
                     </CardDescription>
                   </div>
-                  <div className="flex flex-col gap-1 ml-2">
-                    <Badge className={`${getStatusColor(tournament.status)} text-xs`}>
-                      {tournament.status}
+                </div>
+                
+                {/* Status Badges - Moved below title */}
+                <div className="flex gap-2 mt-3">
+                  <Badge className={`${getStatusColor(tournament.status)} text-xs`}>
+                    {tournament.status}
+                  </Badge>
+                  {tournament.registrationOpen && (
+                    <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+                      Open
                     </Badge>
-                    {tournament.registrationOpen && (
-                      <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
-                        Open
-                      </Badge>
-                    )}
-                  </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-4">
-                  {/* Key Stats */}
+                  {/* Key Stats - 2x2 Grid */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                       <Users className="h-4 w-4 text-blue-500" />
@@ -401,31 +410,14 @@ export default function ManageTournamentsPage() {
                         <p className="text-sm font-semibold">{formatDate(tournament.registrationDeadline)}</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Entry Fee & Prize Pool */}
-                  {(tournament.entryFee || tournament.prizePool) && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {tournament.entryFee && (
-                        <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
-                          <DollarSign className="h-4 w-4 text-green-500" />
-                          <div>
-                            <p className="text-xs text-gray-500">Entry Fee</p>
-                            <p className="text-sm font-semibold">₹{tournament.entryFee}</p>
-                          </div>
-                        </div>
-                      )}
-                      {tournament.prizePool && (
-                        <div className="flex items-center gap-2 p-2 bg-yellow-50 rounded-lg">
-                          <Trophy className="h-4 w-4 text-yellow-500" />
-                          <div>
-                            <p className="text-xs text-gray-500">Prize Pool</p>
-                            <p className="text-sm font-semibold">₹{tournament.prizePool}</p>
-                          </div>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <DollarSign className="h-4 w-4 text-green-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Entry Fee</p>
+                        <p className="text-sm font-semibold">₹{tournament.entryFee || 'Free'}</p>
+                      </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Registration Link */}
                   <div className="space-y-2">
@@ -517,19 +509,29 @@ export default function ManageTournamentsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Tournament Name - Full Width */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Tournament Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            
+            {/* Sport and Tournament Type - Second Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Tournament Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="sport">Sport</Label>
-                <Select value={formData.sport} onValueChange={(value: SportType) => setFormData({ ...formData, sport: value })}>
+                <Select value={formData.sport} onValueChange={(value: SportType) => {
+                  const newFormData = { ...formData, sport: value };
+                  // Auto-set tournament type to "team" for volleyball and throw-ball
+                  if (value === 'volleyball' || value === 'throw-ball') {
+                    newFormData.tournamentType = 'team';
+                  }
+                  setFormData(newFormData);
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -537,13 +539,18 @@ export default function ManageTournamentsPage() {
                     <SelectItem value="badminton">Badminton</SelectItem>
                     <SelectItem value="table-tennis">Table Tennis</SelectItem>
                     <SelectItem value="volleyball">Volleyball</SelectItem>
+                    <SelectItem value="throw-ball">Throw Ball</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tournamentType">Tournament Type</Label>
-                <Select value={formData.tournamentType} onValueChange={(value: TournamentType) => setFormData({ ...formData, tournamentType: value })}>
-                  <SelectTrigger>
+                <Select 
+                  value={formData.tournamentType} 
+                  onValueChange={(value: TournamentType) => setFormData({ ...formData, tournamentType: value })}
+                  disabled={formData.sport === 'volleyball' || formData.sport === 'throw-ball'}
+                >
+                  <SelectTrigger className={formData.sport === 'volleyball' || formData.sport === 'throw-ball' ? 'opacity-50' : ''}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -551,11 +558,15 @@ export default function ManageTournamentsPage() {
                     <SelectItem value="team">Team</SelectItem>
                   </SelectContent>
                 </Select>
+                
               </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label>Categories</Label>
-                <p className="text-sm text-gray-600">Select tournament categories</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+            </div>
+            
+            {/* Categories */}
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <p className="text-sm text-gray-600">Select tournament categories</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
                   {[
                     'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
                     'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles',
@@ -586,86 +597,86 @@ export default function ManageTournamentsPage() {
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="venue">Venue</Label>
-                <Input
-                  id="venue"
-                  value={formData.venue}
-                  onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="registrationDeadline">Registration Deadline</Label>
-                <Input
-                  id="registrationDeadline"
-                  type="date"
-                  value={formData.registrationDeadline}
-                  onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="maxParticipants">Max Participants</Label>
-                <Input
-                  id="maxParticipants"
-                  type="number"
-                  value={formData.maxParticipants}
-                  onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="entryFee">Entry Fee (₹)</Label>
-                <Input
-                  id="entryFee"
-                  type="number"
-                  value={formData.entryFee}
-                  onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="prizePool">Prize Pool (₹)</Label>
-                <Input
-                  id="prizePool"
-                  type="number"
-                  value={formData.prizePool}
-                  onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="ongoing">Ongoing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="venue">Venue</Label>
+              <Input
+                id="venue"
+                value={formData.venue}
+                onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="registrationDeadline">Registration Deadline</Label>
+              <Input
+                id="registrationDeadline"
+                type="date"
+                value={formData.registrationDeadline}
+                onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxParticipants">Max Participants</Label>
+              <Input
+                id="maxParticipants"
+                type="number"
+                value={formData.maxParticipants}
+                onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entryFee">Entry Fee (₹)</Label>
+              <Input
+                id="entryFee"
+                type="number"
+                value={formData.entryFee}
+                onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prizePool">Prize Pool (₹)</Label>
+              <Input
+                id="prizePool"
+                type="number"
+                value={formData.prizePool}
+                onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="ongoing">Ongoing</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="space-y-2">

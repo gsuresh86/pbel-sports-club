@@ -112,6 +112,7 @@ export default function TournamentsPage() {
       case 'badminton': return '🏸';
       case 'table-tennis': return '🏓';
       case 'volleyball': return '🏐';
+      case 'throw-ball': return '🏐';
       default: return '🏆';
     }
   };
@@ -203,11 +204,11 @@ export default function TournamentsPage() {
                 </div>
               </div>
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2">
                       <span className="text-2xl">{getSportIcon(tournament.sport)}</span>
-                      {tournament.name}
+                      <span className="truncate">{tournament.name}</span>
                     </CardTitle>
                     <CardDescription className="mt-2">
                       <div className="flex items-center gap-4 text-sm">
@@ -217,21 +218,23 @@ export default function TournamentsPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          {tournament.venue}
+                          <span className="truncate">{tournament.venue}</span>
                         </span>
                       </div>
                     </CardDescription>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Badge className={getStatusColor(tournament.status)}>
-                      {tournament.status}
+                </div>
+                
+                {/* Status Badges - Moved below title */}
+                <div className="flex gap-2 mt-3">
+                  <Badge className={getStatusColor(tournament.status)}>
+                    {tournament.status}
+                  </Badge>
+                  {isRegistrationOpen(tournament) && (
+                    <Badge className="bg-green-100 text-green-800">
+                      Registration Open
                     </Badge>
-                    {isRegistrationOpen(tournament) && (
-                      <Badge className="bg-green-100 text-green-800">
-                        Registration Open
-                      </Badge>
-                    )}
-                  </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

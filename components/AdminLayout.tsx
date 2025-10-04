@@ -145,7 +145,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Sidebar header */}
-        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
+        <div className="flex items-center justify-between h-14 px-4 border-gray-200">
           <div className="flex items-center gap-2">
             <Trophy className="h-8 w-8 text-blue-600" />
             <span className="text-xl font-bold text-gray-900">PBEL Sports</span>

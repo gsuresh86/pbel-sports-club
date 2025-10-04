@@ -212,6 +212,29 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* Fix double border on input and select focus */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
+/* Remove default browser focus styles */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none !important;
+}
+
+/* Custom thin focus ring for form elements */
+.focus-ring-thin:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
+}
+
 /* Professional card hover effects */
 .card-hover {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
