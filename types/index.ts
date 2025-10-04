@@ -34,7 +34,6 @@ export interface Tournament {
   rules: string;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationOpen: boolean;
-  publicRegistrationLink: string;
   banner?: string; // URL to the uploaded banner image
   createdAt: Date;
   updatedAt: Date;

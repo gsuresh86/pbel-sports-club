@@ -455,15 +455,16 @@ export default function UserManagementPage() {
 
         {/* Add/Edit User Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
               <DialogDescription>
                 {editingUser ? 'Update user details and tournament access' : 'Create a new user account with tournament access'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex-1 overflow-y-auto pr-2">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
@@ -588,15 +589,16 @@ export default function UserManagementPage() {
                 </div>
               )}
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingUser ? 'Update User' : 'Create User'}
-                </Button>
-              </div>
-            </form>
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingUser ? 'Update User' : 'Create User'}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

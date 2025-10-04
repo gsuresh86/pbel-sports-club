@@ -2,45 +2,110 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User documents - temporarily allow unauthenticated writes for initial setup
+    
+    // Helper function to get user role
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && getUserRole() in ['admin', 'super-admin'];
+    }
+    
+    // Helper function to check if user is tournament admin
+    function isTournamentAdmin() {
+      return request.auth != null && getUserRole() in ['admin', 'super-admin', 'tournament-admin'];
+    }
+    
+    // Helper function to check if user can manage specific tournament
+    function canManageTournament(tournamentId) {
+      return request.auth != null && (
+        getUserRole() in ['admin', 'super-admin'] ||
+        (getUserRole() == 'tournament-admin' && 
+         tournamentId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedTournaments)
+      );
+    }
+
+    // User documents - users can read their own, admins can read all, only admins can write
     match /users/{userId} {
-      allow read, write: if true; // Temporarily allow unauthenticated writes for setup
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || 
+        getUserRole() in ['admin', 'super-admin']
+      );
+      allow write: if request.auth != null && getUserRole() in ['admin', 'super-admin'];
     }
 
-    // Tournaments - public read, authenticated write (temporarily allow unauthenticated for testing)
-    match /tournaments/{document=**} {
-      allow read: if true;
-      allow write: if true; // Temporarily allow unauthenticated writes for testing
+    // Tournaments - public read, role-based write
+    match /tournaments/{tournamentId} {
+      allow read: if true; // Public read for tournament listings
+      allow write: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && canManageTournament(tournamentId);
+      allow delete: if request.auth != null && isAdmin();
     }
 
-    // Matches - public read, authenticated write
-    match /matches/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // Participants - public read and write for user registration
+    match /participants/{participantId} {
+      allow read: if true; // Public read for tournament participants
+      allow write: if true; // Public write for user registration
+      allow create: if true; // Public create for user registration
+      allow update: if true; // Public update for user registration
+      allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
     }
 
-    // Live Scores - public read, authenticated write
-    match /liveScores/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // Matches - public read, admin/tournament-admin write
+    match /matches/{matchId} {
+      allow read: if true; // Public read for match schedules and results
+      allow write: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && isTournamentAdmin();
+      allow delete: if request.auth != null && isAdmin();
     }
 
-    // Winners - public read, authenticated write
-    match /winners/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // Live Scores - public read, admin/tournament-admin write
+    match /liveScores/{scoreId} {
+      allow read: if true; // Public read for live scores
+      allow write: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && isTournamentAdmin();
+      allow delete: if request.auth != null && isAdmin();
     }
 
-    // Registration Forms - public read, authenticated write
-    match /registrationForms/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // Winners - public read, admin/tournament-admin write
+    match /winners/{winnerId} {
+      allow read: if true; // Public read for winners
+      allow write: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && isTournamentAdmin();
+      allow delete: if request.auth != null && isAdmin();
     }
 
-    // Tournament Brackets - public read, authenticated write
-    match /brackets/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
+    // Registration Forms - public read and write for user registration
+    match /registrationForms/{formId} {
+      allow read: if true; // Public read for registration forms
+      allow write: if true; // Public write for user registration
+      allow create: if true; // Public create for user registration
+      allow update: if true; // Public update for user registration
+      allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
+    }
+
+    // Tournament Brackets - public read, admin/tournament-admin write
+    match /brackets/{bracketId} {
+      allow read: if true; // Public read for tournament brackets
+      allow write: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && isTournamentAdmin();
+      allow delete: if request.auth != null && isAdmin();
+    }
+
+    // Tournament Participants Subcollection - public read and write for user registration
+    match /tournaments/{tournamentId}/participants/{participantId} {
+      allow read: if true; // Public read for tournament participants
+      allow write: if true; // Public write for user registration
+      allow create: if true; // Public create for user registration
+      allow update: if true; // Public update for user registration
+      allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
     }
   }
 }

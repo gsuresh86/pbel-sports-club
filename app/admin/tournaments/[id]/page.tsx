@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, Participant, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { generateRegistrationLink } from '@/lib/utils';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -398,7 +399,7 @@ export default function TournamentDetailsPage() {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Tournament
               </Button>
-              <Button variant="outline" size="sm" onClick={() => window.open(tournament.publicRegistrationLink, '_blank')}>
+              <Button variant="outline" size="sm" onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')}>
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Registration
               </Button>

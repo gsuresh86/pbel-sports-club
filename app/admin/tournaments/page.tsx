@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { generateRegistrationLink } from '@/lib/utils';
 import { Plus, Edit, Trash2, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
@@ -113,10 +114,6 @@ export default function ManageTournamentsPage() {
     }
   };
 
-  const generateRegistrationLink = (tournamentId: string) => {
-    return `${window.location.origin}/tournament/${tournamentId}/register`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -158,9 +155,7 @@ export default function ManageTournamentsPage() {
           ...tournamentData,
           createdAt: new Date(),
         });
-        // Generate registration link after creation
-        const registrationLink = generateRegistrationLink(docRef.id);
-        await updateDoc(docRef, { publicRegistrationLink: registrationLink });
+        // Registration link is now generated on-the-fly, no need to store it
       }
 
       setDialogOpen(false);
@@ -314,6 +309,10 @@ export default function ManageTournamentsPage() {
                   <SelectItem value="volleyball">Volleyball</SelectItem>
                 </SelectContent>
               </Select>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Tournament
+              </Button>
             </div>
           </div>
           
@@ -406,7 +405,7 @@ export default function ManageTournamentsPage() {
                     <Label className="text-xs font-medium text-gray-700">Registration Link</Label>
                     <div className="flex items-center gap-2">
                       <Input
-                        value={tournament.publicRegistrationLink || generateRegistrationLink(tournament.id)}
+                        value={generateRegistrationLink(tournament.id)}
                         readOnly
                         className="text-xs h-8"
                       />
@@ -414,7 +413,7 @@ export default function ManageTournamentsPage() {
                         size="sm"
                         variant="outline"
                         className="h-8 px-2"
-                        onClick={() => copyRegistrationLink(tournament.publicRegistrationLink || generateRegistrationLink(tournament.id))}
+                        onClick={() => copyRegistrationLink(generateRegistrationLink(tournament.id))}
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
@@ -436,7 +435,7 @@ export default function ManageTournamentsPage() {
                       size="sm" 
                       variant="outline" 
                       className="flex-1 text-xs"
-                      onClick={() => window.open(tournament.publicRegistrationLink || generateRegistrationLink(tournament.id), '_blank')}
+                      onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')}
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       Open

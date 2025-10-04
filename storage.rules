@@ -1,60 +1,26 @@
 rules_version = '2';
 
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // User documents - temporarily allow unauthenticated writes for initial setup
-    match /users/{userId} {
-      allow read, write: if true; // Temporarily allow unauthenticated writes for setup
-    }
-
-    // Tournaments - public read, authenticated write (temporarily allow unauthenticated for testing)
-    match /tournaments/{document=**} {
-      allow read: if true;
-      allow write: if true; // Temporarily allow unauthenticated writes for testing
-    }
-
-    // Matches - public read, authenticated write
-    match /matches/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Live Scores - public read, authenticated write
-    match /liveScores/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Winners - public read, authenticated write
-    match /winners/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Registration Forms - public read, authenticated write
-    match /registrationForms/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Tournament Brackets - public read, authenticated write
-    match /brackets/{document=**} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-  }
-}
-
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to upload tournament banners
+    // Tournament banners - public read, authenticated write (role check handled in app)
     match /tournament-banners/{allPaths=**} {
       allow read: if true; // Public read for displaying banners
-      allow write: if request.auth != null; // Only authenticated users can upload
+      allow write: if request.auth != null; // Authenticated users only
     }
     
-    // Allow authenticated users to upload test files
+    // User profile images - users can manage their own
+    match /user-profiles/{userId}/{allPaths=**} {
+      allow read: if true; // Public read for profile images
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Test uploads - authenticated users only
     match /test-uploads/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Participant documents - authenticated users only (role check handled in app)
+    match /participant-documents/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
   }
