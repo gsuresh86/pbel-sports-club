@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tournament, Match, Participant } from '@/types';
+import { Tournament, Match, Registration } from '@/types';
 import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
@@ -17,7 +17,7 @@ export default function TournamentDetailPage() {
   const tournamentId = params.id as string;
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Registration[]>([]);
   const [tournamentStats, setTournamentStats] = useState<{registrations: number, players: number}>({registrations: 0, players: 0});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'registrations'>('overview');
@@ -89,7 +89,7 @@ export default function TournamentDetailPage() {
         ...doc.data(),
         registeredAt: doc.data().registeredAt?.toDate(),
         approvedAt: doc.data().approvedAt?.toDate(),
-      })) as Participant[];
+      })) as Registration[];
       setParticipants(participantsData);
     } catch (error) {
       console.error('Error loading participants:', error);

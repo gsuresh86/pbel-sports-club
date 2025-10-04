@@ -11,6 +11,20 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { Tournament, Registration, Player, Match } from '@/types';
 
+interface RecentActivity {
+  type: 'tournament' | 'registration';
+  message: string;
+  time: Date;
+  color: 'green' | 'blue' | 'red' | 'gray';
+}
+
+interface DashboardMatch {
+  id: string;
+  status: string;
+  scheduledTime?: Date;
+  createdAt?: Date;
+}
+
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -24,7 +38,7 @@ export default function AdminDashboard() {
     totalPlayers: 0,
     liveMatches: 0,
     completedMatches: 0,
-    recentActivity: [] as any[]
+    recentActivity: [] as RecentActivity[]
   });
   const [loadingStats, setLoadingStats] = useState(true);
 
@@ -79,7 +93,7 @@ export default function AdminDashboard() {
         ...doc.data(),
         scheduledTime: doc.data().scheduledTime?.toDate(),
         createdAt: doc.data().createdAt?.toDate(),
-      })) as any[];
+      })) as DashboardMatch[];
 
       const liveMatches = matches.filter(m => m.status === 'live').length;
       const completedMatches = matches.filter(m => m.status === 'completed').length;
@@ -96,18 +110,18 @@ export default function AdminDashboard() {
         allRegistrations.push(...tournamentRegistrations);
       }
 
-      const recentActivity = [
+      const recentActivity: RecentActivity[] = [
         ...tournaments.slice(0, 3).map(t => ({
-          type: 'tournament',
+          type: 'tournament' as const,
           message: `Tournament "${t.name}" created`,
           time: t.createdAt,
-          color: 'green'
+          color: 'green' as const
         })),
         ...allRegistrations.slice(0, 2).map(r => ({
-          type: 'registration',
+          type: 'registration' as const,
           message: `New registration from ${r.name}`,
           time: r.registeredAt,
-          color: 'blue'
+          color: 'blue' as const
         }))
       ].sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 5);
 

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { collection, getDocs, query, where, doc, setDoc, updateDoc, addDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Tournament, TournamentBracket, BracketRound, BracketMatch, BracketParticipant, Participant, CategoryType } from '@/types';
+import { Tournament, TournamentBracket, BracketRound, BracketMatch, BracketParticipant, Registration, CategoryType } from '@/types';
 import { Trophy, Users, Plus, Edit, Trash2, Eye, Play, Target, Crown, Award } from 'lucide-react';
 
 export default function ManageBracketsPage() {
@@ -21,7 +21,7 @@ export default function ManageBracketsPage() {
   const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTournament, setSelectedTournament] = useState<string>('');
   const [selectedBracket, setSelectedBracket] = useState<TournamentBracket | null>(null);
@@ -74,7 +74,7 @@ export default function ManageBracketsPage() {
         registeredAt: doc.data().registeredAt?.toDate(),
         approvedAt: doc.data().approvedAt?.toDate(),
         paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
-      })) as Participant[];
+      })) as Registration[];
 
       setTournaments(tournamentsData);
       setBrackets(bracketsData);

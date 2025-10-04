@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tournament, Match, Participant, MatchSet } from '@/types';
+import { Tournament, Match, Registration, MatchSet } from '@/types';
 import { Plus, Edit, Trash2, Play, Pause, Trophy, Calendar, Clock, Users, Target } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,7 +23,7 @@ export default function ManageMatchesPage() {
   const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -79,7 +79,7 @@ export default function ManageMatchesPage() {
         ...doc.data(),
         registeredAt: doc.data().registeredAt?.toDate(),
         approvedAt: doc.data().approvedAt?.toDate(),
-      })) as Participant[];
+      })) as Registration[];
       setParticipants(participantsData);
     } catch (error) {
       console.error('Error loading participants:', error);

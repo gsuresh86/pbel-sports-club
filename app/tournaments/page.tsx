@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tournament, Match, Participant } from '@/types';
+import { Tournament, Match, Registration } from '@/types';
 import { Search, Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 

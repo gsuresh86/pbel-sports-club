@@ -49,7 +49,7 @@ export default function ManageRegistrationsPage() {
   const loadTournaments = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'tournaments'));
-      const tournamentsData = snapshot.docs.map(doc => ({
+      let tournamentsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         startDate: doc.data().startDate?.toDate(),
@@ -58,6 +58,14 @@ export default function ManageRegistrationsPage() {
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
+
+      // Filter tournaments based on user role
+      if (user?.role === 'tournament-admin' && user.assignedTournaments) {
+        tournamentsData = tournamentsData.filter(tournament => 
+          user.assignedTournaments?.includes(tournament.id)
+        );
+      }
+
       setTournaments(tournamentsData);
     } catch (error) {
       console.error('Error loading tournaments:', error);

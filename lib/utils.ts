@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { addDoc, collection, doc, setDoc, Firestore } from 'firebase/firestore';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -27,8 +28,8 @@ export function generateTournamentLink(tournamentId: string): string {
 /**
  * Clean data for Firebase by removing undefined values and converting empty strings to null
  */
-function cleanFirebaseData(data: any): any {
-  const cleaned: any = {};
+function cleanFirebaseData(data: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (value !== undefined) {
       // Convert empty strings to null for optional fields
@@ -47,10 +48,10 @@ function cleanFirebaseData(data: any): any {
  * Handles both single and doubles registrations
  */
 export async function createPlayersFromRegistration(
-  registration: any,
+  registration: Record<string, unknown>,
   tournamentId: string,
   registrationId: string,
-  db: any
+  db: Firestore
 ): Promise<string[]> {
   console.log('createPlayersFromRegistration called with:', { tournamentId, registrationId, registration });
   const playerIds: string[] = [];
@@ -90,7 +91,7 @@ export async function createPlayersFromRegistration(
   playerIds.push(primaryPlayerRef.id);
 
   // Create partner player if it's a doubles registration
-  if (registration.partnerName && registration.partnerName.trim() !== '') {
+  if (registration.partnerName && typeof registration.partnerName === 'string' && registration.partnerName.trim() !== '') {
     console.log('Creating partner player for doubles registration');
     const partnerPlayerData = cleanFirebaseData({
       tournamentId,

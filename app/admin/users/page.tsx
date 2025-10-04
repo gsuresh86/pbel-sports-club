@@ -227,12 +227,12 @@ export default function UserManagementPage() {
             createdAt: new Date(),
           });
           console.log('Firestore user document created successfully');
-        } catch (firestoreError) {
+        } catch (firestoreError: unknown) {
           console.error('Error creating Firestore user document:', firestoreError);
           console.error('Firestore error details:', {
-            code: firestoreError.code,
-            message: firestoreError.message,
-            stack: firestoreError.stack
+            code: (firestoreError as { code?: string }).code,
+            message: (firestoreError as { message?: string }).message,
+            stack: (firestoreError as { stack?: string }).stack
           });
           
           // Try alternative approach with addDoc
