@@ -27,9 +27,9 @@ export default function ManageParticipantsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
       router.push('/login');
-    } else if (user?.role === 'admin') {
+    } else if (user?.role === 'admin' || user?.role === 'super-admin') {
       loadData();
     }
   }, [user, authLoading, router]);

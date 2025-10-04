@@ -14,13 +14,13 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     console.log('Admin page - loading:', loading, 'user:', user);
-    if (!loading && (!user || user.role !== 'admin')) {
+    if (!loading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
       console.log('Redirecting to login - user:', user ? `${user.name} (${user.role})` : 'null');
       router.push('/login');
     }
   }, [user, loading, router]);
 
-  if (loading || !user || user.role !== 'admin') {
+  if (loading || !user || (user.role !== 'admin' && user.role !== 'super-admin')) {
     return null;
   }
 

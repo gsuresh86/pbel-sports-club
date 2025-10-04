@@ -171,11 +171,11 @@ export default function TournamentDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sport Banner */}
+      {/* Tournament Banner */}
       <div className="relative h-64 w-full overflow-hidden">
         <img
-          src={getSportBanner(tournament.sport)}
-          alt={`${tournament.sport} tournament`}
+          src={tournament.banner || getSportBanner(tournament.sport)}
+          alt={`${tournament.name} tournament banner`}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">

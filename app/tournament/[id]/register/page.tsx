@@ -274,11 +274,11 @@ export default function TournamentRegistrationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Enhanced Sport Banner */}
+      {/* Enhanced Tournament Banner */}
       <div className="relative h-80 w-full overflow-hidden">
         <img
-          src={getSportBanner(tournament?.sport || 'badminton')}
-          alt={`${tournament?.sport} tournament`}
+          src={tournament?.banner || getSportBanner(tournament?.sport || 'badminton')}
+          alt={`${tournament?.name} tournament banner`}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60 flex items-center justify-center">
@@ -380,7 +380,7 @@ export default function TournamentRegistrationPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="selectedCategory" className="mb-2 block">Select Category *</Label>
                     <Select value={formData.selectedCategory} onValueChange={(value) => setFormData({ ...formData, selectedCategory: value })}>
@@ -423,7 +423,7 @@ export default function TournamentRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name" className="mb-2 block">Full Name *</Label>
                     <Input
@@ -445,7 +445,7 @@ export default function TournamentRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="phone" className="mb-2 block">Phone Number *</Label>
                     <Input
@@ -456,6 +456,19 @@ export default function TournamentRegistrationPage() {
                       required
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="emergencyContact" className="mb-2 block">Emergency Contact Number *</Label>
+                    <Input
+                      id="emergencyContact"
+                      type="tel"
+                      value={formData.emergencyContact}
+                      onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="age" className="mb-2 block">Age *</Label>
                     <Input
@@ -468,9 +481,6 @@ export default function TournamentRegistrationPage() {
                       required
                     />
                   </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="gender" className="mb-2 block">Gender *</Label>
                     <Select value={formData.gender} onValueChange={(value) => setFormData({ ...formData, gender: value })}>
@@ -484,6 +494,9 @@ export default function TournamentRegistrationPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="tower" className="mb-2 block">Tower *</Label>
                     <Select value={formData.tower} onValueChange={(value) => setFormData({ ...formData, tower: value })}>
@@ -497,9 +510,6 @@ export default function TournamentRegistrationPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="flatNumber" className="mb-2 block">Flat Number *</Label>
                     <Input
@@ -510,17 +520,6 @@ export default function TournamentRegistrationPage() {
                       required
                     />
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="emergencyContact" className="mb-2 block">Emergency Contact Number *</Label>
-                  <Input
-                    id="emergencyContact"
-                    type="tel"
-                    value={formData.emergencyContact}
-                    onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                    required
-                  />
                 </div>
 
                 {/* Payment Section */}
@@ -638,7 +637,7 @@ export default function TournamentRegistrationPage() {
                       {/* Partner Basic Info */}
                       <div>
                         <h4 className="font-medium text-gray-900 mb-3">Partner Information</h4>
-                        <div className="grid md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label htmlFor="partnerName" className="mb-2 block">Partner Name *</Label>
                             <Input
@@ -662,7 +661,7 @@ export default function TournamentRegistrationPage() {
                           </div>
                         </div>
                         
-                        <div className="grid md:grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                           <div>
                             <Label htmlFor="partnerEmail" className="mb-2 block">Partner Email *</Label>
                             <Input

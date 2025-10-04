@@ -55,9 +55,9 @@ export default function UserManagementPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) {
+    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
       router.push('/login');
-    } else if (user?.role === 'admin') {
+    } else if (user?.role === 'admin' || user?.role === 'super-admin') {
       loadData();
     }
   }, [user, authLoading, router]);
@@ -430,7 +430,7 @@ export default function UserManagementPage() {
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
                           </Button>
-                          {user.role !== 'admin' && (
+                          {(user.role !== 'admin' && user.role !== 'super-admin') && (
                             <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>

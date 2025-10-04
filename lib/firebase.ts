@@ -4,12 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAqBiF0zMVHAmiWx70Ui4dDhHi2UAc6w_c",
-  authDomain: "pbelcity-sports-club.firebaseapp.com",
-  projectId: "pbelcity-sports-club",
-  storageBucket: "pbelcity-sports-club.firebasestorage.app",
-  messagingSenderId: "881793623489",
-  appId: "1:881793623489:web:77d19cb15a14dc32427b40",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAltEbTTfGs5CsMftHJVeehC0J5_KXCNDE",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "s3y-studio.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "s3y-studio",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "s3y-studio.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "225427241333",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:225427241333:web:6f9cfd4e417ef2b0f43b3c",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-RTEXHDJ9E0"
 };
 
 // Initialize Firebase
