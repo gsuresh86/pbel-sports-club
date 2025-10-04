@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { generateRegistrationLink } from '@/lib/utils';
-import { Plus, Edit, Trash2, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ManageTournamentsPage() {
@@ -26,6 +26,7 @@ export default function ManageTournamentsPage() {
   const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
+  const [tournamentStats, setTournamentStats] = useState<{[key: string]: {registrations: number, players: number}}>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -107,10 +108,38 @@ export default function ManageTournamentsPage() {
       }
 
       setTournaments(tournamentsData);
+      
+      // Load tournament statistics
+      await loadTournamentStats(tournamentsData);
     } catch (error) {
       console.error('Error loading tournaments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTournamentStats = async (tournamentsData: Tournament[]) => {
+    try {
+      const stats: {[key: string]: {registrations: number, players: number}} = {};
+      
+      for (const tournament of tournamentsData) {
+        // Get registrations count
+        const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+        const registrationsCount = registrationsSnapshot.docs.length;
+        
+        // Get players count
+        const playersSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'players'));
+        const playersCount = playersSnapshot.docs.length;
+        
+        stats[tournament.id] = {
+          registrations: registrationsCount,
+          players: playersCount
+        };
+      }
+      
+      setTournamentStats(stats);
+    } catch (error) {
+      console.error('Error loading tournament stats:', error);
     }
   };
 
@@ -130,6 +159,7 @@ export default function ManageTournamentsPage() {
         currentParticipants: 0,
         rules: formData.rules,
         status: formData.status,
+        registrationOpen: formData.registrationOpen,
         updatedAt: new Date(),
         createdBy: user?.id,
       };
@@ -188,18 +218,6 @@ export default function ManageTournamentsPage() {
       banner: tournament.banner || '',
     });
     setDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this tournament?')) {
-      try {
-        await deleteDoc(doc(db, 'tournaments', id));
-        loadTournaments();
-      } catch (error) {
-        console.error('Error deleting tournament:', error);
-        alert('Failed to delete tournament');
-      }
-    }
   };
 
   const copyRegistrationLink = (link: string) => {
@@ -309,10 +327,12 @@ export default function ManageTournamentsPage() {
                   <SelectItem value="volleyball">Volleyball</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Tournament
-              </Button>
+              {(user?.role === 'admin' || user?.role === 'super-admin') && (
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Tournament
+                </Button>
+              )}
             </div>
           </div>
           
@@ -363,8 +383,15 @@ export default function ManageTournamentsPage() {
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                       <Users className="h-4 w-4 text-blue-500" />
                       <div>
-                        <p className="text-xs text-gray-500">Participants</p>
-                        <p className="text-sm font-semibold">{tournament.currentParticipants || 0}/{tournament.maxParticipants || '∞'}</p>
+                        <p className="text-xs text-gray-500">Registrations</p>
+                        <p className="text-sm font-semibold">{tournamentStats[tournament.id]?.registrations || 0}/{tournament.maxParticipants || '∞'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <Trophy className="h-4 w-4 text-purple-500" />
+                      <div>
+                        <p className="text-xs text-gray-500">Players</p>
+                        <p className="text-sm font-semibold">{tournamentStats[tournament.id]?.players || 0}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
@@ -443,9 +470,6 @@ export default function ManageTournamentsPage() {
                     <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => handleEdit(tournament)}>
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
-                    </Button>
-                    <Button size="sm" variant="destructive" className="text-xs" onClick={() => handleDelete(tournament.id)}>
-                      <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>

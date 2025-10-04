@@ -18,14 +18,16 @@ export default function TournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [tournamentStats, setTournamentStats] = useState<{registrations: number, players: number}>({registrations: 0, players: 0});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'participants'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'registrations'>('overview');
 
   useEffect(() => {
     if (tournamentId) {
       loadTournament();
       loadMatches();
       loadParticipants();
+      loadTournamentStats();
     }
   }, [tournamentId]);
 
@@ -93,6 +95,25 @@ export default function TournamentDetailPage() {
       console.error('Error loading participants:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTournamentStats = async () => {
+    try {
+      // Get registrations count
+      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'registrations'));
+      const registrationsCount = registrationsSnapshot.docs.length;
+      
+      // Get players count
+      const playersSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'players'));
+      const playersCount = playersSnapshot.docs.length;
+      
+      setTournamentStats({
+        registrations: registrationsCount,
+        players: playersCount
+      });
+    } catch (error) {
+      console.error('Error loading tournament stats:', error);
     }
   };
 
@@ -209,7 +230,7 @@ export default function TournamentDetailPage() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Users className="h-4 w-4" />
-                      {tournament.currentParticipants || 0} participants
+                      {tournamentStats.registrations} registrations
                     </span>
                   </div>
                 </CardDescription>
@@ -237,7 +258,8 @@ export default function TournamentDetailPage() {
                   <p><strong>Registration Deadline:</strong> {new Date(tournament.registrationDeadline).toLocaleDateString()}</p>
                   {tournament.entryFee && <p><strong>Entry Fee:</strong> ₹{tournament.entryFee}</p>}
                   {tournament.prizePool && <p><strong>Prize Pool:</strong> ₹{tournament.prizePool}</p>}
-                  <p><strong>Current Participants:</strong> {tournament.currentParticipants || 0}</p>
+                  <p><strong>Registrations:</strong> {tournamentStats.registrations}</p>
+                  <p><strong>Players:</strong> {tournamentStats.players}</p>
                 </div>
               </div>
               <div>
@@ -336,14 +358,14 @@ export default function TournamentDetailPage() {
               Matches ({matches.length})
             </button>
             <button
-              onClick={() => setActiveTab('participants')}
+              onClick={() => setActiveTab('registrations')}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'participants'
+                activeTab === 'registrations'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Participants ({participants.length})
+              Registrations ({participants.length})
             </button>
           </div>
         </div>
@@ -498,10 +520,10 @@ export default function TournamentDetailPage() {
           </Card>
         )}
 
-        {activeTab === 'participants' && (
+        {activeTab === 'registrations' && (
           <Card>
             <CardHeader>
-              <CardTitle>Participants</CardTitle>
+              <CardTitle>Registrations</CardTitle>
               <CardDescription>Registered tournament participants</CardDescription>
             </CardHeader>
             <CardContent>
@@ -544,8 +566,8 @@ export default function TournamentDetailPage() {
               {participants.length === 0 && (
                 <div className="text-center py-8">
                   <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No participants yet</h3>
-                  <p className="text-gray-600">Participants will appear here once they register</p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations yet</h3>
+                  <p className="text-gray-600">Registrations will appear here once users register</p>
                 </div>
               )}
             </CardContent>

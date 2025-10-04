@@ -33,10 +33,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
       if (firebaseUser) {
         try {
+          console.log('Fetching user document for UID:', firebaseUser.uid);
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             console.log('User data from Firestore:', userData);
+            console.log('User role:', userData.role);
             setUser({
               id: firebaseUser.uid,
               ...userData
@@ -65,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } as User);
         }
       } else {
+        console.log('No Firebase user - setting user to null');
         setUser(null);
       }
       setLoading(false);

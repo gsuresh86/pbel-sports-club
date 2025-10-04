@@ -14,6 +14,7 @@ import Link from 'next/link';
 
 export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [tournamentStats, setTournamentStats] = useState<{[key: string]: {registrations: number, players: number}}>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sportFilter, setSportFilter] = useState<string>('all');
@@ -37,10 +38,38 @@ export default function TournamentsPage() {
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
       setTournaments(tournamentsData);
+      
+      // Load tournament statistics
+      await loadTournamentStats(tournamentsData);
     } catch (error) {
       console.error('Error loading tournaments:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTournamentStats = async (tournamentsData: Tournament[]) => {
+    try {
+      const stats: {[key: string]: {registrations: number, players: number}} = {};
+      
+      for (const tournament of tournamentsData) {
+        // Get registrations count
+        const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+        const registrationsCount = registrationsSnapshot.docs.length;
+        
+        // Get players count
+        const playersSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'players'));
+        const playersCount = playersSnapshot.docs.length;
+        
+        stats[tournament.id] = {
+          registrations: registrationsCount,
+          players: playersCount
+        };
+      }
+      
+      setTournamentStats(stats);
+    } catch (error) {
+      console.error('Error loading tournament stats:', error);
     }
   };
 
@@ -216,7 +245,8 @@ export default function TournamentsPage() {
                       <p><strong>Sport:</strong> {tournament.sport}</p>
                       <p><strong>Type:</strong> {tournament.tournamentType || 'individual'}</p>
                       <p><strong>Categories:</strong> {tournament.categories?.join(', ') || 'None'}</p>
-                      <p><strong>Participants:</strong> {tournament.currentParticipants || 0}</p>
+                      <p><strong>Registrations:</strong> {tournamentStats[tournament.id]?.registrations || 0}</p>
+                      <p><strong>Players:</strong> {tournamentStats[tournament.id]?.players || 0}</p>
                     </div>
                     <div>
                       <p><strong>Deadline:</strong> {new Date(tournament.registrationDeadline).toLocaleDateString()}</p>

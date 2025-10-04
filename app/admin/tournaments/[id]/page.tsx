@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tournament, Participant, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
+import { Tournament, Registration, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { generateRegistrationLink } from '@/lib/utils';
 import { 
@@ -52,7 +52,7 @@ export default function TournamentDetailsPage() {
   const tournamentId = params.id as string;
   
   const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Registration[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,17 +113,17 @@ export default function TournamentDetailsPage() {
 
       setTournament(tournamentData);
 
-      // Load participants for this tournament from subcollection
-      const participantsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'participants'));
-      const participantsData = participantsSnapshot.docs.map(doc => ({
+      // Load registrations for this tournament from subcollection
+      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'registrations'));
+      const registrationsData = registrationsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         registeredAt: doc.data().registeredAt?.toDate(),
         approvedAt: doc.data().approvedAt?.toDate(),
         paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
-      })) as Participant[];
+      })) as Registration[];
 
-      setParticipants(participantsData);
+      setParticipants(registrationsData);
 
       // Load matches for this tournament
       const matchesQuery = query(
@@ -493,7 +493,7 @@ export default function TournamentDetailsPage() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="participants">Participants</TabsTrigger>
+            <TabsTrigger value="participants">Registrations</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
             <TabsTrigger value="brackets">Brackets</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -622,11 +622,11 @@ export default function TournamentDetailsPage() {
             </div>
           </TabsContent>
 
-          {/* Participants Tab */}
+          {/* Registrations Tab */}
           <TabsContent value="participants" className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-semibold">Participants ({totalParticipants})</h3>
+                <h3 className="text-lg font-semibold">Registrations ({totalParticipants})</h3>
                 <p className="text-sm text-gray-600">Manage tournament registrations</p>
               </div>
               <Button onClick={exportParticipants}>
@@ -705,8 +705,8 @@ export default function TournamentDetailsPage() {
                 {(participants || []).length === 0 && (
                   <div className="text-center py-8">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No participants yet</h3>
-                    <p className="text-gray-600">Participants will appear here once they register for this tournament.</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations yet</h3>
+                    <p className="text-gray-600">Registrations will appear here once users register for this tournament.</p>
                   </div>
                 )}
               </CardContent>

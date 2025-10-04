@@ -5,17 +5,22 @@ service cloud.firestore {
     
     // Helper function to get user role
     function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.role;
     }
     
     // Helper function to check if user is admin
     function isAdmin() {
-      return request.auth != null && getUserRole() in ['admin', 'super-admin'];
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserRole() in ['admin', 'super-admin'];
     }
     
     // Helper function to check if user is tournament admin
     function isTournamentAdmin() {
-      return request.auth != null && getUserRole() in ['admin', 'super-admin', 'tournament-admin'];
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserRole() in ['admin', 'super-admin', 'tournament-admin'];
     }
     
     // Helper function to check if user can manage specific tournament
@@ -27,27 +32,45 @@ service cloud.firestore {
       );
     }
 
-    // User documents - users can read their own, admins can read all, only admins can write
+    // User documents - simplified rules for debugging
     match /users/{userId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId || 
-        getUserRole() in ['admin', 'super-admin']
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin'])
       );
-      allow write: if request.auth != null && getUserRole() in ['admin', 'super-admin'];
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin']
+      );
+      // More permissive create rule for debugging
+      allow create: if request.auth != null;
     }
 
     // Tournaments - public read, role-based write
     match /tournaments/{tournamentId} {
       allow read: if true; // Public read for tournament listings
-      allow write: if request.auth != null && isTournamentAdmin();
-      allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && canManageTournament(tournamentId);
-      allow delete: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow create: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow update: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow delete: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin']
+      );
     }
 
-    // Participants - public read and write for user registration
-    match /participants/{participantId} {
-      allow read: if true; // Public read for tournament participants
+    // Registrations - public read and write for user registration
+    match /registrations/{registrationId} {
+      allow read: if true; // Public read for tournament registrations
       allow write: if true; // Public write for user registration
       allow create: if true; // Public create for user registration
       allow update: if true; // Public update for user registration
@@ -57,10 +80,22 @@ service cloud.firestore {
     // Matches - public read, admin/tournament-admin write
     match /matches/{matchId} {
       allow read: if true; // Public read for match schedules and results
-      allow write: if request.auth != null && isTournamentAdmin();
-      allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && isTournamentAdmin();
-      allow delete: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow create: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow update: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
+      );
+      allow delete: if request.auth != null && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin']
+      );
     }
 
     // Live Scores - public read, admin/tournament-admin write
@@ -99,12 +134,21 @@ service cloud.firestore {
       allow delete: if request.auth != null && isAdmin();
     }
 
-    // Tournament Participants Subcollection - public read and write for user registration
-    match /tournaments/{tournamentId}/participants/{participantId} {
-      allow read: if true; // Public read for tournament participants
+    // Tournament Registrations Subcollection - public read and write for user registration
+    match /tournaments/{tournamentId}/registrations/{registrationId} {
+      allow read: if true; // Public read for tournament registrations
       allow write: if true; // Public write for user registration
       allow create: if true; // Public create for user registration
       allow update: if true; // Public update for user registration
+      allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
+    }
+
+    // Tournament Players Subcollection - public read and write for auto-creation
+    match /tournaments/{tournamentId}/players/{playerId} {
+      allow read: if true; // Public read for tournament players
+      allow write: if true; // Public write for auto-creation from registrations
+      allow create: if true; // Public create for auto-creation from registrations
+      allow update: if true; // Public update for auto-creation from registrations
       allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
     }
   }

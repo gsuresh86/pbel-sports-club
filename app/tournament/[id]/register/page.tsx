@@ -11,7 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tournament, TournamentType, CategoryType } from '@/types';
+import { Tournament, TournamentType, CategoryType, Registration, Player } from '@/types';
+import { createPlayersFromRegistration } from '@/lib/utils';
 import { Calendar, MapPin, Users, Trophy, Clock, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -177,8 +178,19 @@ export default function TournamentRegistrationPage() {
         registeredAt: new Date(),
       };
 
-      // Add participant to tournament's participants subcollection
-      await addDoc(collection(db, 'tournaments', tournamentId, 'participants'), registrationData);
+      // Add registration to tournament's registrations subcollection
+      const registrationRef = await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), registrationData);
+      console.log('Registration created with ID:', registrationRef.id);
+      
+      // Automatically create players from the registration
+      try {
+        console.log('Creating players from registration...');
+        const playerIds = await createPlayersFromRegistration(registrationData, tournamentId, registrationRef.id, db);
+        console.log('Players created with IDs:', playerIds);
+      } catch (playerError) {
+        console.error('Error creating players from registration:', playerError);
+        // Don't fail the registration if player creation fails
+      }
       
       // Update tournament participant count
       await updateDoc(doc(db, 'tournaments', tournamentId), {
@@ -323,7 +335,7 @@ export default function TournamentRegistrationPage() {
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="h-4 w-4" />
-                    {tournament?.currentParticipants || 0} participants
+                    {tournament?.currentParticipants || 0} registrations
                   </span>
                 </div>
               </div>

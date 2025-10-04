@@ -40,55 +40,64 @@ const adminMenuItems = [
     title: 'Dashboard',
     href: '/admin',
     icon: LayoutDashboard,
-    description: 'Overview and statistics'
+    description: 'Overview and statistics',
+    roles: ['admin', 'super-admin', 'tournament-admin']
   },
   {
     title: 'Tournaments',
     href: '/admin/tournaments',
     icon: Trophy,
-    description: 'Create and manage tournaments'
+    description: 'Create and manage tournaments',
+    roles: ['admin', 'super-admin', 'tournament-admin']
   },
   {
-    title: 'Participants',
+    title: 'Registrations',
     href: '/admin/participants',
     icon: Users,
-    description: 'View and manage participants'
+    description: 'View and manage registrations',
+    roles: ['admin', 'super-admin', 'tournament-admin']
   },
   {
     title: 'User Management',
     href: '/admin/users',
     icon: User,
-    description: 'Manage admin users and permissions'
+    description: 'Manage admin users and permissions',
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Matches',
     href: '/admin/matches',
     icon: Target,
-    description: 'Schedule and manage matches'
+    description: 'Schedule and manage matches',
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Live Scores',
     href: '/admin/live-scores',
     icon: Play,
-    description: 'Update live match scores'
+    description: 'Update live match scores',
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Brackets',
     href: '/admin/brackets',
     icon: Trophy,
-    description: 'Generate and manage brackets'
+    description: 'Generate and manage brackets',
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Winners',
     href: '/admin/winners',
     icon: Award,
-    description: 'Announce tournament winners'
+    description: 'Announce tournament winners',
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Settings',
     href: '/admin/settings',
     icon: Settings,
-    description: 'System configuration'
+    description: 'System configuration',
+    roles: ['admin', 'super-admin']
   }
 ];
 
@@ -153,7 +162,9 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {adminMenuItems.map((item) => {
+          {adminMenuItems
+            .filter(item => !item.roles || item.roles.includes(user?.role || 'public'))
+            .map((item) => {
             const Icon = item.icon;
             const isActive = isActiveRoute(item.href);
             

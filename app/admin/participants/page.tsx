@@ -13,13 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tournament, Participant } from '@/types';
+import { Tournament, Registration, Player } from '@/types';
 import { Search, Users, CheckCircle, XCircle, Clock, Download, Filter } from 'lucide-react';
 
-export default function ManageParticipantsPage() {
+export default function ManageRegistrationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [participants, setParticipants] = useState<(Participant & { tournamentId: string; tournamentName: string })[]>([]);
+  const [registrations, setRegistrations] = useState<(Registration & { tournamentId: string; tournamentName: string })[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTournament, setSelectedTournament] = useState<string>('all');
@@ -27,9 +27,9 @@ export default function ManageParticipantsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
+    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin' && user.role !== 'tournament-admin'))) {
       router.push('/login');
-    } else if (user?.role === 'admin' || user?.role === 'super-admin') {
+    } else if (user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin') {
       loadData();
     }
   }, [user, authLoading, router]);
@@ -37,12 +37,12 @@ export default function ManageParticipantsPage() {
   const loadData = async () => {
     setLoading(true);
     await loadTournaments();
-    // loadParticipants will be called after tournaments are loaded
+    // loadRegistrations will be called after tournaments are loaded
   };
 
   useEffect(() => {
     if (tournaments.length > 0) {
-      loadParticipants();
+      loadRegistrations();
     }
   }, [tournaments]);
 
@@ -64,31 +64,31 @@ export default function ManageParticipantsPage() {
     }
   };
 
-  const loadParticipants = async () => {
+  const loadRegistrations = async () => {
     try {
-      const allParticipants: (Participant & { tournamentId: string; tournamentName: string })[] = [];
+      const allRegistrations: (Registration & { tournamentId: string; tournamentName: string })[] = [];
       
-      // Load participants from all tournaments' subcollections
+      // Load registrations from all tournaments' subcollections
       for (const tournament of tournaments) {
-        const participantsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'participants'));
-        const tournamentParticipants = participantsSnapshot.docs.map(doc => ({
+        const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+        const tournamentRegistrations = registrationsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
           tournamentId: tournament.id, // Add tournamentId for reference
           tournamentName: tournament.name, // Add tournament name for display
           registeredAt: doc.data().registeredAt?.toDate(),
           approvedAt: doc.data().approvedAt?.toDate(),
-        })) as (Participant & { tournamentId: string; tournamentName: string })[];
+        })) as (Registration & { tournamentId: string; tournamentName: string })[];
         
-        allParticipants.push(...tournamentParticipants);
+        allRegistrations.push(...tournamentRegistrations);
       }
       
       // Sort by registration date
-      allParticipants.sort((a, b) => (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0));
+      allRegistrations.sort((a, b) => (b.registeredAt?.getTime() || 0) - (a.registeredAt?.getTime() || 0));
       
-      setParticipants(allParticipants);
+      setRegistrations(allRegistrations);
     } catch (error) {
-      console.error('Error loading participants:', error);
+      console.error('Error loading registrations:', error);
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export default function ManageParticipantsPage() {
 
   const handleStatusChange = async (participantId: string, newStatus: 'approved' | 'rejected') => {
     try {
-      const updateData: Partial<Participant> = {
+      const updateData: Partial<Registration> = {
         registrationStatus: newStatus,
       };
 
@@ -105,22 +105,22 @@ export default function ManageParticipantsPage() {
         updateData.approvedBy = user?.id;
       }
 
-      const participant = participants.find(p => p.id === participantId);
+      const participant = registrations.find(p => p.id === participantId);
       if (!participant || !participant.tournamentId) {
         throw new Error('Participant or tournament ID not found');
       }
 
-      await updateDoc(doc(db, 'tournaments', participant.tournamentId, 'participants', participantId), updateData);
+      await updateDoc(doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId), updateData);
       
       // Update local state
-      setParticipants(prev => prev.map(p => 
+      setRegistrations(prev => prev.map(p => 
         p.id === participantId 
           ? { ...p, registrationStatus: newStatus, approvedAt: newStatus === 'approved' ? new Date() : undefined, approvedBy: newStatus === 'approved' ? user?.id : undefined }
           : p
       ));
 
       // Update tournament participant count
-      const participantForCount = participants.find(p => p.id === participantId);
+      const participantForCount = registrations.find(p => p.id === participantId);
       if (participantForCount && newStatus === 'approved') {
         const tournament = tournaments.find(t => t.id === participantForCount.tournamentId);
         if (tournament) {
@@ -135,7 +135,7 @@ export default function ManageParticipantsPage() {
     }
   };
 
-  const filteredParticipants = participants.filter(participant => {
+  const filteredParticipants = registrations.filter(participant => {
     const tournament = tournaments.find(t => t.id === participant.tournamentId);
     const matchesTournament = selectedTournament === 'all' || participant.tournamentId === selectedTournament;
     const matchesSearch = searchTerm === '' || 
@@ -212,17 +212,17 @@ export default function ManageParticipantsPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading participants...</p>
+          <p className="mt-4 text-gray-600">Loading registrations...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <AdminLayout moduleName="Participants">
+    <AdminLayout moduleName="Registrations">
       <div className="p-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Participant Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Registration Management</h1>
           <p className="text-gray-600">Manage tournament registrations and approvals</p>
         </div>
 
@@ -296,8 +296,8 @@ export default function ManageParticipantsPage() {
               <div className="flex items-center">
                 <Users className="h-8 w-8 text-blue-500" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Participants</p>
-                  <p className="text-2xl font-bold">{participants.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Registrations</p>
+                  <p className="text-2xl font-bold">{registrations.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -308,7 +308,7 @@ export default function ManageParticipantsPage() {
                 <Clock className="h-8 w-8 text-yellow-500" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold">{participants.filter(p => p.registrationStatus === 'pending').length}</p>
+                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'pending').length}</p>
                 </div>
               </div>
             </CardContent>
@@ -319,7 +319,7 @@ export default function ManageParticipantsPage() {
                 <CheckCircle className="h-8 w-8 text-green-500" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold">{participants.filter(p => p.registrationStatus === 'approved').length}</p>
+                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'approved').length}</p>
                 </div>
               </div>
             </CardContent>
@@ -330,19 +330,19 @@ export default function ManageParticipantsPage() {
                 <XCircle className="h-8 w-8 text-red-500" />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold">{participants.filter(p => p.registrationStatus === 'rejected').length}</p>
+                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'rejected').length}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Participants Table */}
+        {/* Registrations Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Participants ({filteredParticipants.length})</CardTitle>
+            <CardTitle>Registrations ({filteredParticipants.length})</CardTitle>
             <CardDescription>
-              Manage participant registrations and approvals
+              Manage registration approvals and tournament access permissions
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -475,7 +475,7 @@ export default function ManageParticipantsPage() {
             {filteredParticipants.length === 0 && (
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No participants found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations found</h3>
                 <p className="text-gray-600">Try adjusting your filters or search terms</p>
               </div>
             )}

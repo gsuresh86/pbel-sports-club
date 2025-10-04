@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc, getDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -118,10 +118,66 @@ export default function UserManagementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form data
+    if (!formData.name.trim()) {
+      alert('Name is required');
+      return;
+    }
+    if (!formData.email.trim()) {
+      alert('Email is required');
+      return;
+    }
+    if (!formData.role) {
+      alert('Role is required');
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+    
     try {
+      console.log('Creating user with data:', formData);
+      console.log('Current admin user:', user);
+      console.log('Auth loading state:', authLoading);
+      
+      // Check if current user is admin
+      if (!user || (user.role !== 'admin' && user.role !== 'super-admin')) {
+        alert('Only administrators can create users');
+        return;
+      }
+      
+      // Check if user is authenticated
+      if (!auth.currentUser) {
+        alert('You must be logged in to create users');
+        return;
+      }
+      
+      console.log('Current Firebase Auth user:', auth.currentUser.uid);
+      console.log('Current user role from context:', user.role);
+      console.log('Current user ID from context:', user.id);
+      
+      // Let's also try to read the user document directly to see what's in Firestore
+      try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        console.log('User document exists:', userDocSnap.exists());
+        if (userDocSnap.exists()) {
+          console.log('User document data:', userDocSnap.data());
+        } else {
+          console.log('User document does not exist in Firestore!');
+        }
+      } catch (docError) {
+        console.error('Error reading user document:', docError);
+      }
+      
       const userData = {
-        name: formData.name,
-        email: formData.email,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         role: formData.role,
         assignedTournaments: formData.assignedTournaments,
         isActive: formData.isActive,
@@ -131,6 +187,7 @@ export default function UserManagementPage() {
 
       if (editingUser) {
         // Update existing user
+        console.log('Updating user:', editingUser.id);
         await updateDoc(doc(db, 'users', editingUser.id), userData);
         
         // Update password if provided
@@ -146,32 +203,84 @@ export default function UserManagementPage() {
           return;
         }
 
+        if (formData.password.length < 6) {
+          alert('Password must be at least 6 characters long');
+          return;
+        }
+
+        console.log('Creating Firebase Auth user...');
         // Create Firebase Auth user
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        console.log('Firebase Auth user created:', userCredential.user.uid);
         
-        // Create user document in Firestore
-        await setDoc(doc(db, 'users', userCredential.user.uid), {
+        console.log('Creating Firestore user document...');
+        console.log('User data to be saved:', {
           ...userData,
           createdAt: new Date(),
         });
+        console.log('Target document path: users/', userCredential.user.uid);
+        
+        // Create user document in Firestore
+        try {
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            ...userData,
+            createdAt: new Date(),
+          });
+          console.log('Firestore user document created successfully');
+        } catch (firestoreError) {
+          console.error('Error creating Firestore user document:', firestoreError);
+          console.error('Firestore error details:', {
+            code: firestoreError.code,
+            message: firestoreError.message,
+            stack: firestoreError.stack
+          });
+          
+          // Try alternative approach with addDoc
+          console.log('Trying alternative approach with addDoc...');
+          try {
+            await addDoc(collection(db, 'users'), {
+              ...userData,
+              uid: userCredential.user.uid, // Store the Firebase Auth UID
+              createdAt: new Date(),
+            });
+            console.log('Firestore user document created with addDoc');
+          } catch (addDocError) {
+            console.error('addDoc also failed:', addDocError);
+            throw firestoreError; // Throw the original error
+          }
+        }
       }
 
+      console.log('User operation completed successfully');
       setDialogOpen(false);
       resetForm();
       loadData();
     } catch (error: unknown) {
       console.error('Error saving user:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
       if (error && typeof error === 'object' && 'code' in error) {
         const firebaseError = error as { code: string; message: string };
+        console.error('Firebase error code:', firebaseError.code);
+        console.error('Firebase error message:', firebaseError.message);
+        
         if (firebaseError.code === 'auth/email-already-in-use') {
           alert('Email is already in use');
         } else if (firebaseError.code === 'auth/weak-password') {
           alert('Password should be at least 6 characters');
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          alert('Invalid email address');
+        } else if (firebaseError.code === 'permission-denied') {
+          alert('Permission denied. Please check if you have admin privileges.');
         } else {
-          alert('Failed to save user');
+          alert(`Failed to save user: ${firebaseError.message}`);
         }
       } else {
-        alert('Failed to save user');
+        alert('Failed to save user. Please check the console for details.');
       }
     }
   };

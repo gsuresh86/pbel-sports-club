@@ -40,9 +40,10 @@ export interface Tournament {
   createdBy: string;
 }
 
-export interface Participant {
+export interface Registration {
   id: string;
   tournamentId: string;
+  // Primary player details
   name: string;
   email: string;
   phone: string;
@@ -51,12 +52,6 @@ export interface Participant {
   tower: string; // A to P (except O, I)
   flatNumber: string;
   emergencyContact: string;
-  registrationStatus: 'pending' | 'approved' | 'rejected';
-  paymentStatus: 'pending' | 'paid' | 'refunded';
-  registrationCode: string;
-  registeredAt: Date;
-  approvedAt?: Date;
-  approvedBy?: string;
   // Partner details for doubles games
   partnerName?: string;
   partnerPhone?: string;
@@ -75,6 +70,47 @@ export interface Participant {
   paymentMethod?: 'qr_code' | 'cash' | 'bank_transfer';
   paymentVerifiedAt?: Date;
   paymentVerifiedBy?: string;
+  // Registration status
+  registrationStatus: 'pending' | 'approved' | 'rejected';
+  paymentStatus: 'pending' | 'paid' | 'refunded';
+  registrationCode: string;
+  registeredAt: Date;
+  approvedAt?: Date;
+  approvedBy?: string;
+}
+
+export interface Player {
+  id: string;
+  tournamentId: string;
+  registrationId: string; // Reference to the original registration
+  name: string;
+  email: string;
+  phone: string;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  tower: string;
+  flatNumber: string;
+  emergencyContact: string;
+  expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  previousExperience?: string;
+  isResident: boolean;
+  selectedCategory: CategoryType;
+  // Player status
+  status: 'active' | 'eliminated' | 'withdrawn';
+  seed?: number;
+  // Partner information (for doubles)
+  partnerId?: string; // Reference to partner player
+  partnerName?: string;
+  // Payment status
+  paymentStatus: 'pending' | 'paid' | 'refunded';
+  paymentReference?: string;
+  paymentAmount?: number;
+  paymentMethod?: 'qr_code' | 'cash' | 'bank_transfer';
+  paymentVerifiedAt?: Date;
+  paymentVerifiedBy?: string;
+  // Timestamps
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface Match {
