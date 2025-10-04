@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where, setDoc, getDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -208,47 +208,31 @@ export default function UserManagementPage() {
           return;
         }
 
-        console.log('Creating Firebase Auth user...');
-        // Create Firebase Auth user
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        console.log('Firebase Auth user created:', userCredential.user.uid);
+        console.log('Creating user via API...');
         
-        console.log('Creating Firestore user document...');
-        console.log('User data to be saved:', {
-          ...userData,
-          createdAt: new Date(),
+        // Create user via API route to avoid authentication state conflicts
+        const response = await fetch('/api/create-user', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+            role: formData.role,
+            assignedTournaments: formData.assignedTournaments,
+            isActive: formData.isActive,
+          }),
         });
-        console.log('Target document path: users/', userCredential.user.uid);
-        
-        // Create user document in Firestore
-        try {
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            ...userData,
-            createdAt: new Date(),
-          });
-          console.log('Firestore user document created successfully');
-        } catch (firestoreError: unknown) {
-          console.error('Error creating Firestore user document:', firestoreError);
-          console.error('Firestore error details:', {
-            code: (firestoreError as { code?: string }).code,
-            message: (firestoreError as { message?: string }).message,
-            stack: (firestoreError as { stack?: string }).stack
-          });
-          
-          // Try alternative approach with addDoc
-          console.log('Trying alternative approach with addDoc...');
-          try {
-            await addDoc(collection(db, 'users'), {
-              ...userData,
-              uid: userCredential.user.uid, // Store the Firebase Auth UID
-              createdAt: new Date(),
-            });
-            console.log('Firestore user document created with addDoc');
-          } catch (addDocError) {
-            console.error('addDoc also failed:', addDocError);
-            throw firestoreError; // Throw the original error
-          }
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create user');
         }
+
+        console.log('User created successfully via API:', result.userId);
       }
 
       console.log('User operation completed successfully');

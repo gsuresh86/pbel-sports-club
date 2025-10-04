@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,20 +13,38 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { signIn } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, user, loading } = useAuth();
   const router = useRouter();
+
+  // Redirect to admin if user is already logged in
+  useEffect(() => {
+    if (!loading && user && (user.role === 'admin' || user.role === 'super-admin' || user.role === 'tournament-admin')) {
+      console.log('User already logged in, redirecting to admin...');
+      router.push('/admin');
+    }
+  }, [user, loading, router]);
+
+  // Reset loading state when user state changes
+  useEffect(() => {
+    if (!loading) {
+      setIsLoading(false);
+    }
+  }, [loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
       console.log('Attempting to sign in with:', email);
       await signIn(email, password);
-      console.log('Sign in successful, redirecting to admin...');
-      router.push('/admin');
+      console.log('Sign in successful, waiting for auth state update...');
+      // Don't redirect here - let the useEffect handle it after user state is updated
     } catch (err: unknown) {
       console.error('Sign in error:', err);
       setError('Failed to sign in. Please check your credentials.');
+      setIsLoading(false);
     }
   };
 
@@ -60,8 +78,8 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading || loading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
 
