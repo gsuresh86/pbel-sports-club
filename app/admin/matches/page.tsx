@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import AdminLayout from '@/components/AdminLayout';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,6 @@ export default function ManageMatchesPage() {
       router.push('/login');
     } else if (user?.role === 'admin') {
       loadTournaments();
-      loadParticipants();
       loadMatches();
     }
   }, [user, authLoading, router]);
@@ -64,7 +64,11 @@ export default function ManageMatchesPage() {
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
+      console.log('Tournaments loaded:', tournamentsData);
       setTournaments(tournamentsData);
+      
+      // Load participants after tournaments are loaded
+      await loadParticipants();
     } catch (error) {
       console.error('Error loading tournaments:', error);
     }
@@ -72,15 +76,51 @@ export default function ManageMatchesPage() {
 
   const loadParticipants = async () => {
     try {
-      const q = query(collection(db, 'participants'), where('registrationStatus', '==', 'approved'));
-      const snapshot = await getDocs(q);
-      const participantsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-      })) as Registration[];
-      setParticipants(participantsData);
+      const allParticipants: Registration[] = [];
+      console.log('Starting to load participants for tournaments:', tournaments);
+      console.log('Tournaments array length:', tournaments.length);
+      
+      if (tournaments.length === 0) {
+        console.log('No tournaments available, skipping participant loading');
+        setParticipants([]);
+        return;
+      }
+      
+      // Load participants from all tournaments' registrations subcollections
+      for (const tournament of tournaments) {
+        console.log(`Processing tournament: ${tournament.id} - ${tournament.name}`);
+        try {
+          // For debugging, let's also check what registration statuses exist
+          const allRegistrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+          console.log(`All registrations for tournament ${tournament.id}:`, allRegistrationsSnapshot.docs.map(doc => ({ id: doc.id, status: doc.data().registrationStatus, name: doc.data().name })));
+          
+          // Include both approved and pending participants for match creation
+          const q = query(
+            collection(db, 'tournaments', tournament.id, 'registrations'), 
+            where('registrationStatus', 'in', ['approved', 'pending'])
+          );
+          const snapshot = await getDocs(q);
+          console.log(`Query results for tournament ${tournament.id}:`, snapshot.docs.length, 'documents');
+          console.log(`Query docs:`, snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
+          const tournamentParticipants = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            tournamentId: tournament.id, // Add tournamentId for reference
+            registeredAt: doc.data().registeredAt?.toDate(),
+            approvedAt: doc.data().approvedAt?.toDate(),
+          })) as Registration[];
+          console.log(`Participants for tournament ${tournament.id}:`, tournamentParticipants);
+          console.log(`Adding ${tournamentParticipants.length} participants to allParticipants`);
+          allParticipants.push(...tournamentParticipants);
+          console.log(`Total participants so far: ${allParticipants.length}`);
+        } catch (error) {
+          console.error(`Error loading participants for tournament ${tournament.id}:`, error);
+          console.error('Error details:', error.message, error.code);
+        }
+      }
+      
+      console.log('Total participants loaded:', allParticipants);
+      setParticipants(allParticipants);
     } catch (error) {
       console.error('Error loading participants:', error);
     }
@@ -249,7 +289,10 @@ export default function ManageMatchesPage() {
   );
 
   const tournamentParticipants = (tournamentId: string) => {
-    return participants.filter(p => p.tournamentId === tournamentId);
+    const filtered = participants.filter(p => p.tournamentId === tournamentId);
+    console.log('Tournament participants for', tournamentId, ':', filtered);
+    console.log('All participants:', participants);
+    return filtered;
   };
 
   if (loading || authLoading) {
@@ -264,8 +307,8 @@ export default function ManageMatchesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <AdminLayout moduleName="Matches">
+      <div className="p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Match Management</h1>
@@ -291,7 +334,10 @@ export default function ManageMatchesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="tournamentId">Tournament *</Label>
-                    <Select value={formData.tournamentId} onValueChange={(value) => setFormData({ ...formData, tournamentId: value })}>
+                    <Select value={formData.tournamentId} onValueChange={(value) => {
+                      console.log('Tournament selected:', value);
+                      setFormData({ ...formData, tournamentId: value });
+                    }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select tournament" />
                       </SelectTrigger>
@@ -347,11 +393,15 @@ export default function ManageMatchesPage() {
                         <SelectValue placeholder="Select player 1" />
                       </SelectTrigger>
                       <SelectContent>
-                        {formData.tournamentId && tournamentParticipants(formData.tournamentId).map(participant => (
-                          <SelectItem key={participant.id} value={participant.id}>
-                            {participant.name}
-                          </SelectItem>
-                        ))}
+                        {formData.tournamentId && (() => {
+                          const availableParticipants = tournamentParticipants(formData.tournamentId);
+                          console.log('Available participants for Player 1 dropdown:', availableParticipants);
+                          return availableParticipants.map(participant => (
+                            <SelectItem key={participant.id} value={participant.id}>
+                              {participant.name}
+                            </SelectItem>
+                          ));
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
@@ -362,11 +412,15 @@ export default function ManageMatchesPage() {
                         <SelectValue placeholder="Select player 2" />
                       </SelectTrigger>
                       <SelectContent>
-                        {formData.tournamentId && tournamentParticipants(formData.tournamentId).map(participant => (
-                          <SelectItem key={participant.id} value={participant.id}>
-                            {participant.name}
-                          </SelectItem>
-                        ))}
+                        {formData.tournamentId && (() => {
+                          const availableParticipants = tournamentParticipants(formData.tournamentId);
+                          console.log('Available participants for Player 2 dropdown:', availableParticipants);
+                          return availableParticipants.map(participant => (
+                            <SelectItem key={participant.id} value={participant.id}>
+                              {participant.name}
+                            </SelectItem>
+                          ));
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
@@ -597,6 +651,6 @@ export default function ManageMatchesPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

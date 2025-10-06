@@ -54,9 +54,11 @@ export default function RegisterPage() {
     setSuccess(false);
 
     try {
-      await addDoc(collection(db, 'participants'), {
+      // Add registration to the tournament's registrations subcollection
+      await addDoc(collection(db, 'tournaments', formData.tournamentId, 'registrations'), {
         ...formData,
         age: parseInt(formData.age),
+        registrationStatus: 'pending',
         registeredAt: new Date(),
       });
 

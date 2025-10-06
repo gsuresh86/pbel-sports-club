@@ -38,10 +38,9 @@ export default function ManageBracketsPage() {
 
   const loadData = async () => {
     try {
-      const [tournamentsSnapshot, bracketsSnapshot, participantsSnapshot] = await Promise.all([
+      const [tournamentsSnapshot, bracketsSnapshot] = await Promise.all([
         getDocs(collection(db, 'tournaments')),
         getDocs(collection(db, 'brackets')),
-        getDocs(collection(db, 'participants')),
       ]);
 
       const tournamentsData = tournamentsSnapshot.docs.map(doc => ({
@@ -68,17 +67,28 @@ export default function ManageBracketsPage() {
         })),
       })) as TournamentBracket[];
 
-      const participantsData = participantsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-        paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
-      })) as Registration[];
+      // Load participants from all tournaments' registrations subcollections
+      const allParticipants: Registration[] = [];
+      for (const tournament of tournamentsData) {
+        try {
+          const participantsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+          const tournamentParticipants = participantsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            tournamentId: tournament.id, // Add tournamentId for reference
+            registeredAt: doc.data().registeredAt?.toDate(),
+            approvedAt: doc.data().approvedAt?.toDate(),
+            paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
+          })) as Registration[];
+          allParticipants.push(...tournamentParticipants);
+        } catch (error) {
+          console.error(`Error loading participants for tournament ${tournament.id}:`, error);
+        }
+      }
 
       setTournaments(tournamentsData);
       setBrackets(bracketsData);
-      setParticipants(participantsData);
+      setParticipants(allParticipants);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

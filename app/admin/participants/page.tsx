@@ -365,6 +365,7 @@ export default function ManageRegistrationsPage() {
                     <TableHead>Gender</TableHead>
                     <TableHead>Tower/Flat</TableHead>
                     <TableHead>Level</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Tournament</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Payment</TableHead>
@@ -391,6 +392,11 @@ export default function ManageRegistrationsPage() {
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
                             {participant.expertiseLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize">
+                            {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
                           </Badge>
                         </TableCell>
                         <TableCell>{tournament?.name || 'Unknown'}</TableCell>

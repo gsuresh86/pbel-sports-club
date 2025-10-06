@@ -78,8 +78,7 @@ export default function TournamentDetailPage() {
   const loadParticipants = async () => {
     try {
       const q = query(
-        collection(db, 'participants'), 
-        where('tournamentId', '==', tournamentId),
+        collection(db, 'tournaments', tournamentId, 'registrations'), 
         where('registrationStatus', '==', 'approved'),
         orderBy('registeredAt', 'desc')
       );
@@ -536,6 +535,7 @@ export default function TournamentDetailPage() {
                     <TableHead>Gender</TableHead>
                     <TableHead>Tower/Flat</TableHead>
                     <TableHead>Level</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Registration Date</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -554,6 +554,11 @@ export default function TournamentDetailPage() {
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
                             {participant.expertiseLevel}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize">
+                            {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
