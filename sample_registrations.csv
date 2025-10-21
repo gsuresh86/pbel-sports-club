@@ -1,0 +1,72 @@
+Player's Name,Email,Phone,Age,Gender,Tower,Flat Number,Emergency Contact,Expertise Level,Category,Partner Name,Partner Phone,Payment Reference,Payment Method,Payment Amount
+Vizai Kumar,vizai@example.com,9437527335,30,male,D,1901,9437527335,intermediate,mens-single,,,,564288371608,qr_code,500
+Rohit Baheti,rohit@example.com,9966662741,28,male,M,703,9703858066,intermediate,open-team,Wife,9703858066,527970443102,qr_code,500
+Anshul Sankalp,anshul@example.com,9849889164,25,male,J,510,8179746144,intermediate,open-team,Indrani,8179746144,564531494717,qr_code,500
+Sagar Shah,sagar@example.com,9712934108,26,male,J,1604,9712934108,intermediate,open-team,Sagar,9712934108,527959674602,qr_code,500
+Monika Yadav,monika@example.com,7416622000,24,female,G,410,8885992000,intermediate,open-team,Ankur,8885992000,527924263809,qr_code,500
+Abraham Paul V,abraham@example.com,9962231639,29,male,G,1702,7401126060,intermediate,open-team,Mohanapriya G,7401126060,527999087906,qr_code,500
+Hanvik Pendota,hanvik@example.com,9886391887,12,male,A,1511,9980199867,intermediate,kids-team-u13,,,,T2510061920402784410887,qr_code,500
+Shravan S,shravan@example.com,9742791510,27,male,D,1506,9008012579,intermediate,open-team,Rajitha,9008012579,527956882232,qr_code,500
+Sandeep,sandeep@example.com,9701498074,26,male,M,1207,9391337663,intermediate,open-team,Divya,9391337663,T2510061941052897789268,qr_code,500
+Saroja,saroja@example.com,9989769983,25,female,N,905,9989769983,beginner,open-team,Rajshekhar,9989769983,564526121553,qr_code,500
+Ramanaiah V. Kasa,ramanaiah@example.com,9100955841,30,male,D,1806,9121842843,intermediate,open-team,Vinay Kasa,9121842843,T2510071426433529301869,qr_code,500
+A R Kishore,kishore@example.com,9885377890,32,male,H,1004,9399939041,intermediate,open-team,A.Revathi kishore,9399939041,112300291443,qr_code,500
+Charvik,charvik@example.com,9790215500,11,male,L,903,9618911291,beginner,kids-team-u13,,,,564611494539,qr_code,500
+Arrpita Naidu,arrpita@example.com,9301873164,23,female,G,1903,8179464765,intermediate,open-team,Sameer Naidu,8179464765,112334422965,qr_code,500
+Prateek Chitranshi,prateek@example.com,7621949220,26,male,P,504,9099431991,intermediate,open-team,Vahista,9099431991,528195793574,qr_code,500
+Shaunak Meher,shaunak@example.com,7093717007,12,male,P,308,7093017007,intermediate,kids-team-u13,,,,112341522909,qr_code,500
+krishang Thota,krishang@example.com,9100749498,11,male,H,1106,9100062266,intermediate,kids-team-u13,,,,564780330091,qr_code,500
+Srihitha,srihitha@example.com,9963139679,24,female,D,806,9963862679,intermediate,open-team,Raghu,9963862679,112355769395,qr_code,500
+Ruthvik Pendota,ruthvik@example.com,9886391887,16,male,A,1511,9980199867,intermediate,kids-team-u18,,,,T2510082147192165123812,qr_code,500
+Shashi H,shashi@example.com,8801897943,28,male,J,203,8297287799,intermediate,open-team,Shamili,8297287799,564789085600,qr_code,500
+Raju Sharma,raju@example.com,9925492340,29,male,A,1305,9885229620,intermediate,open-team,Jai Sharma,9885229620,528270310632,qr_code,500
+Rohan Kasa,rohan@example.com,9100955841,12,male,J,1207,9121842843,intermediate,kids-team-u13,,,,T2510091646418653517712,qr_code,500
+Aarish Chakraborty,aarish@example.com,7799360021,10,male,E,807,9676488865,beginner,kids-team-u13,,,,528258195220,qr_code,500
+Indu Patel,indu@example.com,8839972527,26,female,M,609,9109197718,intermediate,open-team,Haldhar patel,9109197718,T2510100827451996755400,qr_code,500
+Jeshua Nischal,jeshua@example.com,9849037241,17,male,J,805,9866269826,intermediate,kids-team-u18,,,,112422602661,qr_code,500
+Shaurya Singh Manral,shaurya@example.com,7032926272,11,male,A,1110,9985017272,beginner,kids-team-u13,,,,528347707036,qr_code,500
+Akhil Reddy Annapureddy,akhil@example.com,9900511705,12,male,Crystal,102,9980056487,intermediate,kids-team-u13,,,,528310001943,qr_code,500
+Sriansh Sheethal,sriansh@example.com,9885004848,11,male,H,203,9246885488,intermediate,kids-team-u13,,,,T2510110934152852899892,qr_code,500
+Shubham Jha,shubham@example.com,9007416388,27,male,E,610,9049232442,intermediate,open-team,Arushi,9049232442,528422898203,qr_code,500
+Arushi Gupta,arushi@example.com,9049232442,25,female,E,610,9007416388,beginner,open-team,Shubham,9007416388,528422898203,qr_code,500
+Kush Malik,kush@example.com,9849081060,10,male,P,1308,7680841020,beginner,kids-team-u13,,,,112503931827,qr_code,500
+Murali,murali@example.com,9966401700,28,male,G,903,9966401700,intermediate,open-team,,,,9966401700,qr_code,500
+Saravanan,saravanan@example.com,9948079683,29,male,H,106,9951523000,intermediate,open-team,Revsrhi,9951523000,528408616629,qr_code,500
+Vikramaditya,vikramaditya@example.com,9059841317,12,male,H,210,9390033953,beginner,kids-team-u13,,,,9177303081,qr_code,500
+Divyaraj,divyaraj@example.com,7980572859,26,male,H,1209,9874217440,intermediate,open-team,Trisha,9874217440,565114503819,qr_code,500
+Deepak Gupta,deepak@example.com,9649978479,30,male,D,309,8239359104,expert,open-team,Vinita Gupta,8239359104,528525590319,qr_code,500
+Vijay aditya,vijay@example.com,9177303081,12,male,H,210,9390033953,beginner,kids-team-u13,,,,528653798006,qr_code,500
+Amit Saxena,amit@example.com,9866674469,31,male,G,1902,8019459350,intermediate,open-team,Sheetal,8019459350,565272621897,qr_code,500
+Ajay Soni,ajay@example.com,8108760929,28,male,A,1606,9726152756,intermediate,open-team,Jyoti Soni,9726152756,T2510131423360183671131,qr_code,500
+Tarak Kajuluti,tarak@example.com,7032643293,27,male,J,810,7032643292,intermediate,open-team,Keerthi,7032643292,T2510131607262735823013,qr_code,500
+Vaishnav C Nair,vaishnav@example.com,8977018006,17,male,F,1709,9916318006,expert,kids-team-u18,,,,528253364913,qr_code,500
+Vaishnav C Nair,vaishnav2@example.com,8977018006,17,male,F,1709,9916318006,expert,open-team,,,,528253364913,qr_code,500
+Augustine Rolex,augustine@example.com,9443928524,17,male,G,1701,9441243851,intermediate,kids-team-u18,,,,528793262603,qr_code,500
+Govind Pebbety,govind@example.com,9949621247,29,male,P,401,8886883222,intermediate,open-team,Swathi,8886883222,112665864315,qr_code,500
+Pavan Atukuri,pavan@example.com,7799901226,28,male,E,1306,9885511396,intermediate,open-team,Namrata Atukuri,9885511396,T2510151030020369037815,qr_code,500
+Khushi Atukuri,khushi@example.com,9985577280,25,female,E,1306,7799901226,intermediate,open-team,Pavan,7799901226,T2510151035168992805654,qr_code,500
+Joydeep Bardhan,joydeep@example.com,7995688094,26,male,F,307,9347187571,intermediate,open-team,Tanvi,9347187571,T2510151308358276030395,qr_code,500
+S surya kameswar,surya@example.com,9908371116,30,male,E,1004,8712700988,expert,open-team,Kaushik,8712700988,T2510151838012653850116,qr_code,500
+Yagnanand,yagnanand@example.com,9966404773,28,male,H,509,9966404775,intermediate,open-team,Smithi,9966404775,528913539704,qr_code,500
+Ansh,ansh@example.com,7032546144,12,male,F,101,7993103542,beginner,kids-team-u13,,,,112740738527,qr_code,500
+Ishan,ishan@example.com,9704857319,11,male,D,610,9704857319,beginner,kids-team-u13,,,,528948935742,qr_code,500
+Ishan Duplicate,ishan2@example.com,9704857319,11,male,D,610,9704857319,beginner,kids-team-u13,,,,528948935742,qr_code,500
+Nayan Choudhary,nayan@example.com,8142037772,27,male,H,1809,8142037772,intermediate,open-team,Self,8142037772,T2510171016086306361104,qr_code,500
+Md. Asad Kaludi,asad@example.com,6290005479,12,male,F,1402,7698385687,beginner,kids-team-u13,,,,390889927645,qr_code,500
+Vikramaditya Duplicate,vikramaditya2@example.com,9177303081,12,male,H,210,9177303081,intermediate,kids-team-u13,,,,9177303081,qr_code,500
+Prithvi Burgula,prithvi@example.com,9966918642,28,male,N,807,8919629200,intermediate,open-team,Janani Shruti Rapur,8919629200,112796591185,qr_code,500
+Pravallika,pravallika@example.com,9704964363,24,female,K,1809,9700854080,intermediate,open-team,Yogi,9700854080,565607256688,qr_code,500
+Rudransh raj srivastav,rudransh@example.com,7993969700,17,male,G,110,7993969700,intermediate,kids-team-u18,,,,529055181193,qr_code,500
+SAPTAK CHATTERJER,saptak@example.com,9989803206,11,male,D,1106,8008021339,beginner,kids-team-u13,,,,529120394231,qr_code,500
+Sumedha Saraogi,sumedha@example.com,9849031891,26,female,F,1802,8374312089,intermediate,open-team,Shobha sthalekar,8374312089,565752105140,qr_code,500
+Mohammad Idrees,mohammad@example.com,9030005935,32,male,H,503,9030005935,expert,open-team,Shahana,9030005935,773325,qr_code,500
+SUNANDAN BISWAS,sunandan@example.com,9704857729,17,male,N,1101,7893664878,intermediate,kids-team-u18,,,,112825423178,qr_code,500
+Namrata Atukuri,namrata@example.com,9885511396,25,female,E,1306,7699901226,beginner,open-team,Pavan,7699901226,T2510181116044894513296,qr_code,500
+Vivek Saraf,vivek@example.com,9908349975,29,male,H,1803,8095437541,intermediate,open-team,Kalyani Nippani,8095437541,112830279256,qr_code,500
+Kaushal Yadav,kaushal@example.com,9379433088,17,male,N,1104,9896662214,intermediate,kids-team-u18,,,,529150876355,qr_code,500
+Kavitha Jairam,kavitha@example.com,9848844107,24,female,E,401,9949586679,beginner,open-team,Arrul Kumar,9949586679,529184279497,qr_code,500
+Abhiyaan,abhiyaan@example.com,9966401700,17,male,E,9966401700,9966401700,intermediate,kids-team-u18,,,,9966401700,qr_code,500
+Neehit Katara,neehit@example.com,9000234415,17,male,E,806,9000234415,beginner,kids-team-u18,,,,529158296334,qr_code,500
+Sudhindra,sudhindra@example.com,8341874026,28,male,F,306,9959200339,beginner,open-team,Savitha,9959200339,T251081921398963304557,qr_code,500
+Waleed Kachroo,waleed@example.com,8899941433,27,male,G,1007,9419003231,intermediate,open-team,Javid k,9419003231,T2510182110181987883344,qr_code,500
+Raju Rathod,raju2@example.com,8374144041,29,male,A,8374144041,8374144041,intermediate,open-team,,,,8374144041,qr_code,500

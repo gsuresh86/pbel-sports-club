@@ -60,12 +60,27 @@ The import feature allows administrators to bulk import registration data from C
 ## Sample CSV Format
 
 ```csv
-Name,Email,Phone,Age,Gender,Tower,Flat Number,Emergency Contact,Expertise Level,Category,Partner Name,Partner Phone,Payment Reference,Payment Method,Payment Amount
-John Doe,john@example.com,9876543210,25,male,A,101,9876543211,intermediate,mens-single,,,,PAY123456,qr_code,500
-Jane Smith,jane@example.com,9876543212,23,female,B,202,9876543213,advanced,womens-single,,,,PAY123457,cash,500
-Mike Johnson,mike@example.com,9876543214,28,male,C,303,9876543215,expert,mens-doubles,Tom Wilson,9876543216,,PAY123458,bank_transfer,1000
-Sarah Davis,sarah@example.com,9876543217,25,female,D,404,9876543218,intermediate,open-team,,,,PAY123459,cash,500
+Player's Name,Email,Phone,Age,Gender,Tower,Flat Number,Emergency Contact,Expertise Level,Category,Partner Name,Partner Phone,Payment Reference,Payment Method,Payment Amount
+Vizai Kumar,vizai@example.com,9437527335,30,male,D,1901,9437527335,intermediate,mens-single,,,,564288371608,qr_code,500
+Rohit Baheti,rohit@example.com,9966662741,28,male,M,703,9703858066,intermediate,open-team,Wife,9703858066,527970443102,qr_code,500
+Hanvik Pendota,hanvik@example.com,9886391887,12,male,A,1511,9980199867,intermediate,kids-team-u13,,,,T2510061920402784410887,qr_code,500
+Ruthvik Pendota,ruthvik@example.com,9886391887,16,male,A,1511,9980199867,intermediate,kids-team-u18,,,,T2510082147192165123812,qr_code,500
+Monika Yadav,monika@example.com,7416622000,24,female,G,410,8885992000,intermediate,open-team,Ankur,8885992000,527924263809,qr_code,500
+Saroja,saroja@example.com,9989769983,25,female,N,905,9989769983,beginner,open-team,Rajshekhar,9989769983,564526121553,qr_code,500
 ```
+
+## Category Mapping
+
+The system supports the following categories for import:
+
+| Original Category | System Category | Description |
+|------------------|-----------------|-------------|
+| Team | open-team | Open team category for mixed teams |
+| Boys/Girls under 13 Singles | kids-team-u13 | Kids team under 13 years |
+| Boys/Girls under 18 Singles | kids-team-u18 | Kids team under 18 years |
+| Men's/Women's Singles | mens-single / womens-single | Individual categories |
+| Men's/Women's Doubles | mens-doubles / womens-doubles | Doubles categories |
+| Men's/Women's Team | mens-team / womens-team | Gender-specific teams |
 
 ## Validation Rules
 
@@ -77,6 +92,19 @@ The system validates imported data against these rules:
 - **Expertise Level**: Must be "beginner", "intermediate", "advanced", or "expert"
 - **Required Fields**: All required fields must have values
 - **Tournament Categories**: Must match valid tournament categories
+
+## Data Extraction Notes
+
+When importing from existing data sources:
+
+1. **Gender Extraction**: Extract gender from "Additional Info" field (e.g., "Intermediate Male" → male)
+2. **Level Extraction**: Extract expertise level from "Additional Info" field (e.g., "Intermediate Male" → intermediate)
+3. **Age Estimation**: For missing ages, estimate based on category:
+   - kids-team-u13: 10-12 years
+   - kids-team-u18: 13-17 years
+   - open-team: 18+ years
+4. **Email Generation**: Generate emails using pattern: `{name}@example.com` for missing emails
+5. **Partner Information**: Extract partner details from "Additional Info" field for team registrations
 
 ## Tips for Successful Import
 
