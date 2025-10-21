@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Team, Pool, Player, Tournament, CategoryType } from '@/types';
+import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
 import { Users, Plus, Edit, Trash2, Crown, Target } from 'lucide-react';
 
 interface TeamManagementProps {
@@ -21,11 +21,13 @@ interface TeamManagementProps {
 export default function TeamManagement({ tournament, user }: TeamManagementProps) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [editingPool, setEditingPool] = useState<Pool | null>(null);
 
   // Form states
   const [teamForm, setTeamForm] = useState({
@@ -49,7 +51,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     await Promise.all([
       loadTeams(),
       loadPools(),
-      loadPlayers(),
+      loadRegistrations(),
     ]);
     setLoading(false);
   };
@@ -59,12 +61,14 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       const teamsSnapshot = await getDocs(
         query(collection(db, 'tournaments', tournament.id, 'teams'), orderBy('createdAt', 'desc'))
       );
+      
       const teamsData = teamsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Team[];
+      
       setTeams(teamsData);
     } catch (error) {
       console.error('Error loading teams:', error);
@@ -88,20 +92,22 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     }
   };
 
-  const loadPlayers = async () => {
+  const loadRegistrations = async () => {
     try {
-      const playersSnapshot = await getDocs(
-        query(collection(db, 'tournaments', tournament.id, 'players'), orderBy('createdAt', 'desc'))
-      );
-      const playersData = playersSnapshot.docs.map(doc => ({
+      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+      
+      const registrationsData = registrationsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Player[];
-      setPlayers(playersData);
+        registeredAt: doc.data().registeredAt?.toDate(),
+        approvedAt: doc.data().approvedAt?.toDate(),
+      })) as unknown as Registration[];
+      
+      setRegistrations(registrationsData);
     } catch (error) {
-      console.error('Error loading players:', error);
+      console.error('Error loading registrations:', error);
     }
   };
 
@@ -158,6 +164,62 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     }
   };
 
+  const handleEditTeam = (team: Team) => {
+    setEditingTeam(team);
+    setTeamForm({
+      name: team.name,
+      category: team.category,
+      captainId: team.captainId || 'none',
+    });
+  };
+
+  const handleEditPool = (pool: Pool) => {
+    setEditingPool(pool);
+    setPoolForm({
+      name: pool.name,
+      category: pool.category,
+      maxTeams: pool.maxTeams,
+    });
+  };
+
+  const handleUpdateTeam = async () => {
+    if (!editingTeam) return;
+
+    try {
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', editingTeam.id), {
+        name: teamForm.name,
+        category: teamForm.category,
+        captainId: teamForm.captainId === 'none' ? null : teamForm.captainId,
+        updatedAt: new Date(),
+      });
+
+      setEditingTeam(null);
+      setTeamForm({ name: '', category: '' as CategoryType, captainId: 'none' });
+      await loadData();
+    } catch (error) {
+      console.error('Error updating team:', error);
+    }
+  };
+
+  const handleUpdatePool = async () => {
+    if (!editingPool) return;
+
+    try {
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', editingPool.id), {
+        name: poolForm.name,
+        category: poolForm.category,
+        maxTeams: poolForm.maxTeams,
+        updatedAt: new Date(),
+      });
+
+      setEditingPool(null);
+      setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4 });
+      await loadData();
+    } catch (error) {
+      console.error('Error updating pool:', error);
+    }
+  };
+
   const handleDeletePool = async (poolId: string) => {
     if (confirm('Are you sure you want to delete this pool?')) {
       try {
@@ -178,15 +240,16 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   );
 
   const getPlayersForTeam = (team: Team) => {
-    return players.filter(player => team.players.includes(player.id));
+    const teamPlayerIds = team.players || [];
+    return registrations.filter(registration => teamPlayerIds.includes(registration.id));
   };
 
   const getTeamsForPool = (pool: Pool) => {
     return teams.filter(team => pool.teams.includes(team.id));
   };
 
-  const getCategoryPlayers = (category: CategoryType) => {
-    return players.filter(player => player.selectedCategory === category);
+  const getCategoryRegistrations = (category: CategoryType) => {
+    return registrations.filter(registration => registration.selectedCategory === category);
   };
 
   if (loading) {
@@ -284,7 +347,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleEditTeam(team)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleDeleteTeam(team.id)}>
@@ -372,7 +435,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleEditPool(pool)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleDeletePool(pool.id)}>
@@ -492,6 +555,112 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                   Cancel
                 </Button>
                 <Button type="submit">Create Pool</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team Modal */}
+      {editingTeam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Edit Team</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateTeam(); }} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-team-name">Team Name</Label>
+                <Input
+                  id="edit-team-name"
+                  value={teamForm.name}
+                  onChange={(e) => setTeamForm(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-team-category">Category</Label>
+                <Select value={teamForm.category} onValueChange={(value) => setTeamForm(prev => ({ ...prev, category: value as CategoryType }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open-team">Open Team</SelectItem>
+                    <SelectItem value="kids-team-13">Kids Team 13</SelectItem>
+                    <SelectItem value="kids-team-18">Kids Team 18</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-team-captain">Captain</Label>
+                <Select value={teamForm.captainId} onValueChange={(value) => setTeamForm(prev => ({ ...prev, captainId: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select captain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No captain</SelectItem>
+                    {getPlayersForTeam(editingTeam).map(player => (
+                      <SelectItem key={player.id} value={player.id}>
+                        {player.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingTeam(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Team</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Pool Modal */}
+      {editingPool && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Edit Pool</h3>
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdatePool(); }} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-pool-name">Pool Name</Label>
+                <Input
+                  id="edit-pool-name"
+                  value={poolForm.name}
+                  onChange={(e) => setPoolForm(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-pool-category">Category</Label>
+                <Select value={poolForm.category} onValueChange={(value) => setPoolForm(prev => ({ ...prev, category: value as CategoryType }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open-team">Open Team</SelectItem>
+                    <SelectItem value="kids-team-13">Kids Team 13</SelectItem>
+                    <SelectItem value="kids-team-18">Kids Team 18</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-pool-max-teams">Max Teams</Label>
+                <Input
+                  id="edit-pool-max-teams"
+                  type="number"
+                  min="2"
+                  max="8"
+                  value={poolForm.maxTeams}
+                  onChange={(e) => setPoolForm(prev => ({ ...prev, maxTeams: parseInt(e.target.value) }))}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditingPool(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Update Pool</Button>
               </div>
             </form>
           </div>
