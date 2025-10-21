@@ -321,9 +321,17 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     if (!selectedCategory) return null;
 
     const categoryTeams = teams.filter(team => team.category === selectedCategory);
-    const totalAssigned = categoryTeams.reduce((sum, team) => sum + team.players.length, 0);
+    
+    // Use filtered registrations instead of all registrations
+    const totalPlayers = filteredRegistrations.length;
+    const totalAssigned = categoryTeams.reduce((sum, team) => {
+      // Count only assigned players that match current filters
+      const assignedFilteredPlayers = team.players.filter(playerId => 
+        filteredRegistrations.some(reg => reg.id === playerId)
+      );
+      return sum + assignedFilteredPlayers.length;
+    }, 0);
     const totalUnassigned = unassignedRegistrations.length;
-    const totalPlayers = totalAssigned + totalUnassigned;
 
     return {
       totalPlayers,
