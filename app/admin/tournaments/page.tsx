@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { generateRegistrationLink } from '@/lib/utils';
-import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ManageTournamentsPage() {
@@ -463,6 +463,37 @@ export default function ManageTournamentsPage() {
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
                     </Button>
+                  </div>
+                  
+                  {/* Management Buttons */}
+                  <div className="grid grid-cols-3 gap-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-8"
+                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=teams`)}
+                      >
+                        <Users2 className="h-3 w-3 mr-1" />
+                        Teams
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-8"
+                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=spin-wheel`)}
+                      >
+                        <Shuffle className="h-3 w-3 mr-1" />
+                        Spin
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-8"
+                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=pools`)}
+                      >
+                        <Target className="h-3 w-3 mr-1" />
+                        Pools
+                      </Button>
                   </div>
                 </div>
               </CardContent>

@@ -242,3 +242,41 @@ export interface FormField {
     pattern?: string;
   };
 }
+
+export interface Team {
+  id: string;
+  tournamentId: string;
+  name: string;
+  category: CategoryType;
+  players: string[]; // Array of player IDs
+  captainId?: string; // ID of team captain
+  poolId?: string; // ID of pool/group this team belongs to
+  seed?: number; // Seeding for tournament
+  status: 'active' | 'eliminated' | 'withdrawn';
+  createdAt: Date;
+  updatedAt?: Date;
+  createdBy: string;
+}
+
+export interface Pool {
+  id: string;
+  tournamentId: string;
+  name: string;
+  category: CategoryType;
+  teams: string[]; // Array of team IDs
+  maxTeams: number;
+  status: 'pending' | 'active' | 'completed';
+  createdAt: Date;
+  updatedAt?: Date;
+  createdBy: string;
+}
+
+export interface TeamAssignment {
+  id: string;
+  tournamentId: string;
+  playerId: string;
+  teamId?: string;
+  assignedAt?: Date;
+  assignedBy?: string;
+  status: 'unassigned' | 'assigned' | 'pending';
+}

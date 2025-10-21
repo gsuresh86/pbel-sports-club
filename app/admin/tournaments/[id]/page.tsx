@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import { doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc } from 'firebase/firestore';
@@ -41,14 +41,20 @@ import {
   TrendingUp,
   Eye,
   Edit,
-  ExternalLink
+  ExternalLink,
+  Users2,
+  Shuffle
 } from 'lucide-react';
 import Link from 'next/link';
+import TeamManagement from '@/components/TeamManagement';
+import SpinWheel from '@/components/SpinWheel';
+import PoolAssignment from '@/components/PoolAssignment';
 
 export default function TournamentDetailsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const tournamentId = params.id as string;
   
   const [tournament, setTournament] = useState<Tournament | null>(null);
@@ -56,6 +62,7 @@ export default function TournamentDetailsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -83,6 +90,14 @@ export default function TournamentDetailsPage() {
       loadTournamentData();
     }
   }, [user, authLoading, router, tournamentId]);
+
+  // Handle URL parameters for tab selection
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['overview', 'participants', 'matches', 'brackets', 'teams', 'spin-wheel', 'pools', 'analytics'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const loadTournamentData = async () => {
     try {
@@ -490,12 +505,15 @@ export default function TournamentDetailsPage() {
         </div>
 
         {/* Detailed Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="participants">Registrations</TabsTrigger>
             <TabsTrigger value="matches">Matches</TabsTrigger>
             <TabsTrigger value="brackets">Brackets</TabsTrigger>
+            <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="spin-wheel">Spin Wheel</TabsTrigger>
+            <TabsTrigger value="pools">Pools</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
@@ -964,6 +982,33 @@ export default function TournamentDetailsPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Teams Tab */}
+          <TabsContent value="teams" className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Team Management</h3>
+              <p className="text-sm text-gray-600">Create and manage teams for this tournament</p>
+            </div>
+            <TeamManagement tournament={tournament} user={user!} />
+          </TabsContent>
+
+          {/* Spin Wheel Tab */}
+          <TabsContent value="spin-wheel" className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Player Assignment</h3>
+              <p className="text-sm text-gray-600">Assign players to teams using the spin wheel</p>
+            </div>
+            <SpinWheel tournament={tournament} user={user!} />
+          </TabsContent>
+
+          {/* Pools Tab */}
+          <TabsContent value="pools" className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold">Pool Assignment</h3>
+              <p className="text-sm text-gray-600">Organize teams into pools/groups</p>
+            </div>
+            <PoolAssignment tournament={tournament} user={user!} />
           </TabsContent>
         </Tabs>
 

@@ -11,10 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tournament, Match, Registration } from '@/types';
 import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TournamentDetailPage() {
   const params = useParams();
   const tournamentId = params.id as string;
+  const { user } = useAuth();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [participants, setParticipants] = useState<Registration[]>([]);

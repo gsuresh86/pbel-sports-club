@@ -115,7 +115,7 @@ export default function ManageMatchesPage() {
           console.log(`Total participants so far: ${allParticipants.length}`);
         } catch (error) {
           console.error(`Error loading participants for tournament ${tournament.id}:`, error);
-          console.error('Error details:', error.message, error.code);
+          console.error('Error details:', error instanceof Error ? error.message : String(error), error instanceof Error ? (error as Error & { code?: string }).code : undefined);
         }
       }
       
@@ -313,8 +313,49 @@ export default function ManageMatchesPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Match Management</h1>
             <p className="text-gray-600 mt-2">Create and manage tournament matches</p>
+            <div className="mt-2 text-sm text-gray-500">
+              <p>Tournaments: {tournaments.length} | Participants: {participants.length}</p>
+            </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={async () => {
+                if (tournaments.length > 0) {
+                  const tournament = tournaments[0];
+                  console.log('Creating test registration for tournament:', tournament.id);
+                  try {
+                    await addDoc(collection(db, 'tournaments', tournament.id, 'registrations'), {
+                      name: 'Test Player',
+                      email: 'test@example.com',
+                      phone: '1234567890',
+                      age: 25,
+                      gender: 'male',
+                      tower: 'A',
+                      flatNumber: '101',
+                      emergencyContact: '9876543210',
+                      expertiseLevel: 'intermediate',
+                      isResident: true,
+                      selectedCategory: 'mens-single',
+                      registrationStatus: 'approved',
+                      paymentStatus: 'paid',
+                      registrationCode: 'TEST001',
+                      registeredAt: new Date(),
+                    });
+                    console.log('Test registration created successfully');
+                    // Reload participants
+                    await loadParticipants();
+                  } catch (error) {
+                    console.error('Error creating test registration:', error);
+                  }
+                } else {
+                  console.log('No tournaments available to create test registration');
+                }
+              }}
+            >
+              Create Test Registration
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={resetForm} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -498,6 +539,19 @@ export default function ManageMatchesPage() {
           </Dialog>
         </div>
 
+        {/* Debug Info */}
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-sm font-medium text-yellow-800 mb-2">Debug Information</h3>
+          <div className="text-xs text-yellow-700">
+            <p><strong>Tournaments:</strong> {tournaments.length}</p>
+            <p><strong>Participants:</strong> {participants.length}</p>
+            <p><strong>Selected Tournament:</strong> {formData.tournamentId || 'None'}</p>
+            {formData.tournamentId && (
+              <p><strong>Participants for Selected Tournament:</strong> {tournamentParticipants(formData.tournamentId).length}</p>
+            )}
+          </div>
+        </div>
+
         {/* Tournament Filter */}
         <Card className="mb-6">
           <CardContent className="p-6">
@@ -650,6 +704,7 @@ export default function ManageMatchesPage() {
             )}
           </CardContent>
         </Card>
+      </div>
       </div>
     </AdminLayout>
   );
