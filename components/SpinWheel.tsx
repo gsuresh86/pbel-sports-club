@@ -9,14 +9,23 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Team, Registration, Tournament, CategoryType } from '@/types';
-import { Shuffle, Users, Target, Crown, Zap } from 'lucide-react';
+import { Shuffle, Users, Target, Crown, Zap, RotateCcw } from 'lucide-react';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 
 interface SpinWheelProps {
   tournament: Tournament;
   user: { id: string; role: string; email: string };
 }
 
+interface SpinResult extends Registration {
+  assignedTeam?: string;
+}
+
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  const { alert, AlertDialogComponent } = useAlertDialog();
+  
   const [teams, setTeams] = useState<Team[]>([]);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +34,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const [selectedLevel, setSelectedLevel] = useState<'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all'>('all');
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [isSpinning, setIsSpinning] = useState(false);
-  const [spinResult, setSpinResult] = useState<Registration | null>(null);
+  const [spinResult, setSpinResult] = useState<SpinResult | null>(null);
   const [filteredRegistrations, setFilteredRegistrations] = useState<Registration[]>([]);
   const [unassignedRegistrations, setUnassignedRegistrations] = useState<Registration[]>([]);
 
@@ -108,7 +117,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setUnassignedRegistrations(unassigned);
   };
 
-  const spinWheel = () => {
+  const spinWheel = async () => {
     if (unassignedRegistrations.length === 0) return;
 
     setIsSpinning(true);
@@ -125,12 +134,17 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       setSpinResult(unassignedRegistrations[currentIndex]);
     }, spinInterval);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(spinIntervalId);
       setIsSpinning(false);
+      
       // Final result
       const finalIndex = Math.floor(Math.random() * unassignedRegistrations.length);
-      setSpinResult(unassignedRegistrations[finalIndex]);
+      const selectedPlayer = unassignedRegistrations[finalIndex];
+      setSpinResult(selectedPlayer);
+      
+      // Automatically assign to the next available team
+      await autoAssignPlayerToNextTeam(selectedPlayer);
     }, spinDuration);
   };
 
@@ -151,6 +165,51 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       setSpinResult(null);
     } catch (error) {
       console.error('Error assigning player to team:', error);
+    }
+  };
+
+  const autoAssignPlayerToNextTeam = async (player: Registration) => {
+    try {
+      // Get teams for the selected category, sorted by name (Team 1, Team 2, etc.)
+      const categoryTeams = teams
+        .filter(team => team.category === selectedCategory)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+      if (categoryTeams.length === 0) {
+        console.error('No teams found for category:', selectedCategory);
+        return;
+      }
+
+      // Find the team with the least number of players
+      let targetTeam = categoryTeams[0];
+      let minPlayers = targetTeam.players.length;
+
+      for (const team of categoryTeams) {
+        if (team.players.length < minPlayers) {
+          minPlayers = team.players.length;
+          targetTeam = team;
+        }
+      }
+
+      // Assign player to the selected team
+      const updatedPlayers = [...targetTeam.players, player.id];
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
+        players: updatedPlayers,
+        updatedAt: new Date(),
+      });
+
+      // Refresh data
+      await loadData();
+      filterRegistrations();
+      
+      // Update spin result to show which team the player was assigned to
+      setSpinResult({
+        ...player,
+        assignedTeam: targetTeam.name
+      });
+      
+    } catch (error) {
+      console.error('Error auto-assigning player to team:', error);
     }
   };
 
@@ -185,6 +244,77 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       await assignPlayerToTeam(registration.id, team.id);
       teamIndex++;
     }
+  };
+
+  const unassignAllPlayersFromCategory = async () => {
+    if (!selectedCategory) return;
+
+    try {
+      const categoryTeams = teams.filter(team => team.category === selectedCategory);
+      
+      // Update all teams in the category to have empty players array
+      const updatePromises = categoryTeams.map(team => 
+        updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+          players: [],
+          updatedAt: new Date(),
+        })
+      );
+
+      await Promise.all(updatePromises);
+
+      // Refresh data
+      await loadData();
+      filterRegistrations();
+      
+      // Clear spin result
+      setSpinResult(null);
+      
+      alert({
+        title: 'Success',
+        description: `All players have been unassigned from ${selectedCategory} teams. You can now run the wheel again.`,
+        variant: 'success'
+      });
+      
+    } catch (error) {
+      console.error('Error unassigning all players:', error);
+      alert({
+        title: 'Error',
+        description: 'Failed to unassign all players. Please try again.',
+        variant: 'error'
+      });
+    }
+  };
+
+  const handleUnassignAll = () => {
+    if (!selectedCategory) {
+      alert({
+        title: 'No Category Selected',
+        description: 'Please select a category first.',
+        variant: 'warning'
+      });
+      return;
+    }
+
+    const categoryTeams = teams.filter(team => team.category === selectedCategory);
+    const totalAssignedPlayers = categoryTeams.reduce((sum, team) => sum + team.players.length, 0);
+
+    if (totalAssignedPlayers === 0) {
+      alert({
+        title: 'No Players Assigned',
+        description: 'There are no players assigned to teams in this category.',
+        variant: 'warning'
+      });
+      return;
+    }
+
+    confirm({
+      title: 'Unassign All Players',
+      description: `Are you sure you want to unassign all ${totalAssignedPlayers} players from ${selectedCategory} teams? This will reset all team assignments and allow you to run the wheel again.`,
+      confirmText: 'Unassign All',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+      onConfirm: unassignAllPlayersFromCategory
+    });
   };
 
   const getTeamStats = () => {
@@ -226,6 +356,15 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           <Button onClick={autoAssignAllPlayers} disabled={!selectedCategory || unassignedRegistrations.length === 0}>
             <Zap className="h-4 w-4 mr-2" />
             Auto Assign All
+          </Button>
+          <Button 
+            onClick={handleUnassignAll} 
+            disabled={!selectedCategory}
+            variant="outline"
+            className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Unassign All
           </Button>
         </div>
       </div>
@@ -316,38 +455,50 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                 </Button>
 
                 {spinResult && (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Selected Player:</h3>
+                  <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h3 className="text-lg font-semibold mb-2 text-green-800">Player Selected & Assigned!</h3>
                     <div className="flex items-center justify-center gap-4 mb-4">
                       <div className="text-center">
-                        <div className="font-medium">{spinResult.name}</div>
+                        <div className="font-medium text-lg">{spinResult.name}</div>
                         <div className="text-sm text-gray-600">Age: {spinResult.age} | Gender: {spinResult.gender}</div>
                         <div className="text-sm text-gray-600">Tower: {spinResult.tower} | Flat: {spinResult.flatNumber}</div>
                         <Badge variant="outline" className="mt-1">{spinResult.expertiseLevel}</Badge>
                       </div>
                     </div>
                     
-                    <div className="flex justify-center gap-2">
-                      <Label>Assign to team:</Label>
-                      <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Select team" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {teams.filter(team => team.category === selectedCategory).map(team => (
-                            <SelectItem key={team.id} value={team.id}>
-                              {team.name} ({team.players.length} players)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)}
-                        disabled={!selectedTeam}
-                      >
-                        Assign
-                      </Button>
-                    </div>
+                    {spinResult.assignedTeam ? (
+                      <div className="text-center">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg font-medium">
+                          <Target className="h-4 w-4" />
+                          Automatically assigned to: {spinResult.assignedTeam}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Player was assigned to the team with the least players to maintain balance.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center gap-2">
+                        <Label>Assign to team:</Label>
+                        <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                          <SelectTrigger className="w-48">
+                            <SelectValue placeholder="Select team" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teams.filter(team => team.category === selectedCategory).map(team => (
+                              <SelectItem key={team.id} value={team.id}>
+                                {team.name} ({team.players.length} players)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button 
+                          onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)}
+                          disabled={!selectedTeam}
+                        >
+                          Assign
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -422,6 +573,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           </Card>
         </>
       )}
+      
+      {ConfirmDialogComponent}
+      {AlertDialogComponent}
     </div>
   );
 }
