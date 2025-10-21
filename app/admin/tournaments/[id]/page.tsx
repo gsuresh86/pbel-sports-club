@@ -13,12 +13,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, Registration, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
 import { 
   ArrowLeft, 
@@ -56,6 +58,7 @@ export default function TournamentDetailsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const tournamentId = params.id as string;
+  const { alert, AlertDialogComponent } = useAlertDialog();
   
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Registration[]>([]);
@@ -70,6 +73,10 @@ export default function TournamentDetailsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+  
+  // Edit drawer states
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     sport: 'badminton' as SportType,
@@ -277,10 +284,18 @@ export default function TournamentDetailsPage() {
       await loadTournamentData();
       
       setDialogOpen(false);
-      alert('Tournament updated successfully!');
+      alert({
+        title: 'Success',
+        description: 'Tournament updated successfully!',
+        variant: 'success'
+      });
     } catch (error) {
       console.error('Error updating tournament:', error);
-      alert('Failed to update tournament');
+      alert({
+        title: 'Error',
+        description: 'Failed to update tournament. Please try again.',
+        variant: 'error'
+      });
     }
   };
 
@@ -324,15 +339,6 @@ export default function TournamentDetailsPage() {
     }
   };
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800';
-      case 'refunded': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getMatchStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -354,22 +360,23 @@ export default function TournamentDetailsPage() {
     });
   };
 
+  const openEditDrawer = (participant: Registration) => {
+    setSelectedParticipant(participant);
+    setEditDrawerOpen(true);
+  };
+
   const exportParticipants = () => {
     const csvContent = [
-      ['Name', 'Email', 'Phone', 'Age', 'Gender', 'Tower', 'Flat Number', 'Level', 'Category', 'Status', 'Payment Status', 'Registration Date', 'Partner Name', 'Partner Phone'].join(','),
+      ['Name', 'Phone', 'Age', 'Gender', 'Tower/Flat', 'Level', 'Category', 'Status', 'Partner Name', 'Partner Phone'].join(','),
       ...filteredParticipants.map(p => [
         p.name,
-        p.email,
         p.phone,
         p.age,
         p.gender,
-        p.tower,
-        p.flatNumber,
+        `${p.tower} ${p.flatNumber}`,
         p.expertiseLevel,
         p.selectedCategory,
         p.registrationStatus,
-        p.paymentStatus,
-        new Date(p.registeredAt).toLocaleDateString(),
         p.partnerName || '',
         p.partnerPhone || ''
       ].join(','))
@@ -774,7 +781,6 @@ export default function TournamentDetailsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Age</TableHead>
                         <TableHead>Gender</TableHead>
@@ -782,22 +788,19 @@ export default function TournamentDetailsPage() {
                         <TableHead>Category</TableHead>
                         <TableHead>Level</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Payment</TableHead>
-                        <TableHead>Registered</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(filteredParticipants || []).map((participant) => (
                         <TableRow key={participant.id}>
                           <TableCell className="font-medium">{participant.name}</TableCell>
-                          <TableCell>{participant.email}</TableCell>
                           <TableCell>{participant.phone}</TableCell>
                           <TableCell>{participant.age}</TableCell>
                           <TableCell className="capitalize">{participant.gender}</TableCell>
                           <TableCell>
                             <div className="text-sm">
-                              <p><strong>Tower {participant.tower}</strong></p>
-                              <p className="text-gray-500">Flat {participant.flatNumber}</p>
+                              {participant.tower} {participant.flatNumber}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -816,18 +819,15 @@ export default function TournamentDetailsPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <div className="space-y-1">
-                              <Badge className={getPaymentStatusColor(participant.paymentStatus)}>
-                                {participant.paymentStatus}
-                              </Badge>
-                              {participant.paymentAmount && (
-                                <div className="text-xs text-gray-500">
-                                  ₹{participant.paymentAmount}
-                                </div>
-                              )}
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDrawer(participant)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                           </TableCell>
-                          <TableCell>{formatDate(participant.registeredAt)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1346,6 +1346,271 @@ export default function TournamentDetailsPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Registration Drawer */}
+        <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Registration Details</DrawerTitle>
+              <DrawerDescription>
+                Update registration information for {selectedParticipant?.name}
+              </DrawerDescription>
+            </DrawerHeader>
+            
+            {selectedParticipant && (
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Basic Information</h3>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-name">Name</Label>
+                      <Input
+                        id="edit-name"
+                        value={selectedParticipant.name}
+                        onChange={(e) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          name: e.target.value
+                        })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-phone">Phone</Label>
+                      <Input
+                        id="edit-phone"
+                        value={selectedParticipant.phone}
+                        onChange={(e) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          phone: e.target.value
+                        })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-age">Age</Label>
+                      <Input
+                        id="edit-age"
+                        type="number"
+                        value={selectedParticipant.age}
+                        onChange={(e) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          age: parseInt(e.target.value) || 0
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tournament Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Tournament Information</h3>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-gender">Gender</Label>
+                      <Select
+                        value={selectedParticipant.gender}
+                        onValueChange={(value) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          gender: value as 'male' | 'female' | 'other'
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-level">Expertise Level</Label>
+                      <Select
+                        value={selectedParticipant.expertiseLevel}
+                        onValueChange={(value) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          expertiseLevel: value as 'beginner' | 'intermediate' | 'advanced' | 'expert'
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="beginner">Beginner</SelectItem>
+                          <SelectItem value="intermediate">Intermediate</SelectItem>
+                          <SelectItem value="advanced">Advanced</SelectItem>
+                          <SelectItem value="expert">Expert</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-category">Category</Label>
+                      <Select
+                        value={selectedParticipant.selectedCategory}
+                        onValueChange={(value) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          selectedCategory: value as CategoryType
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tournament?.categories?.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {category === 'girls-under-13' ? 'Girls Under 13' :
+                               category === 'boys-under-13' ? 'Boys Under 13' :
+                               category === 'girls-under-18' ? 'Girls Under 18' :
+                               category === 'boys-under-18' ? 'Boys Under 18' :
+                               category === 'mens-single' ? 'Mens Single' :
+                               category === 'womens-single' ? 'Womens Single' :
+                               category === 'mens-doubles' ? 'Mens Doubles' :
+                               category === 'mixed-doubles' ? 'Mixed Doubles' :
+                               category === 'mens-team' ? 'Mens Team' :
+                               category === 'womens-team' ? 'Womens Team' :
+                               category === 'kids-team-u13' ? 'Kids Team (U13)' :
+                               category === 'kids-team-u18' ? 'Kids Team (U18)' :
+                               category === 'open-team' ? 'Open Team' : category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-status">Registration Status</Label>
+                      <Select
+                        value={selectedParticipant.registrationStatus}
+                        onValueChange={(value) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          registrationStatus: value as 'pending' | 'approved' | 'rejected'
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Address Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-tower">Tower</Label>
+                      <Input
+                        id="edit-tower"
+                        value={selectedParticipant.tower}
+                        onChange={(e) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          tower: e.target.value
+                        })}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-flat">Flat Number</Label>
+                      <Input
+                        id="edit-flat"
+                        value={selectedParticipant.flatNumber}
+                        onChange={(e) => setSelectedParticipant({
+                          ...selectedParticipant,
+                          flatNumber: e.target.value
+                        })}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Display format: {selectedParticipant.tower} {selectedParticipant.flatNumber}
+                  </div>
+                </div>
+
+                {/* Partner Information (for team registrations) */}
+                {(selectedParticipant.selectedCategory.includes('team') || selectedParticipant.selectedCategory === 'open-team') && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Partner Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-partner-name">Partner Name</Label>
+                        <Input
+                          id="edit-partner-name"
+                          value={selectedParticipant.partnerName || ''}
+                          onChange={(e) => setSelectedParticipant({
+                            ...selectedParticipant,
+                            partnerName: e.target.value
+                          })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-partner-phone">Partner Phone</Label>
+                        <Input
+                          id="edit-partner-phone"
+                          value={selectedParticipant.partnerPhone || ''}
+                          onChange={(e) => setSelectedParticipant({
+                            ...selectedParticipant,
+                            partnerPhone: e.target.value
+                          })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-2 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditDrawerOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (selectedParticipant) {
+                        try {
+                          // Filter out undefined values before updating
+                          const updateData = Object.fromEntries(
+                            Object.entries(selectedParticipant).filter(([_, value]) => value !== undefined)
+                          );
+                          
+                          await updateDoc(doc(db, 'tournaments', tournamentId, 'registrations', selectedParticipant.id), {
+                            ...updateData,
+                            updatedAt: new Date()
+                          });
+                          
+                          // Update local state
+                          setParticipants(prev => 
+                            prev.map(p => p.id === selectedParticipant.id ? selectedParticipant : p)
+                          );
+                          
+                          setEditDrawerOpen(false);
+                        } catch (error) {
+                          console.error('Error updating registration:', error);
+                        }
+                      }
+                    }}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DrawerContent>
+        </Drawer>
+        
+        {AlertDialogComponent}
       </div>
     </AdminLayout>
   );

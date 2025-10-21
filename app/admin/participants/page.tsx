@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Registration, Player } from '@/types';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { Search, Users, CheckCircle, XCircle, Clock, Download, Filter, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -21,6 +22,7 @@ import * as XLSX from 'xlsx';
 export default function ManageRegistrationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { alert, AlertDialogComponent } = useAlertDialog();
   const [registrations, setRegistrations] = useState<(Registration & { tournamentId: string; tournamentName: string })[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,7 +154,11 @@ export default function ManageRegistrationsPage() {
       }
     } catch (error) {
       console.error('Error updating participant status:', error);
-      alert('Failed to update participant status');
+      alert({
+        title: 'Error',
+        description: 'Failed to update participant status. Please try again.',
+        variant: 'error'
+      });
     }
   };
 
@@ -460,10 +466,18 @@ export default function ManageRegistrationsPage() {
       setSelectedImportTournament('');
       setImportStep('upload');
 
-      alert(`Import completed! ${successCount} registrations imported successfully. ${errorCount} failed.`);
+      alert({
+        title: 'Import Completed',
+        description: `${successCount} registrations imported successfully. ${errorCount} failed.`,
+        variant: successCount > 0 ? 'success' : 'warning'
+      });
     } catch (error) {
       console.error('Import error:', error);
-      alert('Import failed. Please try again.');
+      alert({
+        title: 'Import Failed',
+        description: 'Import failed. Please try again.',
+        variant: 'error'
+      });
     } finally {
       setImporting(false);
     }
@@ -1008,6 +1022,8 @@ export default function ManageRegistrationsPage() {
           </div>
         )}
       </div>
+      
+      {AlertDialogComponent}
     </AdminLayout>
   );
 }

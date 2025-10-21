@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
 import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +25,7 @@ import Link from 'next/link';
 export default function ManageTournamentsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { alert, AlertDialogComponent } = useAlertDialog();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
   const [tournamentStats, setTournamentStats] = useState<{[key: string]: {registrations: number, players: number}}>({});
@@ -193,7 +195,11 @@ export default function ManageTournamentsPage() {
       loadTournaments();
     } catch (error) {
       console.error('Error saving tournament:', error);
-      alert('Failed to save tournament');
+      alert({
+        title: 'Error',
+        description: 'Failed to save tournament. Please try again.',
+        variant: 'error'
+      });
     }
   };
 
@@ -222,7 +228,11 @@ export default function ManageTournamentsPage() {
 
   const copyRegistrationLink = (link: string) => {
     navigator.clipboard.writeText(link);
-    alert('Registration link copied to clipboard!');
+    alert({
+      title: 'Success',
+      description: 'Registration link copied to clipboard!',
+      variant: 'success'
+    });
   };
 
   const resetForm = () => {
@@ -765,6 +775,8 @@ export default function ManageTournamentsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {AlertDialogComponent}
     </AdminLayout>
   );
 }
