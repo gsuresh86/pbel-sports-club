@@ -59,11 +59,17 @@ export default function TournamentDetailsPage() {
   
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<Registration[]>([]);
+  const [filteredParticipants, setFilteredParticipants] = useState<Registration[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [dialogOpen, setDialogOpen] = useState(false);
+  
+  // Filter states
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
     name: '',
     sport: 'badminton' as SportType,
@@ -98,6 +104,25 @@ export default function TournamentDetailsPage() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  // Filter participants based on selected filters
+  useEffect(() => {
+    let filtered = participants;
+
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(p => p.selectedCategory === categoryFilter);
+    }
+
+    if (levelFilter !== 'all') {
+      filtered = filtered.filter(p => p.expertiseLevel === levelFilter);
+    }
+
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter(p => p.gender === genderFilter);
+    }
+
+    setFilteredParticipants(filtered);
+  }, [participants, categoryFilter, levelFilter, genderFilter]);
 
   const loadTournamentData = async () => {
     try {
@@ -332,7 +357,7 @@ export default function TournamentDetailsPage() {
   const exportParticipants = () => {
     const csvContent = [
       ['Name', 'Email', 'Phone', 'Age', 'Gender', 'Tower', 'Flat Number', 'Level', 'Category', 'Status', 'Payment Status', 'Registration Date', 'Partner Name', 'Partner Phone'].join(','),
-      ...participants.map(p => [
+      ...filteredParticipants.map(p => [
         p.name,
         p.email,
         p.phone,
@@ -644,7 +669,7 @@ export default function TournamentDetailsPage() {
           <TabsContent value="participants" className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-semibold">Registrations ({totalParticipants})</h3>
+                <h3 className="text-lg font-semibold">Registrations ({filteredParticipants.length})</h3>
                 <p className="text-sm text-gray-600">Manage tournament registrations</p>
               </div>
               <Button onClick={exportParticipants}>
@@ -652,6 +677,95 @@ export default function TournamentDetailsPage() {
                 Export CSV
               </Button>
             </div>
+
+            {/* Filter Controls */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Filter Registrations</CardTitle>
+                <CardDescription>Filter registrations by category, level, and gender</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Category Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="category-filter">Category</Label>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {tournament?.categories?.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category === 'girls-under-13' ? 'Girls Under 13' :
+                             category === 'boys-under-13' ? 'Boys Under 13' :
+                             category === 'girls-under-18' ? 'Girls Under 18' :
+                             category === 'boys-under-18' ? 'Boys Under 18' :
+                             category === 'mens-single' ? 'Mens Single' :
+                             category === 'womens-single' ? 'Womens Single' :
+                             category === 'mens-doubles' ? 'Mens Doubles' :
+                             category === 'mixed-doubles' ? 'Mixed Doubles' :
+                             category === 'mens-team' ? 'Mens Team' :
+                             category === 'womens-team' ? 'Womens Team' :
+                             category === 'kids-team-u13' ? 'Kids Team (U13)' :
+                             category === 'kids-team-u18' ? 'Kids Team (U18)' :
+                             category === 'open-team' ? 'Open Team' : category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Level Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="level-filter">Expertise Level</Label>
+                    <Select value={levelFilter} onValueChange={setLevelFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Levels</SelectItem>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="expert">Expert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Gender Filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="gender-filter">Gender</Label>
+                    <Select value={genderFilter} onValueChange={setGenderFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Genders</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Clear Filters Button */}
+                <div className="mt-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setCategoryFilter('all');
+                      setLevelFilter('all');
+                      setGenderFilter('all');
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardContent className="p-0">
@@ -673,7 +787,7 @@ export default function TournamentDetailsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(participants || []).map((participant) => (
+                      {(filteredParticipants || []).map((participant) => (
                         <TableRow key={participant.id}>
                           <TableCell className="font-medium">{participant.name}</TableCell>
                           <TableCell>{participant.email}</TableCell>
@@ -720,11 +834,18 @@ export default function TournamentDetailsPage() {
                   </Table>
                 </div>
 
-                {(participants || []).length === 0 && (
+                {(filteredParticipants || []).length === 0 && (
                   <div className="text-center py-8">
                     <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations yet</h3>
-                    <p className="text-gray-600">Registrations will appear here once users register for this tournament.</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      {participants.length === 0 ? 'No registrations yet' : 'No registrations match the current filters'}
+                    </h3>
+                    <p className="text-gray-600">
+                      {participants.length === 0 
+                        ? 'Registrations will appear here once users register for this tournament.'
+                        : 'Try adjusting your filter criteria to see more results.'
+                      }
+                    </p>
                   </div>
                 )}
               </CardContent>
