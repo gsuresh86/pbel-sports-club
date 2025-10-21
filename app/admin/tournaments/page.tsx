@@ -601,7 +601,7 @@ export default function ManageTournamentsPage() {
                   {[
                     'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
                     'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles',
-                    'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18'
+                    'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'
                   ].map((category) => (
                     <div key={category} className="flex items-center space-x-2">
                       <Checkbox

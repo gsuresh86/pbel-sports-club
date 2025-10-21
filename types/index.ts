@@ -14,7 +14,7 @@ export interface User {
 
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball' | 'throw-ball';
 export type TournamentType = 'individual' | 'team';
-export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'mixed-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18';
+export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'mixed-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18' | 'open-team';
 
 export interface Tournament {
   id: string;

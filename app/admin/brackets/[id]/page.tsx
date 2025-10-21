@@ -157,6 +157,7 @@ export default function BracketDetailPage() {
       'womens-team': 'Womens Team',
       'kids-team-u13': 'Kids Team (U13)',
       'kids-team-u18': 'Kids Team (U18)',
+      'open-team': 'Open Team',
     };
     return categoryMap[category] || category;
   };

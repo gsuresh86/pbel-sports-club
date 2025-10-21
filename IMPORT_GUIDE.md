@@ -64,6 +64,7 @@ Name,Email,Phone,Age,Gender,Tower,Flat Number,Emergency Contact,Expertise Level,
 John Doe,john@example.com,9876543210,25,male,A,101,9876543211,intermediate,mens-single,,,,PAY123456,qr_code,500
 Jane Smith,jane@example.com,9876543212,23,female,B,202,9876543213,advanced,womens-single,,,,PAY123457,cash,500
 Mike Johnson,mike@example.com,9876543214,28,male,C,303,9876543215,expert,mens-doubles,Tom Wilson,9876543216,,PAY123458,bank_transfer,1000
+Sarah Davis,sarah@example.com,9876543217,25,female,D,404,9876543218,intermediate,open-team,,,,PAY123459,cash,500
 ```
 
 ## Validation Rules

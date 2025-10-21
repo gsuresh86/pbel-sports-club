@@ -413,7 +413,8 @@ export default function TournamentRegistrationPage() {
                              category === 'mens-team' ? 'Mens Team' :
                              category === 'womens-team' ? 'Womens Team' :
                              category === 'kids-team-u13' ? 'Kids Team (U13)' :
-                             category === 'kids-team-u18' ? 'Kids Team (U18)' : category}
+                             category === 'kids-team-u18' ? 'Kids Team (U18)' :
+                             category === 'open-team' ? 'Open Team' : category}
                           </SelectItem>
                         ))}
                       </SelectContent>
