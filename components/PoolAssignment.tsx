@@ -31,6 +31,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | ''>('');
   const [selectedPool, setSelectedPool] = useState<string>('');
+  const [playerPoolSelections, setPlayerPoolSelections] = useState<Record<string, string>>({});
+  const [teamPoolSelections, setTeamPoolSelections] = useState<Record<string, string>>({});
   
   // Edit pool state
   const [editPoolOpen, setEditPoolOpen] = useState(false);
@@ -135,8 +137,29 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Refresh data
-      await loadData();
+      // Update local state immediately instead of reloading
+      setPools(prevPools => 
+        prevPools.map(p => 
+          p.id === poolId 
+            ? { ...p, teams: updatedTeams, updatedAt: new Date() }
+            : p
+        )
+      );
+
+      setTeams(prevTeams =>
+        prevTeams.map(t =>
+          t.id === teamId
+            ? { ...t, poolId: poolId, updatedAt: new Date() }
+            : t
+        )
+      );
+
+      // Clear the selection for this team
+      setTeamPoolSelections(prev => {
+        const newSelections = { ...prev };
+        delete newSelections[teamId];
+        return newSelections;
+      });
     } catch (error) {
       console.error('Error assigning team to pool:', error);
     }
@@ -164,8 +187,21 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Refresh data
-      await loadData();
+      // Update local state immediately instead of reloading
+      setPools(prevPools => 
+        prevPools.map(p => 
+          p.id === poolId 
+            ? { ...p, teams: updatedPlayers, updatedAt: new Date() }
+            : p
+        )
+      );
+
+      // Clear the selection for this player
+      setPlayerPoolSelections(prev => {
+        const newSelections = { ...prev };
+        delete newSelections[playerId];
+        return newSelections;
+      });
     } catch (error) {
       console.error('Error assigning player to pool:', error);
     }
@@ -183,8 +219,14 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Refresh data
-      await loadData();
+      // Update local state immediately instead of reloading
+      setPools(prevPools => 
+        prevPools.map(p => 
+          p.id === poolId 
+            ? { ...p, teams: updatedPlayers, updatedAt: new Date() }
+            : p
+        )
+      );
     } catch (error) {
       console.error('Error removing player from pool:', error);
     }
@@ -204,12 +246,26 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
       // Remove pool reference from team
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
-        poolId: null,
+        poolId: undefined,
         updatedAt: new Date(),
       });
 
-      // Refresh data
-      await loadData();
+      // Update local state immediately instead of reloading
+      setPools(prevPools => 
+        prevPools.map(p => 
+          p.id === poolId 
+            ? { ...p, teams: updatedTeams, updatedAt: new Date() }
+            : p
+        )
+      );
+
+      setTeams(prevTeams =>
+        prevTeams.map(t =>
+          t.id === teamId
+            ? { ...t, poolId: undefined, updatedAt: new Date() }
+            : t
+        )
+      );
     } catch (error) {
       console.error('Error removing team from pool:', error);
     }
@@ -306,7 +362,15 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      await loadData();
+      // Update local state immediately instead of reloading
+      setPools(prevPools => 
+        prevPools.map(p => 
+          p.id === poolId 
+            ? { ...p, name: editingPoolNameValue.trim(), updatedAt: new Date() }
+            : p
+        )
+      );
+
       setEditingPoolName(null);
       setEditingPoolNameValue('');
     } catch (error) {
@@ -538,7 +602,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             <div className="text-sm text-gray-600">{team.players.length} players</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Select value={selectedPool} onValueChange={setSelectedPool}>
+                            <Select value={teamPoolSelections[team.id] || ''} onValueChange={(value) => setTeamPoolSelections(prev => ({ ...prev, [team.id]: value }))}>
                               <SelectTrigger className="w-32">
                                 <SelectValue placeholder="Pool" />
                               </SelectTrigger>
@@ -552,8 +616,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             </Select>
                             <Button 
                               size="sm"
-                              onClick={() => assignTeamToPool(team.id, selectedPool)}
-                              disabled={!selectedPool}
+                              onClick={() => assignTeamToPool(team.id, teamPoolSelections[team.id])}
+                              disabled={!teamPoolSelections[team.id]}
                             >
                               Assign
                             </Button>
@@ -568,7 +632,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             <div className="text-sm text-gray-600">{player.expertiseLevel}</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Select value={selectedPool} onValueChange={setSelectedPool}>
+                            <Select value={playerPoolSelections[player.id] || ''} onValueChange={(value) => setPlayerPoolSelections(prev => ({ ...prev, [player.id]: value }))}>
                               <SelectTrigger className="w-32">
                                 <SelectValue placeholder="Pool" />
                               </SelectTrigger>
@@ -582,8 +646,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             </Select>
                             <Button 
                               size="sm"
-                              onClick={() => assignPlayerToPool(player.id, selectedPool)}
-                              disabled={!selectedPool}
+                              onClick={() => assignPlayerToPool(player.id, playerPoolSelections[player.id])}
+                              disabled={!playerPoolSelections[player.id]}
                             >
                               Assign
                             </Button>

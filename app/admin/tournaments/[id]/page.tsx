@@ -1107,28 +1107,16 @@ export default function TournamentDetailsPage() {
 
           {/* Teams Tab */}
           <TabsContent value="teams" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Team Management</h3>
-              <p className="text-sm text-gray-600">Create and manage teams for this tournament</p>
-            </div>
             <TeamManagement tournament={tournament} user={user!} />
           </TabsContent>
 
           {/* Spin Wheel Tab */}
           <TabsContent value="spin-wheel" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Player Assignment</h3>
-              <p className="text-sm text-gray-600">Assign players to teams using the spin wheel</p>
-            </div>
             <SpinWheel tournament={tournament} user={user!} />
           </TabsContent>
 
           {/* Pools Tab */}
           <TabsContent value="pools" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Pool Assignment</h3>
-              <p className="text-sm text-gray-600">Organize teams into pools/groups</p>
-            </div>
             <PoolAssignment tournament={tournament} user={user!} />
           </TabsContent>
         </Tabs>
