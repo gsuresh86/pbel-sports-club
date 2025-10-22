@@ -1,4 +1,4 @@
-# pbel play
+# Tournament Craft
 
 A comprehensive sports tournament management system built with Next.js 15, Firebase, and Tailwind CSS for managing badminton, table tennis, and volleyball tournaments.
 
@@ -183,7 +183,7 @@ This will create an admin user with email `admin@pbelcity.com` and password `adm
 
 ## Contributing
 
-This is a community project for pbel play. Feel free to contribute!
+This is a community project for Tournament Craft. Feel free to contribute!
 
 ## License
 

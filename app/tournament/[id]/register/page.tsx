@@ -594,7 +594,7 @@ export default function TournamentRegistrationPage() {
                         <div className="bg-green-50 p-4 rounded-lg">
                           <h4 className="font-medium text-green-900 mb-2">Bank Transfer Details</h4>
                           <div className="text-sm text-green-700 space-y-1">
-                            <p><strong>Account Name:</strong> pbel play</p>
+                            <p><strong>Account Name:</strong> Tournament Craft</p>
                             <p><strong>Account Number:</strong> 1234567890</p>
                             <p><strong>IFSC Code:</strong> SBIN0001234</p>
                             <p><strong>Amount:</strong> ₹{tournament.entryFee}</p>

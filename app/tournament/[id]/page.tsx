@@ -682,7 +682,7 @@ export default function TournamentDetailPage() {
                                           <p className="font-medium text-sm">{player?.name || `Player ${index + 1}`}</p>
                                           {player && (
                                             <p className="text-xs text-gray-500">
-                                              {player.expertiseLevel} • {player.selectedCategory}
+                                              {player.selectedCategory}
                                             </p>
                                           )}
                                         </div>

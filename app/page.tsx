@@ -97,7 +97,7 @@ export default function Home() {
               </Badge>
             </div>
             <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
-              PBEL City Sports
+              Tournament Craft
             </h1>
             <h2 className="text-3xl md:text-4xl font-semibold mb-8 text-blue-100 drop-shadow-lg">
               Tournament Management System
