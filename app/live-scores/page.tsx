@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { PublicLayout } from '@/components/PublicLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -115,18 +116,21 @@ export default function LiveScoresPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading live scores...</p>
+      <PublicLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+            <p className="mt-4 text-gray-600">Loading live scores...</p>
+          </div>
         </div>
-      </div>
+      </PublicLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <PublicLayout>
+      <div className="backdrop-blur-sm py-8 px-4">
+        <div className="max-w-7xl mx-auto bg-white/90">
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-3">
@@ -305,7 +309,8 @@ export default function LiveScoresPage() {
             Auto-refreshing every 30 seconds
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </PublicLayout>
   );
 }

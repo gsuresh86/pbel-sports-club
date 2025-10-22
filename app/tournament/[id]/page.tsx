@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { PublicLayout } from '@/components/PublicLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tournament, Match, Registration } from '@/types';
-import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck } from 'lucide-react';
+import { Tournament, Match, Registration, Team, Pool } from '@/types';
+import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck, Shield, Users2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -20,15 +21,19 @@ export default function TournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [participants, setParticipants] = useState<Registration[]>([]);
-  const [tournamentStats, setTournamentStats] = useState<{registrations: number, players: number}>({registrations: 0, players: 0});
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [pools, setPools] = useState<Pool[]>([]);
+  const [tournamentStats, setTournamentStats] = useState<{registrations: number, players: number, teams: number, pools: number}>({registrations: 0, players: 0, teams: 0, pools: 0});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'registrations'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
 
   useEffect(() => {
     if (tournamentId) {
       loadTournament();
       loadMatches();
       loadParticipants();
+      loadTeams();
+      loadPools();
       loadTournamentStats();
     }
   }, [tournamentId]);
@@ -81,7 +86,6 @@ export default function TournamentDetailPage() {
     try {
       const q = query(
         collection(db, 'tournaments', tournamentId, 'registrations'), 
-        where('registrationStatus', '==', 'approved'),
         orderBy('registeredAt', 'desc')
       );
       const snapshot = await getDocs(q);
@@ -92,6 +96,7 @@ export default function TournamentDetailPage() {
         approvedAt: doc.data().approvedAt?.toDate(),
       })) as Registration[];
       setParticipants(participantsData);
+      console.log('Debug - Loaded participants:', participantsData.length, participantsData);
     } catch (error) {
       console.error('Error loading participants:', error);
     } finally {
@@ -99,24 +104,75 @@ export default function TournamentDetailPage() {
     }
   };
 
+  const loadTeams = async () => {
+    try {
+      const q = query(
+        collection(db, 'tournaments', tournamentId, 'teams'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const teamsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+      })) as Team[];
+      setTeams(teamsData);
+    } catch (error) {
+      console.error('Error loading teams:', error);
+    }
+  };
+
+  const loadPools = async () => {
+    try {
+      const q = query(
+        collection(db, 'tournaments', tournamentId, 'pools'),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      const poolsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+      })) as Pool[];
+      setPools(poolsData);
+      console.log('Debug - Loaded pools:', poolsData.length, poolsData);
+    } catch (error) {
+      console.error('Error loading pools:', error);
+    }
+  };
+
   const loadTournamentStats = async () => {
     try {
-      // Get registrations count
       const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'registrations'));
       const registrationsCount = registrationsSnapshot.docs.length;
       
-      // Get players count
       const playersSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'players'));
       const playersCount = playersSnapshot.docs.length;
       
       setTournamentStats({
         registrations: registrationsCount,
-        players: playersCount
+        players: playersCount,
+        teams: 0,
+        pools: 0
       });
     } catch (error) {
       console.error('Error loading tournament stats:', error);
     }
   };
+
+  const updateStats = () => {
+    setTournamentStats(prev => ({
+      ...prev,
+      teams: teams.length,
+      pools: pools.length
+    }));
+  };
+
+  useEffect(() => {
+    updateStats();
+  }, [teams, pools]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -169,17 +225,20 @@ export default function TournamentDetailPage() {
 
   if (loading) {
     return (
+      <PublicLayout>
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
           <p className="mt-4 text-gray-600">Loading tournament details...</p>
         </div>
       </div>
+      </PublicLayout>
     );
   }
 
   if (!tournament) {
     return (
+      <PublicLayout>
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Tournament Not Found</h1>
@@ -188,11 +247,13 @@ export default function TournamentDetailPage() {
           </Link>
         </div>
       </div>
+      </PublicLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PublicLayout>
+      <div className="backdrop-blur-sm">
       {/* Tournament Banner */}
       <div className="relative h-64 w-full overflow-hidden">
         <img
@@ -200,7 +261,7 @@ export default function TournamentDetailPage() {
           alt={`${tournament.name} tournament banner`}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+          <div className="absolute inset-0 bg-opacity-40 flex items-center justify-center">
           <div className="text-center text-white">
             <h1 className="text-4xl font-bold mb-2">{tournament.name}</h1>
             <p className="text-xl capitalize">{tournament.sport} Tournament</p>
@@ -211,7 +272,7 @@ export default function TournamentDetailPage() {
       <div className="py-8 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Tournament Header */}
-          <Card className="mb-8">
+            <Card className="mb-8 bg-white/90">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
@@ -249,7 +310,6 @@ export default function TournamentDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-semibold mb-3">Tournament Information</h3>
                 <div className="space-y-2 text-sm">
@@ -259,80 +319,10 @@ export default function TournamentDetailPage() {
                   <p><strong>Registration Deadline:</strong> {new Date(tournament.registrationDeadline).toLocaleDateString()}</p>
                   {tournament.entryFee && <p><strong>Entry Fee:</strong> ₹{tournament.entryFee}</p>}
                   {tournament.prizePool && <p><strong>Prize Pool:</strong> ₹{tournament.prizePool}</p>}
-                  <p><strong>Registrations:</strong> {tournamentStats.registrations}</p>
-                  <p><strong>Players:</strong> {tournamentStats.players}</p>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold mb-3">Quick Actions</h3>
-                <div className="space-y-2">
-                  {isRegistrationOpen() && (
-                    <Link href={`/tournament/${tournament.id}/register`}>
-                      <Button className="w-full">
-                        Register Now
-                      </Button>
-                    </Link>
-                  )}
-                  <Link href={`/tournament/${tournament.id}/matches`}>
-                    <Button variant="outline" className="w-full">
-                      <Target className="h-4 w-4 mr-2" />
-                      View Matches
-                    </Button>
-                  </Link>
-                  <Link href={`/tournament/${tournament.id}/participants`}>
-                    <Button variant="outline" className="w-full">
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      View Participants
-                    </Button>
-                  </Link>
-                </div>
-
-                {/* Bracket Links */}
-                {tournament.categories && tournament.categories.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="font-semibold mb-3">Tournament Brackets</h3>
-                    <div className="space-y-2">
-                      {tournament.categories.map((category) => (
-                        <Link key={category} href={`/tournament/${tournament.id}/bracket/${category}`}>
-                          <Button variant="outline" className="w-full text-sm">
-                            <Trophy className="h-4 w-4 mr-1" />
-                            {category === 'girls-under-13' ? 'Girls Under 13' :
-                             category === 'boys-under-13' ? 'Boys Under 13' :
-                             category === 'girls-under-18' ? 'Girls Under 18' :
-                             category === 'boys-under-18' ? 'Boys Under 18' :
-                             category === 'mens-single' ? 'Mens Single' :
-                             category === 'womens-single' ? 'Womens Single' :
-                             category === 'mens-doubles' ? 'Mens Doubles' :
-                             category === 'mixed-doubles' ? 'Mixed Doubles' :
-                             category === 'mens-team' ? 'Mens Team' :
-                             category === 'womens-team' ? 'Womens Team' :
-                             category === 'kids-team-u13' ? 'Kids Team (U13)' :
-                             category === 'kids-team-u18' ? 'Kids Team (U18)' :
-                             category === 'open-team' ? 'Open Team' : category}
-                          </Button>
-                        </Link>
-                      ))}
-                    </div>
+                    <p><strong>Teams:</strong> {tournamentStats.teams}</p>
+                    <p><strong>Pools:</strong> {tournamentStats.pools}</p>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {tournament.description && (
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3">Description</h3>
-                <p className="text-gray-700">{tournament.description}</p>
-              </div>
-            )}
-
-            {tournament.rules && (
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3">Rules & Regulations</h3>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-700 whitespace-pre-line">{tournament.rules}</p>
                 </div>
-              </div>
-            )}
           </CardContent>
         </Card>
 
@@ -360,14 +350,24 @@ export default function TournamentDetailPage() {
               Matches ({matches.length})
             </button>
             <button
-              onClick={() => setActiveTab('registrations')}
+                  onClick={() => setActiveTab('teams')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'teams'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Teams ({teams.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('pools')}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'registrations'
+                    activeTab === 'pools'
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              Registrations ({participants.length})
+                  Pools ({pools.length})
             </button>
           </div>
         </div>
@@ -375,7 +375,7 @@ export default function TournamentDetailPage() {
         {/* Tab Content */}
         {activeTab === 'overview' && (
           <div className="grid md:grid-cols-2 gap-6">
-            <Card>
+                <Card className="bg-white/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
@@ -396,6 +396,14 @@ export default function TournamentDetailPage() {
                     <span>Live Matches:</span>
                     <span className="font-semibold text-green-600">{matches.filter(m => m.status === 'live').length}</span>
                   </div>
+                      <div className="flex justify-between">
+                        <span>Teams:</span>
+                        <span className="font-semibold">{teams.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pools:</span>
+                        <span className="font-semibold">{pools.length}</span>
+                      </div>
                   <div className="flex justify-between">
                     <span>Registered Participants:</span>
                     <span className="font-semibold">{participants.length}</span>
@@ -404,7 +412,7 @@ export default function TournamentDetailPage() {
               </CardContent>
             </Card>
 
-            <Card>
+                <Card className="bg-white/90">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
@@ -435,7 +443,7 @@ export default function TournamentDetailPage() {
         )}
 
         {activeTab === 'matches' && (
-          <Card>
+              <Card className="bg-white/90">
             <CardHeader>
               <CardTitle>All Matches</CardTitle>
               <CardDescription>Tournament match schedule and results</CardDescription>
@@ -522,67 +530,196 @@ export default function TournamentDetailPage() {
           </Card>
         )}
 
-        {activeTab === 'registrations' && (
-          <Card>
+            {activeTab === 'teams' && (
+              <Card className="bg-white/90">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Teams
+                  </CardTitle>
+                  <CardDescription>Tournament teams and their players</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {teams.map((team) => (
+                      <Card key={team.id} className="bg-white">
             <CardHeader>
-              <CardTitle>Registrations</CardTitle>
-              <CardDescription>Registered tournament participants</CardDescription>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-lg">{team.name}</CardTitle>
+                              <CardDescription className="capitalize">
+                                {team.category.replace(/-/g, ' ')} • {team.status}
+                              </CardDescription>
+                            </div>
+                            <Badge variant="outline" className="capitalize">
+                              {team.category.replace(/-/g, ' ')}
+                            </Badge>
+                          </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead>Tower/Flat</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Registration Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                  <TableBody>
-                    {participants.map((participant) => (
-                      <TableRow key={participant.id}>
-                        <TableCell className="font-medium">{participant.name}</TableCell>
-                        <TableCell>{participant.age}</TableCell>
-                        <TableCell className="capitalize">{participant.gender}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p><strong>Tower {participant.tower}</strong></p>
-                            <p className="text-gray-500">Flat {participant.flatNumber}</p>
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-medium text-sm text-gray-700 mb-2">Team Players:</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {team.players.map((playerId, index) => {
+                                  const player = participants.find(p => p.id === playerId);
+                                  return (
+                                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-sm">{player?.name || `Player ${index + 1}`}</p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            {team.captainId && (
+                              <div className="pt-2 border-t">
+                                <p className="text-sm text-gray-600">
+                                  <strong>Captain:</strong> {participants.find(p => p.id === team.captainId)?.name || 'Unknown'}
+                                </p>
+                              </div>
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {participant.expertiseLevel}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="capitalize">
-                            {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
-                      </TableRow>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    
+                    {teams.length === 0 && (
+                      <div className="text-center py-8">
+                        <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No teams created yet</h3>
+                        <p className="text-gray-600">Teams will appear here once they are created by tournament organizers</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              {participants.length === 0 && (
+            {activeTab === 'pools' && (
+              <Card className="bg-white/90">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users2 className="h-5 w-5" />
+                    Pools
+                  </CardTitle>
+                  <CardDescription>Tournament pools and group standings</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {pools.map((pool) => (
+                      <Card key={pool.id} className="bg-white">
+                        <CardHeader>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <CardTitle className="text-lg">{pool.name}</CardTitle>
+                              <CardDescription className="capitalize">
+                                {pool.category.replace(/-/g, ' ')} • Max {pool.maxTeams} {(() => {
+                                  const isKidsCategory = pool.category.includes('under-13') || pool.category.includes('under-18');
+                                  const isTeamCategory = (pool.category.includes('team') || pool.category.includes('doubles')) && !isKidsCategory;
+                                  return isTeamCategory ? 'teams' : 'players';
+                                })()}
+                              </CardDescription>
+                            </div>
+                          <Badge variant="secondary" className="capitalize">
+                              {pool.status}
+                          </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-medium text-sm text-gray-700 mb-2">
+                                {(() => {
+                                  const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18');
+                                  const isTeamCategory = (pool.category.includes('team') || pool.category.includes('doubles')) && !isKidsCategory;
+                                  return isTeamCategory ? 'Teams in Pool:' : 'Players in Pool:';
+                                })()}
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {pool.teams.map((itemId, index) => {
+                                  // Check if this is a team category or individual player category
+                                  // Kids categories should be treated as individual player categories
+                                  const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18');
+                                  const isTeamCategory = (pool.category.includes('team') || pool.category.includes('doubles')) && !isKidsCategory;
+                                  
+                                  console.log('Debug Pool:', pool.name, 'Category:', pool.category, 'IsKidsCategory:', isKidsCategory, 'IsTeamCategory:', isTeamCategory, 'ItemId:', itemId);
+                                  
+                                  if (isTeamCategory) {
+                                    // For team categories, show team information
+                                    const team = teams.find(t => t.id === itemId);
+                                   
+                                    console.log('Found team:', team);
+                                    return (
+                                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                          <span className="text-sm font-medium text-green-600">{index + 1}</span>
+                                        </div>
+                                        <div>
+                                          <p className="font-medium text-sm">{team?.name || `Team ${index + 1}`}</p>
+                                          {team && (
+                                            <p className="text-xs text-gray-500">
+                                              {team.players.length} players • {team.status}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  } else {
+                                    // For individual player categories (including kids), show player information
+                                    const player = participants.find(p => p.id === itemId);
+                                    console.log('Found player:', player);
+                                    return (
+                                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                          <span className="text-sm font-medium text-blue-600">{index + 1}</span>
+                                        </div>
+                                        <div>
+                                          <p className="font-medium text-sm">{player?.name || `Player ${index + 1}`}</p>
+                                          {player && (
+                                            <p className="text-xs text-gray-500">
+                                              {player.expertiseLevel} • {player.selectedCategory}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                })}
+                              </div>
+                            </div>
+                            {pool.teams.length === 0 && (
+                              <p className="text-sm text-gray-500 italic">
+                                No {(() => {
+                                  const isKidsCategory = pool.category.includes('under-13') || pool.category.includes('under-18');
+                                  const isTeamCategory = (pool.category.includes('team') || pool.category.includes('doubles')) && !isKidsCategory;
+                                  return isTeamCategory ? 'teams' : 'players';
+                                })()} assigned to this pool yet
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    
+                    {pools.length === 0 && (
                 <div className="text-center py-8">
-                  <UserCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations yet</h3>
-                  <p className="text-gray-600">Registrations will appear here once users register</p>
+                        <Users2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No pools created yet</h3>
+                        <p className="text-gray-600">Pools will appear here once they are created by tournament organizers</p>
                 </div>
               )}
+                  </div>
             </CardContent>
           </Card>
         )}
         </div>
       </div>
     </div>
+    </PublicLayout>
   );
 }

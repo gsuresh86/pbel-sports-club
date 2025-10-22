@@ -10,8 +10,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "PBEL City Sports Association",
-  description: "Sports tournament management system for PBEL City",
+  title: "pbel play",
+  description: "Sports tournament management system for pbel play",
 };
 
 export default function RootLayout({

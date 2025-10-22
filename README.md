@@ -1,6 +1,6 @@
-# PBEL City Sports Association Web App
+# pbel play
 
-A comprehensive sports tournament management system built with Next.js 15, Firebase, and Tailwind CSS for managing badminton, table tennis, and volleyball tournaments in PBEL City.
+A comprehensive sports tournament management system built with Next.js 15, Firebase, and Tailwind CSS for managing badminton, table tennis, and volleyball tournaments.
 
 ## Features
 
@@ -75,7 +75,7 @@ npm start
 ## Project Structure
 
 ```
-pbel-sports-club/
+pbel-play/
 ├── app/
 │   ├── admin/              # Admin dashboard pages
 │   │   ├── tournaments/    # Manage tournaments
@@ -183,7 +183,7 @@ This will create an admin user with email `admin@pbelcity.com` and password `adm
 
 ## Contributing
 
-This is a community project for PBEL City. Feel free to contribute!
+This is a community project for pbel play. Feel free to contribute!
 
 ## License
 

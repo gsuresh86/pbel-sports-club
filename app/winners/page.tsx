@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Navbar } from '@/components/Navbar';
+import { PublicLayout } from '@/components/PublicLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -83,19 +83,17 @@ export default function WinnersPage() {
 
   if (loading) {
     return (
-      <>
-        <Navbar />
+      <PublicLayout>
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-lg">Loading winners...</p>
         </div>
-      </>
+      </PublicLayout>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <main className="min-h-screen bg-gradient-to-b from-yellow-50 to-white py-12 px-4">
+    <PublicLayout>
+      <div className="bg-yellow-50/90 backdrop-blur-sm py-12 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold mb-4">🏆 Hall of Champions</h1>
@@ -167,7 +165,7 @@ export default function WinnersPage() {
             )}
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </PublicLayout>
   );
 }
