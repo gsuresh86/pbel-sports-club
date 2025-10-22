@@ -185,7 +185,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     // Simulate spinning animation for round
     const spinDuration = 3000; // 3 seconds for round
     const spinInterval = 100; // Update every 100ms
-    let currentResults: SpinResult[] = [];
 
     const spinIntervalId = setInterval(() => {
       // Show random selection of players during spinning

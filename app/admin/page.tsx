@@ -64,52 +64,58 @@ export default function AdminDashboard() {
         t.startDate <= now && now <= t.endDate
       );
 
-      // Fetch registrations from all tournaments
+      // Fetch registrations from all tournaments with error handling
       let totalRegistrations = 0;
       let pendingRegistrations = 0;
       let totalPlayers = 0;
+      const allRegistrations: Registration[] = [];
       
       for (const tournament of tournaments) {
-        // Get registrations
-        const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
-        const registrations = registrationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          registeredAt: doc.data().registeredAt?.toDate(),
-        })) as Registration[];
+        try {
+          // Get registrations
+          const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
+          const registrations = registrationsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            registeredAt: doc.data().registeredAt?.toDate(),
+          })) as Registration[];
+          
+          totalRegistrations += registrations.length;
+          pendingRegistrations += registrations.filter(r => r.registrationStatus === 'pending').length;
+          allRegistrations.push(...registrations);
+        } catch (error) {
+          console.warn(`Error fetching registrations for tournament ${tournament.id}:`, error);
+        }
         
-        totalRegistrations += registrations.length;
-        pendingRegistrations += registrations.filter(r => r.registrationStatus === 'pending').length;
-        
-        // Get players
-        const playersSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'players'));
-        totalPlayers += playersSnapshot.docs.length;
+        try {
+          // Get players
+          const playersSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'players'));
+          totalPlayers += playersSnapshot.docs.length;
+        } catch (error) {
+          console.warn(`Error fetching players for tournament ${tournament.id}:`, error);
+        }
       }
 
-      // Fetch matches
-      const matchesSnapshot = await getDocs(collection(db, 'matches'));
-      const matches = matchesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        scheduledTime: doc.data().scheduledTime?.toDate(),
-        createdAt: doc.data().createdAt?.toDate(),
-      })) as DashboardMatch[];
+      // Fetch matches with error handling
+      let liveMatches = 0;
+      let completedMatches = 0;
+      
+      try {
+        const matchesSnapshot = await getDocs(collection(db, 'matches'));
+        const matches = matchesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          scheduledTime: doc.data().scheduledTime?.toDate(),
+          createdAt: doc.data().createdAt?.toDate(),
+        })) as DashboardMatch[];
 
-      const liveMatches = matches.filter(m => m.status === 'live').length;
-      const completedMatches = matches.filter(m => m.status === 'completed').length;
+        liveMatches = matches.filter(m => m.status === 'live').length;
+        completedMatches = matches.filter(m => m.status === 'completed').length;
+      } catch (error) {
+        console.warn('Error fetching matches:', error);
+      }
 
       // Generate recent activity
-      const allRegistrations: Registration[] = [];
-      for (const tournament of tournaments) {
-        const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
-        const tournamentRegistrations = registrationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          registeredAt: doc.data().registeredAt?.toDate(),
-        })) as Registration[];
-        allRegistrations.push(...tournamentRegistrations);
-      }
-
       const recentActivity: RecentActivity[] = [
         ...tournaments.slice(0, 3).map(t => ({
           type: 'tournament' as const,
@@ -137,6 +143,17 @@ export default function AdminDashboard() {
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      // Set default stats if there's an error
+      setStats({
+        totalTournaments: 0,
+        activeTournaments: 0,
+        totalRegistrations: 0,
+        pendingRegistrations: 0,
+        totalPlayers: 0,
+        liveMatches: 0,
+        completedMatches: 0,
+        recentActivity: []
+      });
     } finally {
       setLoadingStats(false);
     }
