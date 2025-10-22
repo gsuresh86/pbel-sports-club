@@ -88,35 +88,71 @@ export default function Home() {
 
   return (
     <>
-      <Navbar />
-      <main className="min-h-screen bg-gray-50">
-        {/* Hero Section */}
-        <section className="relative py-24 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-          <div className="absolute inset-0 bg-black/20"></div>
-          <div className="relative max-w-7xl mx-auto text-center text-white">
+      <Navbar hideAuth={true} />
+      <main className="min-h-screen">
+        {/* Hero Section with Sports Background */}
+        <section className="relative pt-24 pb-24 px-4 min-h-screen flex items-center justify-center overflow-hidden">
+          {/* Sports Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `
+                linear-gradient(135deg, rgba(15, 23, 42, 0.6), rgba(30, 58, 138, 0.5), rgba(15, 23, 42, 0.6)),
+                url('/images/sports-background.png')
+              `
+            }}
+          >
+            {/* Subtle Sports Pattern Overlay */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-10 left-10 text-6xl text-white/20">🏸</div>
+              <div className="absolute top-20 right-20 text-5xl text-white/20">🏓</div>
+              <div className="absolute top-40 left-1/4 text-4xl text-white/20">🏐</div>
+              <div className="absolute top-60 right-1/3 text-5xl text-white/20">🏆</div>
+              <div className="absolute bottom-40 left-20 text-4xl text-white/20">⚡</div>
+              <div className="absolute bottom-20 right-10 text-6xl text-white/20">🏸</div>
+              <div className="absolute bottom-60 left-1/2 text-5xl text-white/20">🏓</div>
+              <div className="absolute top-1/2 left-10 text-4xl text-white/20">🏐</div>
+              <div className="absolute top-1/3 right-1/4 text-5xl text-white/20">🏆</div>
+              <div className="absolute top-1/4 right-1/2 text-5xl text-white/20">🏅</div>
+              <div className="absolute bottom-1/3 left-1/3 text-4xl text-white/20">🎯</div>
+            </div>
+            
+            {/* Futuristic Animated Elements */}
+            <div className="absolute inset-0">
+              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-blue-500/10 rounded-full animate-pulse shadow-lg shadow-blue-500/20"></div>
+              <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-green-400/10 rounded-full animate-pulse delay-1000 shadow-lg shadow-green-400/20"></div>
+              <div className="absolute bottom-1/4 left-1/3 w-20 h-20 bg-orange-400/10 rounded-full animate-pulse delay-2000 shadow-lg shadow-orange-400/20"></div>
+              <div className="absolute top-1/3 right-1/3 w-16 h-16 bg-purple-400/10 rounded-full animate-pulse delay-3000 shadow-lg shadow-purple-400/20"></div>
+            </div>
+            
+            {/* Additional Gradient Overlay for better text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/30"></div>
+          </div>
+          
+          <div className="relative max-w-7xl mx-auto text-center text-white z-10">
             <div className="mb-8">
-              <Badge variant="secondary" className="bg-blue-600/20 text-blue-200 border-blue-400/30 mb-6 px-6 py-2 text-lg">
+              <Badge variant="secondary" className="bg-blue-600/30 text-blue-100 border-blue-400/50 mb-6 px-8 py-3 text-lg backdrop-blur-sm">
                 Professional Tournament Management
               </Badge>
             </div>
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 text-white">
+            <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
               PBEL City Sports
             </h1>
-            <h2 className="text-2xl md:text-3xl font-semibold mb-8 text-blue-200">
+            <h2 className="text-3xl md:text-4xl font-semibold mb-8 text-blue-100 drop-shadow-lg">
               Tournament Management System
             </h2>
-            <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-4xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed drop-shadow-md">
               Professional-grade tournament management platform for competitive sports. 
               Advanced bracket systems, live scoring, and comprehensive analytics for serious athletes and organizers.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link href="/tournaments">
-                <Button size="lg" className="text-lg px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                <Button size="lg" className="text-lg px-12 py-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105">
                   View Active Tournaments
                 </Button>
               </Link>
               <Link href="/register">
-                <Button size="lg" variant="outline" className="text-lg px-10 py-4 border-2 border-white text-white hover:bg-white hover:text-slate-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                <Button size="lg" variant="outline" className="text-lg px-12 py-5 border-2 border-white text-white hover:bg-white hover:text-slate-900 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
                   Register for Tournament
                 </Button>
               </Link>
@@ -125,19 +161,19 @@ export default function Home() {
         </section>
 
         {/* Stats Section */}
-        <section className="py-20 px-4 bg-white">
+        <section className="py-24 px-4 bg-gradient-to-b from-white to-gray-50">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Tournament Statistics</h2>
+            <div className="text-center mb-20">
+              <h2 className="text-5xl font-bold text-gray-900 mb-6">Tournament Statistics</h2>
               <p className="text-xl text-gray-600">Professional sports management at scale</p>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {stats.map((stat, index) => (
-                <div key={index} className="text-center group">
-                  <div className="text-4xl md:text-5xl font-bold text-blue-600 mb-2 group-hover:scale-105 transition-transform duration-300">
+                <div key={index} className="text-center group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
+                  <div className="text-5xl md:text-6xl font-bold text-blue-600 mb-4 group-hover:scale-110 transition-transform duration-300">
                     {stat.number}
                   </div>
-                  <div className="text-xl font-semibold text-gray-900 mb-1">{stat.label}</div>
+                  <div className="text-xl font-semibold text-gray-900 mb-2">{stat.label}</div>
                   <div className="text-gray-600">{stat.description}</div>
                 </div>
               ))}
@@ -146,29 +182,29 @@ export default function Home() {
         </section>
 
         {/* Sports Categories */}
-        <section className="py-24 px-4 bg-gray-50">
+        <section className="py-24 px-4 bg-gradient-to-b from-gray-50 to-white">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Professional Sports Leagues</h2>
+            <div className="text-center mb-20">
+              <h2 className="text-5xl font-bold text-gray-900 mb-6">Professional Sports Leagues</h2>
               <p className="text-xl text-gray-600">Competitive tournaments with advanced management systems</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-3 gap-10">
               {sports.map((sport, index) => (
-                <Card key={sport.slug} className="bg-white hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-200">
-                  <CardHeader className="text-center pb-4">
-                    <div className="text-6xl mb-4">{sport.icon}</div>
-                    <CardTitle className="text-2xl font-bold text-gray-900 mb-2">{sport.name}</CardTitle>
+                <Card key={sport.slug} className="bg-white hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-gray-200 rounded-2xl overflow-hidden group">
+                  <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-gray-50">
+                    <div className="text-8xl mb-6 group-hover:scale-110 transition-transform duration-300">{sport.icon}</div>
+                    <CardTitle className="text-3xl font-bold text-gray-900 mb-4">{sport.name}</CardTitle>
                     <CardDescription className="text-gray-600 text-lg leading-relaxed">
                       {sport.description}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between text-sm text-gray-500">
+                  <CardContent className="space-y-6 p-8">
+                    <div className="flex justify-between text-sm text-gray-500 bg-gray-50 rounded-lg p-4">
                       <span>Active Tournaments: <span className="font-semibold text-blue-600">{sport.tournaments}</span></span>
                       <span>Registered Players: <span className="font-semibold text-blue-600">{sport.players}</span></span>
                     </div>
                     <Link href={`/tournaments?sport=${sport.slug}`}>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3">
+                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                         View Tournaments
                       </Button>
                     </Link>
@@ -180,19 +216,19 @@ export default function Home() {
         </section>
 
         {/* Features Section */}
-        <section className="py-24 px-4 bg-white">
+        <section className="py-24 px-4 bg-gradient-to-b from-white to-gray-50">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Tournament Management Features</h2>
+            <div className="text-center mb-20">
+              <h2 className="text-5xl font-bold text-gray-900 mb-6">Tournament Management Features</h2>
               <p className="text-xl text-gray-600">Professional tools for competitive sports management</p>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
               {features.map((feature, index) => (
-                <Card key={index} className="bg-white hover:shadow-lg transition-all duration-300 border border-gray-200">
+                <Card key={index} className="bg-white hover:shadow-2xl transition-all duration-300 border border-gray-200 rounded-2xl overflow-hidden group">
                   <CardContent className="p-8 text-center">
-                    <div className="text-4xl mb-4">{feature.icon}</div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                    <p className="text-gray-600 leading-relaxed">{feature.description}</p>
+                    <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">{feature.title}</h3>
+                    <p className="text-gray-600 leading-relaxed text-lg">{feature.description}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -201,24 +237,24 @@ export default function Home() {
         </section>
 
         {/* Testimonials Section */}
-        <section className="py-24 px-4 bg-gray-50">
+        <section className="py-24 px-4 bg-gradient-to-b from-gray-50 to-white">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Professional Testimonials</h2>
+            <div className="text-center mb-20">
+              <h2 className="text-5xl font-bold text-gray-900 mb-6">Professional Testimonials</h2>
               <p className="text-xl text-gray-600">What tournament directors and coaches say about our platform</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-3 gap-10">
               {testimonials.map((testimonial, index) => (
-                <Card key={index} className="bg-white hover:shadow-lg transition-all duration-300 border border-gray-200">
+                <Card key={index} className="bg-white hover:shadow-2xl transition-all duration-300 border border-gray-200 rounded-2xl overflow-hidden group">
                   <CardContent className="p-8">
-                    <div className="text-4xl mb-4">{testimonial.avatar}</div>
-                    <blockquote className="text-lg text-gray-700 mb-6 italic leading-relaxed">
+                    <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">{testimonial.avatar}</div>
+                    <blockquote className="text-lg text-gray-700 mb-8 italic leading-relaxed">
                       &ldquo;{testimonial.quote}&rdquo;
                     </blockquote>
-                    <div className="border-t pt-4">
-                      <div className="font-semibold text-gray-900 text-lg">{testimonial.name}</div>
-                      <div className="text-blue-600 font-medium">{testimonial.role}</div>
-                      <div className="text-gray-500 text-sm">{testimonial.sport}</div>
+                    <div className="border-t pt-6">
+                      <div className="font-semibold text-gray-900 text-xl">{testimonial.name}</div>
+                      <div className="text-blue-600 font-medium text-lg">{testimonial.role}</div>
+                      <div className="text-gray-500">{testimonial.sport}</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -228,39 +264,52 @@ export default function Home() {
         </section>
 
         {/* Quick Links */}
-        <section className="py-24 px-4 bg-slate-900 text-white">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold mb-4">Tournament Management Tools</h2>
+        <section className="py-24 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute top-10 left-10 text-6xl">🏸</div>
+            <div className="absolute top-20 right-20 text-5xl">🏓</div>
+            <div className="absolute top-40 left-1/4 text-4xl">🏐</div>
+            <div className="absolute top-60 right-1/3 text-5xl">🏆</div>
+            <div className="absolute bottom-40 left-20 text-4xl">⚡</div>
+            <div className="absolute bottom-20 right-10 text-6xl">🏸</div>
+            <div className="absolute bottom-60 left-1/2 text-5xl">🏓</div>
+            <div className="absolute top-1/2 left-10 text-4xl">🏐</div>
+            <div className="absolute top-1/3 right-1/4 text-5xl">🏆</div>
+          </div>
+          
+          <div className="max-w-7xl mx-auto relative z-10">
+            <div className="text-center mb-20">
+              <h2 className="text-5xl font-bold mb-6">Tournament Management Tools</h2>
               <p className="text-xl text-gray-300">Essential features for competitive sports</p>
             </div>
             <div className="grid md:grid-cols-4 gap-8">
               <Link href="/schedules" className="group">
-                <div className="bg-slate-800 rounded-lg p-8 text-center hover:bg-slate-700 transition-all duration-300 transform hover:-translate-y-1 border border-slate-700">
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">📅</div>
-                  <h3 className="text-xl font-bold mb-3">Match Schedules</h3>
-                  <p className="text-gray-300">Professional tournament scheduling and fixture management</p>
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
+                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">📅</div>
+                  <h3 className="text-2xl font-bold mb-4">Match Schedules</h3>
+                  <p className="text-gray-300 text-lg">Professional tournament scheduling and fixture management</p>
                 </div>
               </Link>
               <Link href="/live-scores" className="group">
-                <div className="bg-slate-800 rounded-lg p-8 text-center hover:bg-slate-700 transition-all duration-300 transform hover:-translate-y-1 border border-slate-700">
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🔴</div>
-                  <h3 className="text-xl font-bold mb-3">Live Scoring</h3>
-                  <p className="text-gray-300">Real-time score updates and match tracking</p>
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
+                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">🔴</div>
+                  <h3 className="text-2xl font-bold mb-4">Live Scoring</h3>
+                  <p className="text-gray-300 text-lg">Real-time score updates and match tracking</p>
                 </div>
               </Link>
               <Link href="/winners" className="group">
-                <div className="bg-slate-800 rounded-lg p-8 text-center hover:bg-slate-700 transition-all duration-300 transform hover:-translate-y-1 border border-slate-700">
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">🏆</div>
-                  <h3 className="text-xl font-bold mb-3">Results & Rankings</h3>
-                  <p className="text-gray-300">Comprehensive tournament results and player rankings</p>
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
+                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">🏆</div>
+                  <h3 className="text-2xl font-bold mb-4">Results & Rankings</h3>
+                  <p className="text-gray-300 text-lg">Comprehensive tournament results and player rankings</p>
                 </div>
               </Link>
               <Link href="/register" className="group">
-                <div className="bg-slate-800 rounded-lg p-8 text-center hover:bg-slate-700 transition-all duration-300 transform hover:-translate-y-1 border border-slate-700">
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">📝</div>
-                  <h3 className="text-xl font-bold mb-3">Player Registration</h3>
-                  <p className="text-gray-300">Streamlined registration for tournaments and leagues</p>
+                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
+                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">📝</div>
+                  <h3 className="text-2xl font-bold mb-4">Player Registration</h3>
+                  <p className="text-gray-300 text-lg">Streamlined registration for tournaments and leagues</p>
                 </div>
               </Link>
             </div>
@@ -268,20 +317,33 @@ export default function Home() {
         </section>
 
         {/* Call to Action */}
-        <section className="py-24 px-4 bg-blue-600 text-white">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-4xl font-bold mb-6">Ready to Compete?</h2>
-            <p className="text-xl mb-12 text-blue-100">
+        <section className="py-24 px-4 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-10 left-10 text-6xl">🏸</div>
+            <div className="absolute top-20 right-20 text-5xl">🏓</div>
+            <div className="absolute top-40 left-1/4 text-4xl">🏐</div>
+            <div className="absolute top-60 right-1/3 text-5xl">🏆</div>
+            <div className="absolute bottom-40 left-20 text-4xl">⚡</div>
+            <div className="absolute bottom-20 right-10 text-6xl">🏸</div>
+            <div className="absolute bottom-60 left-1/2 text-5xl">🏓</div>
+            <div className="absolute top-1/2 left-10 text-4xl">🏐</div>
+            <div className="absolute top-1/3 right-1/4 text-5xl">🏆</div>
+          </div>
+          
+          <div className="max-w-4xl mx-auto text-center relative z-10">
+            <h2 className="text-5xl font-bold mb-8">Ready to Compete?</h2>
+            <p className="text-2xl mb-12 text-blue-100">
               Join our professional tournament management platform and elevate your competitive sports experience.
             </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <div className="flex flex-col sm:flex-row gap-8 justify-center">
               <Link href="/register">
-                <Button size="lg" className="text-lg px-10 py-4 bg-white text-blue-600 hover:bg-gray-100 font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                <Button size="lg" className="text-xl px-12 py-6 bg-white text-blue-600 hover:bg-gray-100 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105">
                   Register for Tournament
                 </Button>
               </Link>
               <Link href="/tournaments">
-                <Button size="lg" variant="outline" className="text-lg px-10 py-4 border-2 border-white text-white hover:bg-white hover:text-blue-600 font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                <Button size="lg" variant="outline" className="text-xl px-12 py-6 border-2 border-white text-white hover:bg-white hover:text-blue-600 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
                   View Active Tournaments
                 </Button>
               </Link>
