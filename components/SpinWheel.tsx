@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Team, Registration, Tournament, CategoryType } from '@/types';
-import { Shuffle, Users, Target, Crown, Zap, RotateCcw } from 'lucide-react';
+import { Shuffle, Users, Target, Crown, Zap, RotateCcw, RefreshCw } from 'lucide-react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 
@@ -37,6 +37,8 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const [spinResult, setSpinResult] = useState<SpinResult | null>(null);
   const [filteredRegistrations, setFilteredRegistrations] = useState<Registration[]>([]);
   const [unassignedRegistrations, setUnassignedRegistrations] = useState<Registration[]>([]);
+  const [roundMode, setRoundMode] = useState(false);
+  const [roundResults, setRoundResults] = useState<SpinResult[]>([]);
 
   useEffect(() => {
     loadData();
@@ -120,8 +122,17 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const spinWheel = async () => {
     if (unassignedRegistrations.length === 0) return;
 
+    if (roundMode) {
+      await spinWheelRound();
+    } else {
+      await spinWheelSingle();
+    }
+  };
+
+  const spinWheelSingle = async () => {
     setIsSpinning(true);
     setSpinResult(null);
+    setRoundResults([]);
 
     // Simulate spinning animation
     const spinDuration = 2000; // 2 seconds
@@ -145,6 +156,76 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       
       // Automatically assign to the next available team
       await autoAssignPlayerToNextTeam(selectedPlayer);
+    }, spinDuration);
+  };
+
+  const spinWheelRound = async () => {
+    if (unassignedRegistrations.length === 0) return;
+
+    const categoryTeams = teams
+      .filter(team => team.category === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+    if (categoryTeams.length === 0) return;
+
+    setIsSpinning(true);
+    setSpinResult(null);
+    setRoundResults([]);
+
+    // Calculate how many players to assign in this round
+    const playersToAssign = Math.min(
+      unassignedRegistrations.length,
+      categoryTeams.length
+    );
+
+    // Shuffle unassigned players
+    const shuffledPlayers = [...unassignedRegistrations].sort(() => Math.random() - 0.5);
+    const selectedPlayers = shuffledPlayers.slice(0, playersToAssign);
+
+    // Simulate spinning animation for round
+    const spinDuration = 3000; // 3 seconds for round
+    const spinInterval = 100; // Update every 100ms
+    let currentResults: SpinResult[] = [];
+
+    const spinIntervalId = setInterval(() => {
+      // Show random selection of players during spinning
+      const randomSelection = selectedPlayers.map(player => ({
+        ...player,
+        assignedTeam: categoryTeams[Math.floor(Math.random() * categoryTeams.length)].name
+      }));
+      setRoundResults(randomSelection);
+    }, spinInterval);
+
+    setTimeout(async () => {
+      clearInterval(spinIntervalId);
+      setIsSpinning(false);
+      
+      // Assign players to teams in round-robin fashion
+      const finalResults: SpinResult[] = [];
+      
+      for (let i = 0; i < selectedPlayers.length; i++) {
+        const player = selectedPlayers[i];
+        const team = categoryTeams[i % categoryTeams.length];
+        
+        // Assign player to team
+        const updatedPlayers = [...team.players, player.id];
+        await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+          players: updatedPlayers,
+          updatedAt: new Date(),
+        });
+
+        finalResults.push({
+          ...player,
+          assignedTeam: team.name
+        });
+      }
+
+      setRoundResults(finalResults);
+      
+      // Refresh data to update unassigned players
+      await loadData();
+      filterRegistrations();
+      
     }, spinDuration);
   };
 
@@ -398,35 +479,60 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
             </div>
 
             {selectedCategory && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="gender-select">Filter by Gender:</Label>
-                  <Select value={selectedGender} onValueChange={(value) => setSelectedGender(value as 'male' | 'female' | 'all')}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-4">
+                {/* Round Mode Toggle */}
+                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="round-mode"
+                      checked={roundMode}
+                      onChange={(e) => setRoundMode(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <Label htmlFor="round-mode" className="text-sm font-medium text-blue-800">
+                      Round Assignment Mode
+                    </Label>
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    {roundMode 
+                      ? `Assign ${Math.min(unassignedRegistrations.length, teams.filter(t => t.category === selectedCategory).length)} players to all teams in one spin`
+                      : 'Assign one player per spin'
+                    }
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="level-select">Filter by Level:</Label>
-                  <Select value={selectedLevel} onValueChange={(value) => setSelectedLevel(value as 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all')}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                      <SelectItem value="expert">Expert</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor="gender-select">Filter by Gender:</Label>
+                    <Select value={selectedGender} onValueChange={(value) => setSelectedGender(value as 'male' | 'female' | 'all')}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <Label htmlFor="level-select">Filter by Level:</Label>
+                    <Select value={selectedLevel} onValueChange={(value) => setSelectedLevel(value as 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all')}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="beginner">Beginner</SelectItem>
+                        <SelectItem value="intermediate">Intermediate</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="expert">Expert</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             )}
@@ -441,10 +547,13 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shuffle className="h-5 w-5" />
-                Spin the Wheel
+                {roundMode ? 'Round Assignment' : 'Spin the Wheel'}
               </CardTitle>
               <CardDescription>
-                Randomly assign unassigned players to teams
+                {roundMode 
+                  ? 'Assign multiple players to all teams in one round'
+                  : 'Randomly assign unassigned players to teams'
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -453,16 +562,27 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   Unassigned Players: {unassignedRegistrations.length}
                 </div>
                 
+                {roundMode && (
+                  <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="font-medium mb-1">Round Assignment Mode</div>
+                    <div>
+                      Will assign {Math.min(unassignedRegistrations.length, teams.filter(t => t.category === selectedCategory).length)} players 
+                      to {teams.filter(t => t.category === selectedCategory).length} teams in this round
+                    </div>
+                  </div>
+                )}
+                
                 <Button 
                   onClick={spinWheel} 
                   disabled={unassignedRegistrations.length === 0 || isSpinning}
                   size="lg"
                   className="w-32 h-32 rounded-full text-lg font-bold"
                 >
-                  {isSpinning ? 'SPINNING...' : 'SPIN!'}
+                  {isSpinning ? 'SPINNING...' : roundMode ? 'ROUND!' : 'SPIN!'}
                 </Button>
 
-                {spinResult && (
+                {/* Single Player Result */}
+                {spinResult && !roundMode && (
                   <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
                     <h3 className="text-lg font-semibold mb-2 text-green-800">Player Selected & Assigned!</h3>
                     <div className="flex items-center justify-center gap-4 mb-4">
@@ -507,6 +627,41 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                         </Button>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Round Results */}
+                {roundResults.length > 0 && roundMode && (
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="text-lg font-semibold mb-4 text-blue-800 flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" />
+                      Round Assignment Complete!
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {roundResults.map((result, index) => (
+                        <div key={result.id} className="bg-white p-3 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-sm">{result.name}</div>
+                              <div className="text-xs text-gray-600">Age: {result.age} | {result.gender}</div>
+                              <div className="text-xs text-gray-600">{result.tower} - {result.flatNumber}</div>
+                            </div>
+                            <div className="text-right">
+                              <Badge variant="outline" className="text-xs mb-1">{result.expertiseLevel}</Badge>
+                              <div className="text-xs font-medium text-blue-600">
+                                → {result.assignedTeam}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 text-center">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium">
+                        <Target className="h-4 w-4" />
+                        {roundResults.length} players assigned to teams in round-robin fashion
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
