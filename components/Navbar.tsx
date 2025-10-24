@@ -36,7 +36,7 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
               </span>
             </Link>
             <div className="hidden md:flex space-x-4">
-              <Link href="/tournaments" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
+              <Link href="/tournament" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
                 Tournaments
               </Link>
               <Link href="/schedules" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
@@ -47,6 +47,9 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
               </Link>
               <Link href="/winners" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
                 Winners
+              </Link>
+              <Link href="/organize" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md bg-blue-600/20 px-3 py-1 rounded-lg border border-blue-400/30">
+                Organize Tournament
               </Link>
             </div>
           </div>

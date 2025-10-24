@@ -247,7 +247,7 @@ export default function LiveScoresPage() {
             <h3 className="text-xl font-medium text-gray-900 mb-2">No Live Matches</h3>
             <p className="text-gray-600 mb-6">There are currently no matches being played live</p>
             <div className="flex gap-4 justify-center">
-              <Link href="/tournaments">
+              <Link href="/tournament">
                 <Button variant="outline">
                   View Tournaments
                 </Button>
