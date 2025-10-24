@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PublicLayout } from '@/components/PublicLayout';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -183,7 +184,7 @@ export default function OrganizerRegistrationPage() {
     'Sponsorship Management'
   ];
 
-  const handleInputChange = (field: keyof OrganizerRegistration, value: any) => {
+  const handleInputChange = (field: keyof OrganizerRegistration, value: string | number | boolean | Date) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -253,7 +254,7 @@ export default function OrganizerRegistrationPage() {
                   <div className="space-y-3 text-left">
                     <div className="flex items-center text-green-800">
                       <Clock className="h-5 w-5 mr-3" />
-                      <span>We'll review your tournament proposal within 24-48 hours</span>
+                      <span>We&apos;ll review your tournament proposal within 24-48 hours</span>
                     </div>
                     <div className="flex items-center text-green-800">
                       <Phone className="h-5 w-5 mr-3" />
@@ -261,7 +262,7 @@ export default function OrganizerRegistrationPage() {
                     </div>
                     <div className="flex items-center text-green-800">
                       <Trophy className="h-5 w-5 mr-3" />
-                      <span>We'll discuss tournament details and provide a customized quote</span>
+                      <span>We&apos;ll discuss tournament details and provide a customized quote</span>
                     </div>
                     <div className="flex items-center text-green-800">
                       <Star className="h-5 w-5 mr-3" />
@@ -271,9 +272,11 @@ export default function OrganizerRegistrationPage() {
                 </div>
 
                 <div className="flex gap-4 justify-center">
-                  <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                    <a href="/tournament">View Existing Tournaments</a>
-                  </Button>
+                  <Link href="/tournament">
+                    <Button className="bg-blue-600 hover:bg-blue-700">
+                      View Existing Tournaments
+                    </Button>
+                  </Link>
                   <Button variant="outline" onClick={() => window.location.reload()}>
                     Submit Another Proposal
                   </Button>

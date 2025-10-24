@@ -66,7 +66,7 @@ export default function TournamentsPage() {
         })) as Registration[];
 
         // Count unique players (some registrations might be for doubles)
-        const uniquePlayers = new Set(registrations.map(r => r.userId)).size;
+        const uniquePlayers = new Set(registrations.map(r => r.email)).size;
         
         stats[tournament.id] = {
           registrations: registrations.length,
@@ -114,7 +114,7 @@ export default function TournamentsPage() {
   const filteredTournaments = tournaments.filter(tournament => {
     const matchesSearch = tournament.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tournament.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tournament.location.toLowerCase().includes(searchTerm.toLowerCase());
+                         tournament.venue.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesSport = sportFilter === 'all' || tournament.sport === sportFilter;
     const matchesStatus = statusFilter === 'all' || tournament.status === statusFilter;
@@ -242,7 +242,7 @@ export default function TournamentsPage() {
                       
                       <div className="flex items-center text-sm text-gray-600">
                         <MapPin className="h-4 w-4 mr-2 text-green-500" />
-                        <span>{tournament.location}</span>
+                        <span>{tournament.venue}</span>
                       </div>
                       
                       <div className="flex items-center text-sm text-gray-600">
