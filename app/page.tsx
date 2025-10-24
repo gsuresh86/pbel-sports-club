@@ -312,57 +312,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Organizer Call to Action */}
-        <section className="py-24 px-4 bg-gradient-to-r from-green-600 via-green-700 to-green-800 text-white relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 text-6xl">🏆</div>
-            <div className="absolute top-20 right-20 text-5xl">🎯</div>
-            <div className="absolute top-40 left-1/4 text-4xl">⚡</div>
-            <div className="absolute top-60 right-1/3 text-5xl">🏅</div>
-            <div className="absolute bottom-40 left-20 text-4xl">🌟</div>
-            <div className="absolute bottom-20 right-10 text-6xl">🏆</div>
-            <div className="absolute bottom-60 left-1/2 text-5xl">🎯</div>
-            <div className="absolute top-1/2 left-10 text-4xl">⚡</div>
-            <div className="absolute top-1/3 right-1/4 text-5xl">🏅</div>
-          </div>
-          
-          <div className="max-w-4xl mx-auto text-center relative z-10">
-            <h2 className="text-5xl font-bold mb-8">Want to Organize Tournaments?</h2>
-            <p className="text-2xl mb-12 text-green-100">
-              Let Tournament Craft handle all the technical aspects while you focus on creating amazing sports events.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-              <div className="bg-green-500/20 backdrop-blur-sm rounded-lg p-6 border border-green-400/30">
-                <div className="text-4xl mb-4">🎮</div>
-                <h3 className="text-xl font-semibold mb-2">Complete Management</h3>
-                <p className="text-green-100">From registration to live scoring, we handle everything</p>
-              </div>
-              <div className="bg-green-500/20 backdrop-blur-sm rounded-lg p-6 border border-green-400/30">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-xl font-semibold mb-2">Real-time Analytics</h3>
-                <p className="text-green-100">Live updates and comprehensive tournament statistics</p>
-              </div>
-              <div className="bg-green-500/20 backdrop-blur-sm rounded-lg p-6 border border-green-400/30">
-                <div className="text-4xl mb-4">🚀</div>
-                <h3 className="text-xl font-semibold mb-2">Easy Setup</h3>
-                <p className="text-green-100">Get your tournament running in minutes, not hours</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link href="/organize">
-                <Button size="lg" className="bg-white text-green-600 hover:bg-green-50 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  Start Organizing
-                </Button>
-              </Link>
-              <Link href="/tournament">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-green-600 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                  See Examples
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
       </PublicLayout>
   );
 }

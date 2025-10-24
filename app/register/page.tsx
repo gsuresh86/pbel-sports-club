@@ -1,119 +1,153 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PublicLayout } from '@/components/PublicLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Tournament } from '@/types';
+import { CheckCircle, Trophy } from 'lucide-react';
 
 export default function RegisterPage() {
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
-    tournamentId: '',
+    sport: '',
     name: '',
     email: '',
     phone: '',
-    age: '',
-    gender: 'male',
-    houseNumber: '',
-    emergencyContact: '',
   });
 
-  useEffect(() => {
-    loadTournaments();
-  }, []);
-
-  const loadTournaments = async () => {
-    try {
-      const q = query(collection(db, 'tournaments'), where('status', 'in', ['upcoming', 'ongoing']));
-      const snapshot = await getDocs(q);
-      const tournamentsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Tournament[];
-      setTournaments(tournamentsData);
-    } catch (error) {
-      console.error('Error loading tournaments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const sports = [
+    { value: 'badminton', label: 'Badminton', icon: '🏸' },
+    { value: 'table-tennis', label: 'Table Tennis', icon: '🏓' },
+    { value: 'volleyball', label: 'Volleyball', icon: '🏐' },
+    { value: 'tennis', label: 'Tennis', icon: '🎾' },
+    { value: 'basketball', label: 'Basketball', icon: '🏀' },
+    { value: 'football', label: 'Football', icon: '⚽' },
+    { value: 'cricket', label: 'Cricket', icon: '🏏' },
+    { value: 'other', label: 'Other Sport', icon: '🏆' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setSuccess(false);
 
     try {
-      // Add registration to the tournament's registrations subcollection
-      await addDoc(collection(db, 'tournaments', formData.tournamentId, 'registrations'), {
+      // Save to tournamentLeads collection
+      await addDoc(collection(db, 'tournamentLeads'), {
         ...formData,
-        age: parseInt(formData.age),
-        registrationStatus: 'pending',
         registeredAt: new Date(),
+        status: 'new',
       });
 
       setSuccess(true);
       setFormData({
-        tournamentId: '',
+        sport: '',
         name: '',
         email: '',
         phone: '',
-        age: '',
-        gender: 'male',
-        houseNumber: '',
-        emergencyContact: '',
       });
     } catch (error) {
-      console.error('Error registering:', error);
-      alert('Failed to register. Please try again.');
+      console.error('Error submitting registration:', error);
+      alert('Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (success) {
+    return (
+      <PublicLayout>
+        <div className="min-h-screen backdrop-blur-sm py-12 px-4">
+          <div className="max-w-2xl mx-auto">
+            <Card className="bg-white/90 backdrop-blur-sm shadow-xl border-white/20">
+              <CardContent className="p-12 text-center">
+                <div className="mb-8">
+                  <CheckCircle className="h-20 w-20 text-green-500 mx-auto mb-4" />
+                  <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                    Thank You for Your Interest!
+                  </h1>
+                  <p className="text-xl text-gray-600 mb-8">
+                    We&apos;ve received your tournament registration request.
+                  </p>
+                </div>
+                
+                <div className="bg-blue-50 rounded-lg p-6 mb-8">
+                  <h3 className="text-lg font-semibold text-blue-900 mb-4">What happens next?</h3>
+                  <div className="space-y-3 text-left">
+                    <div className="flex items-center text-blue-800">
+                      <Trophy className="h-5 w-5 mr-3 flex-shrink-0" />
+                      <span>Our team will review your registration within 24-48 hours</span>
+                    </div>
+                    <div className="flex items-center text-blue-800">
+                      <Trophy className="h-5 w-5 mr-3 flex-shrink-0" />
+                      <span>We&apos;ll contact you with tournament details and next steps</span>
+                    </div>
+                    <div className="flex items-center text-blue-800">
+                      <Trophy className="h-5 w-5 mr-3 flex-shrink-0" />
+                      <span>Get ready to compete in an amazing tournament!</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 justify-center flex-col sm:flex-row">
+                  <Button 
+                    onClick={() => setSuccess(false)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Register Another Person
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.location.href = '/tournament'}
+                  >
+                    View Tournaments
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </PublicLayout>
+    );
+  }
+
   return (
     <PublicLayout>
-      <div className=" backdrop-blur-sm py-12 px-4">
+      <div className="min-h-screen backdrop-blur-sm py-12 px-4">
         <div className="max-w-2xl mx-auto">
-          <Card>
+          <Card className="bg-white/90 backdrop-blur-sm shadow-xl border-white/20">
             <CardHeader>
-              <CardTitle>Tournament Registration</CardTitle>
-              <CardDescription>
-                Fill in your details to register for a tournament
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-blue-100 rounded-full p-3 mr-3">
+                  <Trophy className="h-6 w-6 text-blue-600" />
+                </div>
+                <CardTitle className="text-3xl">Tournament Registration</CardTitle>
+              </div>
+              <CardDescription className="text-center text-base">
+                Register your interest to participate in upcoming tournaments. We&apos;ll contact you with more details!
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {success && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                  Registration successful! We&apos;ll contact you with more details.
-                </div>
-              )}
-
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="tournament">Select Tournament *</Label>
+                  <Label htmlFor="sport">Select Sport *</Label>
                   <Select
-                    value={formData.tournamentId}
-                    onValueChange={(value) => setFormData({ ...formData, tournamentId: value })}
+                    value={formData.sport}
+                    onValueChange={(value) => setFormData({ ...formData, sport: value })}
                     required
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a tournament" />
+                    <SelectTrigger className="bg-white/70 border-gray-200 focus:border-blue-500">
+                      <SelectValue placeholder="Choose your sport" />
                     </SelectTrigger>
                     <SelectContent>
-                      {tournaments.map((tournament) => (
-                        <SelectItem key={tournament.id} value={tournament.id}>
-                          {tournament.name} - {tournament.sport}
+                      {sports.map((sport) => (
+                        <SelectItem key={sport.value} value={sport.value}>
+                          {sport.icon} {sport.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -126,87 +160,51 @@ export default function RegisterPage() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Enter your full name"
+                    className="bg-white/70 border-gray-200 focus:border-blue-500"
                     required
                   />
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="age">Age *</Label>
-                    <Input
-                      id="age"
-                      type="number"
-                      value={formData.age}
-                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender *</Label>
-                    <Select
-                      value={formData.gender}
-                      onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="houseNumber">House Number (PBEL City)</Label>
+                  <Label htmlFor="email">Email Address *</Label>
                   <Input
-                    id="houseNumber"
-                    value={formData.houseNumber}
-                    onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
-                    placeholder="Optional"
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="your.email@example.com"
+                    className="bg-white/70 border-gray-200 focus:border-blue-500"
+                    required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="emergencyContact">Emergency Contact *</Label>
+                  <Label htmlFor="phone">Phone Number *</Label>
                   <Input
-                    id="emergencyContact"
+                    id="phone"
                     type="tel"
-                    value={formData.emergencyContact}
-                    onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+91 1234567890"
+                    className="bg-white/70 border-gray-200 focus:border-blue-500"
                     required
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? 'Registering...' : 'Register'}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> This is an interest registration. Our team will reach out to you 
+                    with tournament details, schedules, and registration requirements.
+                  </p>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-6 text-lg shadow-lg hover:shadow-xl transition-all duration-300" 
+                  disabled={submitting}
+                >
+                  {submitting ? 'Submitting...' : 'Register Your Interest'}
                 </Button>
               </form>
             </CardContent>
