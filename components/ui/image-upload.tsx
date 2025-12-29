@@ -73,9 +73,19 @@ export function ImageUpload({
       // Clean up preview URL
       URL.revokeObjectURL(previewUrl);
       setPreview(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading image:', err);
-      setError('Failed to upload image. Please try again.');
+      const errorMessage = err?.message || 'Failed to upload image. Please try again.';
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('unauthorized') || errorMessage.includes('permission')) {
+        setError('You do not have permission to upload images. Please ensure you are logged in as an admin.');
+      } else if (errorMessage.includes('quota') || errorMessage.includes('storage')) {
+        setError('Storage quota exceeded. Please contact an administrator.');
+      } else {
+        setError(`Upload failed: ${errorMessage}`);
+      }
+      
       setPreview(null);
     } finally {
       setUploading(false);
@@ -85,8 +95,20 @@ export function ImageUpload({
   const handleRemove = async () => {
     if (value) {
       try {
+        // Extract the path from the full URL if it's a download URL
+        // Firebase Storage URLs look like: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?token=...
+        let filePath = value;
+        if (value.includes('firebasestorage.googleapis.com')) {
+          // Extract path from URL
+          const urlMatch = value.match(/\/o\/(.+?)\?/);
+          if (urlMatch) {
+            // Decode the path (URL encoded)
+            filePath = decodeURIComponent(urlMatch[1]);
+          }
+        }
+        
         // Delete from Firebase Storage
-        const storageRef = ref(storage, value);
+        const storageRef = ref(storage, filePath);
         await deleteObject(storageRef);
       } catch (err) {
         console.error('Error deleting image:', err);

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { addDoc, collection, doc, setDoc, Firestore } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, Firestore, getDocs } from 'firebase/firestore';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -135,4 +135,64 @@ export async function createPlayersFromRegistration(
 
   console.log('Player creation completed. Player IDs:', playerIds);
   return playerIds;
+}
+
+// Settings interfaces
+export interface Sport {
+  value: string;
+  label: string;
+  icon: string;
+  isActive: boolean;
+  order: number;
+}
+
+export interface Category {
+  value: string;
+  label: string;
+  description?: string;
+  sportValue?: string;
+  isActive: boolean;
+  order: number;
+}
+
+export interface AppSettings {
+  sports: Sport[];
+  categories: Category[];
+  defaultVenue?: string;
+  defaultRegistrationDaysBefore?: number;
+  updatedAt: Date;
+  updatedBy: string;
+}
+
+// Load settings from Firestore
+export async function loadAppSettings(db: Firestore): Promise<AppSettings | null> {
+  try {
+    const { getDocs, collection } = await import('firebase/firestore');
+    const settingsSnapshot = await getDocs(collection(db, 'appSettings'));
+    if (!settingsSnapshot.empty) {
+      const data = settingsSnapshot.docs[0].data();
+      return {
+        ...data,
+        updatedAt: data.updatedAt?.toDate() || new Date(),
+      } as AppSettings;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading app settings:', error);
+    return null;
+  }
+}
+
+// Get active sports
+export function getActiveSports(settings: AppSettings | null): Sport[] {
+  if (!settings) return [];
+  return settings.sports.filter(s => s.isActive).sort((a, b) => a.order - b.order);
+}
+
+// Get active categories (optionally filtered by sport)
+export function getActiveCategories(settings: AppSettings | null, sportValue?: string): Category[] {
+  if (!settings) return [];
+  return settings.categories
+    .filter(c => c.isActive && (!c.sportValue || c.sportValue === sportValue || !sportValue))
+    .sort((a, b) => a.order - b.order);
 }

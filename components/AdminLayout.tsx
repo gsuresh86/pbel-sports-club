@@ -104,7 +104,7 @@ const adminMenuItems = [
     title: 'Settings',
     href: '/admin/settings',
     icon: Settings,
-    description: 'System configuration',
+    description: 'Manage sports, categories, and system settings',
     roles: ['admin', 'super-admin']
   }
 ];

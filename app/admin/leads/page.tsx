@@ -39,7 +39,9 @@ import {
   Trophy,
   Trash2,
   Eye,
-  Clock
+  Clock,
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 
 interface Lead {
@@ -69,7 +71,7 @@ export default function LeadsManagementPage() {
   const [loading, setLoading] = useState(true);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [newTournamentId, setNewTournamentId] = useState<string | null>(null);
   const [newTournamentName, setNewTournamentName] = useState<string>('');
@@ -182,8 +184,9 @@ export default function LeadsManagementPage() {
     }
   };
 
-  const handleApprove = (lead: Lead) => {
+  const handleApprove = async (lead: Lead) => {
     setSelectedLead(lead);
+    setCurrentStep(1);
     // Pre-fill tournament form with lead data
     setTournamentFormData({
       name: lead.tournamentName || `${lead.sport.charAt(0).toUpperCase() + lead.sport.slice(1)} Tournament`,
@@ -202,6 +205,8 @@ export default function LeadsManagementPage() {
       status: 'upcoming',
       registrationOpen: true,
     });
+    // Pre-load matched users
+    await loadMatchedUsers(lead.email);
     setApproveDialogOpen(true);
   };
 
@@ -211,7 +216,7 @@ export default function LeadsManagementPage() {
     setDeclineDialogOpen(true);
   };
 
-  const handleApproveSubmit = async (e: React.FormEvent) => {
+  const handleTournamentStepSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedLead) return;
@@ -263,17 +268,8 @@ export default function LeadsManagementPage() {
       setNewTournamentId(tournamentRef.id);
       setNewTournamentName(tournamentFormData.name);
 
-      // Load any existing users matching the lead email for easy assignment
-      await loadMatchedUsers(selectedLead.email);
-
-      alert({
-        title: 'Tournament Created',
-        description: 'Tournament created successfully! Now assign a user to manage this tournament.',
-        variant: 'success'
-      });
-      setApproveDialogOpen(false);
-      setAssignDialogOpen(true);
-      loadData();
+      // Move to step 2
+      setCurrentStep(2);
     } catch (error: unknown) {
       console.error('Error creating tournament:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create tournament';
@@ -317,7 +313,7 @@ export default function LeadsManagementPage() {
     }
   };
 
-  const handleAssignSubmit = async (e: React.FormEvent) => {
+  const handleUserAssignmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedLead || !newTournamentId) return;
@@ -378,10 +374,13 @@ export default function LeadsManagementPage() {
 
       alert({
         title: 'Success',
-        description: 'User assignment updated successfully',
+        description: 'Tournament created and user assigned successfully!',
         variant: 'success'
       });
-      setAssignDialogOpen(false);
+      
+      // Close dialog and reset
+      setApproveDialogOpen(false);
+      setCurrentStep(1);
       setSelectedLead(null);
       setNewTournamentId(null);
       setNewTournamentName('');
@@ -708,16 +707,49 @@ export default function LeadsManagementPage() {
           </CardContent>
         </Card>
 
-        {/* Approve Dialog - Create Tournament */}
-        <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        {/* Multi-Step Approve Dialog - Create Tournament & Assign User */}
+        <Dialog open={approveDialogOpen} onOpenChange={(open) => {
+          setApproveDialogOpen(open);
+          if (!open) {
+            setCurrentStep(1);
+            setSelectedLead(null);
+            setNewTournamentId(null);
+            setNewTournamentName('');
+            setMatchedUsers([]);
+            setSelectedUserId('');
+            setNewUserPassword('');
+          }
+        }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Approve Lead & Create Tournament</DialogTitle>
               <DialogDescription>
-                Create a tournament based on the lead request from {selectedLead?.name}
+                Step {currentStep} of 2: {currentStep === 1 ? 'Create Tournament' : 'Assign User'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleApproveSubmit} className="space-y-4">
+
+            {/* Progress Indicator */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <div className={`flex items-center ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    {currentStep > 1 ? <CheckCircle className="h-5 w-5" /> : '1'}
+                  </div>
+                  <span className="ml-2 font-medium">Tournament Details</span>
+                </div>
+                <div className={`flex-1 h-1 mx-4 ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+                <div className={`flex items-center ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                    2
+                  </div>
+                  <span className="ml-2 font-medium">User Assignment</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 1: Tournament Creation */}
+            {currentStep === 1 && (
+              <form onSubmit={handleTournamentStepSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="tournamentName">Tournament Name *</Label>
@@ -849,23 +881,133 @@ export default function LeadsManagementPage() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setApproveDialogOpen(false);
-                    setSelectedLead(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Create Tournament & Approve
-                </Button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setApproveDialogOpen(false);
+                      setCurrentStep(1);
+                      setSelectedLead(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                    Next: Assign User
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* Step 2: User Assignment */}
+            {currentStep === 2 && (
+              <form onSubmit={handleUserAssignmentSubmit} className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle className="h-5 w-5" />
+                    <p className="font-semibold">Tournament Created Successfully!</p>
+                  </div>
+                  <p className="text-sm text-green-700 mt-1">
+                    Tournament: <span className="font-medium">{newTournamentName}</span>
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
+                  <p className="font-semibold mb-1">Lead Details</p>
+                  <p>Name: {selectedLead?.name}</p>
+                  <p>Email: {selectedLead?.email}</p>
+                  <p>Phone: {selectedLead?.phone}</p>
+                </div>
+
+                {matchedUsers.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Existing Users with this Email</Label>
+                    <div className="space-y-2 border rounded-md p-3 max-h-40 overflow-y-auto">
+                      {matchedUsers.map((u) => (
+                        <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="radio"
+                            name="assignUser"
+                            value={u.id}
+                            checked={selectedUserId === u.id}
+                            onChange={() => setSelectedUserId(u.id)}
+                          />
+                          <span className="font-medium">{u.name}</span>
+                          <span className="text-gray-500">({u.email})</span>
+                          {u.role && (
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                              {u.role}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2 text-sm cursor-pointer mt-2">
+                        <input
+                          type="radio"
+                          name="assignUser"
+                          value="new"
+                          checked={selectedUserId === 'new'}
+                          onChange={() => setSelectedUserId('new')}
+                        />
+                        <span>Create new tournament admin user from this lead</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {(matchedUsers.length === 0 || selectedUserId === 'new') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="newUserPassword">New User Password *</Label>
+                    <Input
+                      id="newUserPassword"
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      placeholder="Minimum 6 characters"
+                      minLength={6}
+                      required={matchedUsers.length === 0 || selectedUserId === 'new'}
+                    />
+                    <p className="text-xs text-gray-500">
+                      A new user with role <span className="font-semibold">tournament-admin</span> will be created
+                      using the lead&apos;s name and email, and assigned to this tournament.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentStep(1)}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setApproveDialogOpen(false);
+                      setCurrentStep(1);
+                      setSelectedLead(null);
+                      setNewTournamentId(null);
+                      setNewTournamentName('');
+                      setMatchedUsers([]);
+                      setSelectedUserId('');
+                      setNewUserPassword('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Complete & Save
+                  </Button>
+                </div>
+              </form>
+            )}
           </DialogContent>
         </Dialog>
 
@@ -911,102 +1053,6 @@ export default function LeadsManagementPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Assign User Dialog */}
-        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Assign User to Tournament</DialogTitle>
-              <DialogDescription>
-                Assign an existing user or create a new tournament admin for&nbsp;
-                <span className="font-semibold">{newTournamentName || 'this tournament'}</span>
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAssignSubmit} className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
-                <p className="font-semibold mb-1">Lead Details</p>
-                <p>Name: {selectedLead?.name}</p>
-                <p>Email: {selectedLead?.email}</p>
-                <p>Phone: {selectedLead?.phone}</p>
-              </div>
-
-              {matchedUsers.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Existing Users with this Email</Label>
-                  <div className="space-y-2 border rounded-md p-3 max-h-40 overflow-y-auto">
-                    {matchedUsers.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="radio"
-                          name="assignUser"
-                          value={u.id}
-                          checked={selectedUserId === u.id}
-                          onChange={() => setSelectedUserId(u.id)}
-                        />
-                        <span className="font-medium">{u.name}</span>
-                        <span className="text-gray-500">({u.email})</span>
-                        {u.role && (
-                          <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                            {u.role}
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                    <label className="flex items-center gap-2 text-sm cursor-pointer mt-2">
-                      <input
-                        type="radio"
-                        name="assignUser"
-                        value="new"
-                        checked={selectedUserId === 'new'}
-                        onChange={() => setSelectedUserId('new')}
-                      />
-                      <span>Create new tournament admin user from this lead</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {(matchedUsers.length === 0 || selectedUserId === 'new') && (
-                <div className="space-y-2">
-                  <Label htmlFor="newUserPassword">New User Password *</Label>
-                  <Input
-                    id="newUserPassword"
-                    type="password"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
-                    minLength={6}
-                    required={matchedUsers.length === 0 || selectedUserId === 'new'}
-                  />
-                  <p className="text-xs text-gray-500">
-                    A new user with role <span className="font-semibold">tournament-admin</span> will be created
-                    using the lead&apos;s name and email, and assigned to this tournament.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setAssignDialogOpen(false);
-                    setSelectedLead(null);
-                    setNewTournamentId(null);
-                    setNewTournamentName('');
-                    setMatchedUsers([]);
-                    setSelectedUserId('');
-                    setNewUserPassword('');
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  Save Assignment
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
 
         {/* Alert and Confirm Dialogs */}
         {AlertDialogComponent}
