@@ -20,6 +20,8 @@ const eslintConfig = [
       // Disable Next.js img element warnings
       "@next/next/no-img-element": "off",
     },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".next/**",
