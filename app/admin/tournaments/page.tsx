@@ -200,6 +200,15 @@ export default function ManageTournamentsPage() {
           createdAt: new Date(),
         });
         // Registration link is now generated on-the-fly, no need to store it
+        
+        // Notify admins about new tournament
+        try {
+          const { notifyAdminsNewTournament } = await import('@/lib/notification-utils');
+          await notifyAdminsNewTournament(formData.name, docRef.id);
+        } catch (error) {
+          console.error('Error sending notification:', error);
+          // Don't fail the tournament creation if notification fails
+        }
       }
 
       setDialogOpen(false);

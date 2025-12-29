@@ -182,6 +182,19 @@ export default function TournamentRegistrationPage() {
       const registrationRef = await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), registrationData);
       console.log('Registration created with ID:', registrationRef.id);
       
+      // Notify tournament admin about new registration
+      try {
+        const { notifyTournamentAdminNewRegistration } = await import('@/lib/notification-utils');
+        await notifyTournamentAdminNewRegistration(
+          tournamentId,
+          tournament?.name || 'Tournament',
+          formData.name
+        );
+      } catch (error) {
+        console.error('Error sending notification:', error);
+        // Don't fail the registration if notification fails
+      }
+      
       // Automatically create players from the registration
       try {
         console.log('Creating players from registration...');

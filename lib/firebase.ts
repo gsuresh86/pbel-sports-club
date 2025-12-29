@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAltEbTTfGs5CsMftHJVeehC0J5_KXCNDE",
@@ -19,4 +20,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-export { app, auth, db, storage };
+// Initialize Messaging (only in browser)
+let messaging: Messaging | null = null;
+if (typeof window !== 'undefined') {
+  try {
+    messaging = getMessaging(app);
+  } catch (error) {
+    console.warn('Firebase Messaging initialization error:', error);
+  }
+}
+
+export { app, auth, db, storage, messaging };

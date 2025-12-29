@@ -39,10 +39,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userData = userDoc.data();
             console.log('User data from Firestore:', userData);
             console.log('User role:', userData.role);
-            setUser({
-              id: firebaseUser.uid,
-              ...userData
-            } as User);
+          const userDataWithId = {
+            id: firebaseUser.uid,
+            ...userData
+          } as User;
+          
+          setUser(userDataWithId);
+          
+          // Initialize notifications for authenticated users
+          if (userDataWithId.role === 'admin' || userDataWithId.role === 'super-admin' || userDataWithId.role === 'tournament-admin') {
+            try {
+              const { initializeNotifications } = await import('@/lib/notifications');
+              await initializeNotifications(userDataWithId);
+            } catch (error) {
+              console.error('Error initializing notifications:', error);
+            }
+          }
           } else {
             console.log('User document not found in Firestore');
             // Don't set user to null immediately - keep Firebase user info

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -114,6 +114,11 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -261,19 +266,20 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                 <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs">3</Badge>
               </Button>
 
-              {/* Profile dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src="" />
-                      <AvatarFallback>
-                        {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+              {/* Profile dropdown - only render after mount to avoid hydration issues */}
+              {mounted && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src="" />
+                        <AvatarFallback>
+                          {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
@@ -300,6 +306,17 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              )}
+              {!mounted && (
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src="" />
+                    <AvatarFallback>
+                      {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              )}
             </div>
           </div>
         </div>
