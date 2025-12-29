@@ -1,8 +1,8 @@
 'use client';
 
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { User } from '@/types';
+import { User, Notification } from '@/types';
 
 /**
  * Get FCM tokens for all admin users
@@ -139,21 +139,84 @@ export async function sendNotification(
 }
 
 /**
+ * Save notification to Firestore
+ */
+async function saveNotificationToFirestore(
+  userId: string,
+  title: string,
+  body: string,
+  type: Notification['type'],
+  data?: Notification['data']
+): Promise<void> {
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      userId,
+      title,
+      body,
+      type,
+      data: data || {},
+      read: false,
+      createdAt: new Date(),
+    });
+  } catch (error) {
+    console.error('Error saving notification to Firestore:', error);
+  }
+}
+
+/**
  * Notify admins about new tournament
  */
 export async function notifyAdminsNewTournament(tournamentName: string, tournamentId: string): Promise<void> {
-  const tokens = await getAdminFCMTokens();
-  
-  await sendNotification(
-    tokens,
-    'New Tournament Created',
-    `A new tournament "${tournamentName}" has been created and needs review.`,
-    {
-      type: 'tournament',
-      tournamentId,
-      action: 'view',
-    }
+  // Get admin users
+  const usersQuery = query(
+    collection(db, 'users'),
+    where('role', 'in', ['admin', 'super-admin']),
+    where('isActive', '==', true)
   );
+  
+  const snapshot = await getDocs(usersQuery);
+  const adminUsers: User[] = [];
+  const tokens: string[] = [];
+  
+  snapshot.forEach((doc) => {
+    const userData = doc.data();
+    const fcmToken = userData.fcmToken as string | undefined;
+    if (fcmToken) {
+      tokens.push(fcmToken);
+    }
+    adminUsers.push({
+      id: doc.id,
+      ...userData,
+      createdAt: userData.createdAt?.toDate() || new Date(),
+    } as User);
+  });
+  
+  // Send push notifications
+  if (tokens.length > 0) {
+    await sendNotification(
+      tokens,
+      'New Tournament Created',
+      `A new tournament "${tournamentName}" has been created and needs review.`,
+      {
+        type: 'tournament',
+        tournamentId,
+        action: 'view',
+      }
+    );
+  }
+  
+  // Save notifications to Firestore for each admin
+  const notificationPromises = adminUsers.map((user) =>
+    saveNotificationToFirestore(
+      user.id,
+      'New Tournament Created',
+      `A new tournament "${tournamentName}" has been created and needs review.`,
+      'tournament',
+      { tournamentId }
+    )
+  );
+  
+  await Promise.all(notificationPromises);
 }
 
 /**
@@ -164,17 +227,77 @@ export async function notifyTournamentAdminNewRegistration(
   tournamentName: string,
   playerName: string
 ): Promise<void> {
-  const tokens = await getTournamentAdminFCMToken(tournamentId);
+  // Get tournament admin user IDs
+  const { doc, getDoc } = await import('firebase/firestore');
+  const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
   
-  await sendNotification(
-    tokens,
-    'New Player Registration',
-    `${playerName} has registered for "${tournamentName}"`,
-    {
-      type: 'registration',
-      tournamentId,
-      action: 'view',
-    }
+  if (!tournamentDoc.exists()) {
+    return;
+  }
+  
+  const tournamentData = tournamentDoc.data();
+  const createdBy = tournamentData.createdBy;
+  const adminUserIds: string[] = [];
+  
+  if (createdBy) {
+    adminUserIds.push(createdBy);
+  }
+  
+  // Get users assigned to this tournament
+  const usersQuery = query(
+    collection(db, 'users'),
+    where('assignedTournaments', 'array-contains', tournamentId),
+    where('isActive', '==', true)
   );
+  
+  const assignedSnapshot = await getDocs(usersQuery);
+  assignedSnapshot.forEach((assignedDoc) => {
+    if (!adminUserIds.includes(assignedDoc.id)) {
+      adminUserIds.push(assignedDoc.id);
+    }
+  });
+  
+  // Get FCM tokens for these users
+  const tokens: string[] = [];
+  const userDocs = await Promise.all(
+    adminUserIds.map((userId) => getDoc(doc(db, 'users', userId)))
+  );
+  
+  userDocs.forEach((userDoc) => {
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const fcmToken = userData.fcmToken as string | undefined;
+      if (fcmToken) {
+        tokens.push(fcmToken);
+      }
+    }
+  });
+  
+  // Send push notifications
+  if (tokens.length > 0) {
+    await sendNotification(
+      tokens,
+      'New Player Registration',
+      `${playerName} has registered for "${tournamentName}"`,
+      {
+        type: 'registration',
+        tournamentId,
+        action: 'view',
+      }
+    );
+  }
+  
+  // Save notifications to Firestore for each admin
+  const notificationPromises = adminUserIds.map((userId) =>
+    saveNotificationToFirestore(
+      userId,
+      'New Player Registration',
+      `${playerName} has registered for "${tournamentName}"`,
+      'registration',
+      { tournamentId }
+    )
+  );
+  
+  await Promise.all(notificationPromises);
 }
 

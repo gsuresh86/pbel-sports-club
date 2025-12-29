@@ -10,6 +10,24 @@ export interface User {
   updatedAt?: Date;
   createdBy?: string; // ID of the admin who created this user
   isActive?: boolean;
+  fcmToken?: string;
+  fcmTokenUpdatedAt?: Date;
+}
+
+export interface Notification {
+  id: string;
+  userId: string; // User who should receive this notification
+  title: string;
+  body: string;
+  type: 'tournament' | 'registration' | 'system' | 'other';
+  read: boolean;
+  data?: {
+    tournamentId?: string;
+    registrationId?: string;
+    [key: string]: string | undefined;
+  };
+  createdAt: Date;
+  readAt?: Date;
 }
 
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball' | 'throw-ball';

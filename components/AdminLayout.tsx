@@ -26,10 +26,11 @@ import {
   X, 
   LogOut, 
   User,
-  Bell,
   Search,
-  UserPlus
+  UserPlus,
+  Bell
 } from 'lucide-react';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -106,6 +107,13 @@ const adminMenuItems = [
     icon: Settings,
     description: 'Manage sports, categories, and system settings',
     roles: ['admin', 'super-admin']
+  },
+  {
+    title: 'Notifications',
+    href: '/admin/notifications',
+    icon: Bell,
+    description: 'View and manage notifications',
+    roles: ['admin', 'super-admin', 'tournament-admin']
   }
 ];
 
@@ -261,10 +269,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               </div>
 
               {/* Notifications */}
-              <Button variant="ghost" size="sm" className="relative">
-                <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs">3</Badge>
-              </Button>
+              {user?.id && <NotificationDropdown userId={user.id} />}
 
               {/* Profile dropdown - only render after mount to avoid hydration issues */}
               {mounted && (

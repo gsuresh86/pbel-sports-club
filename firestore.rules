@@ -186,5 +186,23 @@ service cloud.firestore {
       allow update: if request.auth != null && isAdmin();
       allow delete: if request.auth != null && isAdmin();
     }
+
+    // Notifications - users can read/update their own notifications, admins can read all
+    match /notifications/{notificationId} {
+      // Allow read if user is authenticated and (owns the notification OR is admin)
+      allow read: if request.auth != null && 
+                     request.auth.uid != null &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      // Allow create for authenticated users (system creates notifications)
+      allow create: if request.auth != null && request.auth.uid != null;
+      // Allow update if user owns the notification or is admin (for marking as read)
+      allow update: if request.auth != null && 
+                       request.auth.uid != null &&
+                       (request.auth.uid == resource.data.userId || isAdmin());
+      // Allow delete if user owns the notification or is admin
+      allow delete: if request.auth != null && 
+                       request.auth.uid != null &&
+                       (request.auth.uid == resource.data.userId || isAdmin());
+    }
   }
 }
