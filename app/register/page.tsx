@@ -10,12 +10,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CheckCircle, Trophy } from 'lucide-react';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 
 export default function RegisterPage() {
+  const { alert, AlertDialogComponent } = useAlertDialog();
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     sport: '',
+    tournamentName: '',
+    startDate: '',
+    endDate: '',
     name: '',
     email: '',
     phone: '',
@@ -38,22 +43,40 @@ export default function RegisterPage() {
 
     try {
       // Save to tournamentLeads collection
-      await addDoc(collection(db, 'tournamentLeads'), {
-        ...formData,
+      const leadData = {
+        sport: formData.sport,
+        tournamentName: formData.tournamentName,
+        startDate: formData.startDate ? new Date(formData.startDate) : null,
+        endDate: formData.endDate ? new Date(formData.endDate) : null,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
         registeredAt: new Date(),
-        status: 'new',
-      });
+        status: 'pending',
+      };
+
+      await addDoc(collection(db, 'tournamentLeads'), leadData);
+      console.log('Lead successfully saved to tournamentLeads collection');
 
       setSuccess(true);
       setFormData({
         sport: '',
+        tournamentName: '',
+        startDate: '',
+        endDate: '',
         name: '',
         email: '',
         phone: '',
       });
     } catch (error) {
       console.error('Error submitting registration:', error);
-      alert('Failed to submit. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Full error details:', errorMessage);
+      alert({
+        title: 'Registration Failed',
+        description: `Failed to submit registration: ${errorMessage}. Please try again.`,
+        variant: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -155,7 +178,44 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name *</Label>
+                  <Label htmlFor="tournamentName">Tournament Name *</Label>
+                  <Input
+                    id="tournamentName"
+                    value={formData.tournamentName}
+                    onChange={(e) => setFormData({ ...formData, tournamentName: e.target.value })}
+                    placeholder="e.g., Summer Badminton Championship 2024"
+                    className="bg-white/70 border-gray-200 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Start Date *</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="bg-white/70 border-gray-200 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">End Date *</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      className="bg-white/70 border-gray-200 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name">Your Full Name *</Label>
                   <Input
                     id="name"
                     value={formData.name}
@@ -211,6 +271,7 @@ export default function RegisterPage() {
           </Card>
         </div>
       </div>
+      {AlertDialogComponent}
     </PublicLayout>
   );
 }

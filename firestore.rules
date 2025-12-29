@@ -169,5 +169,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
       );
     }
+
+    // Tournament Leads - public create for lead capture, admin read/write
+    match /tournamentLeads/{leadId} {
+      allow read: if request.auth != null && isTournamentAdmin(); // Only admins can read leads
+      allow create: if true; // Public create for lead capture from registration form
+      allow update: if request.auth != null && isTournamentAdmin(); // Only admins can update
+      allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
+    }
   }
 }

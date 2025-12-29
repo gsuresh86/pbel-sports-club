@@ -22,6 +22,18 @@ import { generateRegistrationLink } from '@/lib/utils';
 import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target } from 'lucide-react';
 import Link from 'next/link';
 
+const sports = [
+  { value: 'badminton', label: 'Badminton', icon: '🏸' },
+  { value: 'table-tennis', label: 'Table Tennis', icon: '🏓' },
+  { value: 'volleyball', label: 'Volleyball', icon: '🏐' },
+  { value: 'tennis', label: 'Tennis', icon: '🎾' },
+  { value: 'basketball', label: 'Basketball', icon: '🏀' },
+  { value: 'football', label: 'Football', icon: '⚽' },
+  { value: 'cricket', label: 'Cricket', icon: '🏏' },
+  { value: 'throw-ball', label: 'Throw Ball', icon: '🏐' },
+  { value: 'other', label: 'Other Sport', icon: '🏆' }
+];
+
 export default function ManageTournamentsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -574,13 +586,14 @@ export default function ManageTournamentsPage() {
                   setFormData(newFormData);
                 }}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="badminton">Badminton</SelectItem>
-                    <SelectItem value="table-tennis">Table Tennis</SelectItem>
-                    <SelectItem value="volleyball">Volleyball</SelectItem>
-                    <SelectItem value="throw-ball">Throw Ball</SelectItem>
+                    {sports.map((sport) => (
+                      <SelectItem key={sport.value} value={sport.value}>
+                        {sport.icon} {sport.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

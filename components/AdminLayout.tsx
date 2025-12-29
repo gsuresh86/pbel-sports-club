@@ -27,7 +27,8 @@ import {
   LogOut, 
   User,
   Bell,
-  Search
+  Search,
+  UserPlus
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -62,6 +63,13 @@ const adminMenuItems = [
     href: '/admin/users',
     icon: User,
     description: 'Manage admin users and permissions',
+    roles: ['admin', 'super-admin']
+  },
+  {
+    title: 'Leads',
+    href: '/admin/leads',
+    icon: UserPlus,
+    description: 'Review and manage tournament leads',
     roles: ['admin', 'super-admin']
   },
   {

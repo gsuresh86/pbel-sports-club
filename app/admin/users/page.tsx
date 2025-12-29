@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { User, Tournament, UserRole } from '@/types';
+import { useAlertDialog } from '@/components/ui/alert-dialog-component';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { 
   Plus, 
   Edit, 
@@ -37,6 +39,8 @@ import {
 export default function UserManagementPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { alert, AlertDialogComponent } = useAlertDialog();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [users, setUsers] = useState<User[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -121,22 +125,38 @@ export default function UserManagementPage() {
     
     // Validate form data
     if (!formData.name.trim()) {
-      alert('Name is required');
+      alert({
+        title: 'Validation Error',
+        description: 'Name is required',
+        variant: 'error'
+      });
       return;
     }
     if (!formData.email.trim()) {
-      alert('Email is required');
+      alert({
+        title: 'Validation Error',
+        description: 'Email is required',
+        variant: 'error'
+      });
       return;
     }
     if (!formData.role) {
-      alert('Role is required');
+      alert({
+        title: 'Validation Error',
+        description: 'Role is required',
+        variant: 'error'
+      });
       return;
     }
     
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      alert('Please enter a valid email address');
+      alert({
+        title: 'Validation Error',
+        description: 'Please enter a valid email address',
+        variant: 'error'
+      });
       return;
     }
     
@@ -147,13 +167,21 @@ export default function UserManagementPage() {
       
       // Check if current user is admin
       if (!user || (user.role !== 'admin' && user.role !== 'super-admin')) {
-        alert('Only administrators can create users');
+        alert({
+          title: 'Permission Denied',
+          description: 'Only administrators can create users',
+          variant: 'error'
+        });
         return;
       }
       
       // Check if user is authenticated
       if (!auth.currentUser) {
-        alert('You must be logged in to create users');
+        alert({
+          title: 'Authentication Required',
+          description: 'You must be logged in to create users',
+          variant: 'error'
+        });
         return;
       }
       
@@ -199,12 +227,20 @@ export default function UserManagementPage() {
       } else {
         // Create new user with password
         if (!formData.password || formData.password.trim() === '') {
-          alert('Password is required for new users');
+          alert({
+            title: 'Validation Error',
+            description: 'Password is required for new users',
+            variant: 'error'
+          });
           return;
         }
 
         if (formData.password.length < 6) {
-          alert('Password must be at least 6 characters long');
+          alert({
+            title: 'Validation Error',
+            description: 'Password must be at least 6 characters long',
+            variant: 'error'
+          });
           return;
         }
 
@@ -253,18 +289,42 @@ export default function UserManagementPage() {
         console.error('Firebase error message:', firebaseError.message);
         
         if (firebaseError.code === 'auth/email-already-in-use') {
-          alert('Email is already in use');
+          alert({
+            title: 'Error',
+            description: 'Email is already in use',
+            variant: 'error'
+          });
         } else if (firebaseError.code === 'auth/weak-password') {
-          alert('Password should be at least 6 characters');
+          alert({
+            title: 'Error',
+            description: 'Password should be at least 6 characters',
+            variant: 'error'
+          });
         } else if (firebaseError.code === 'auth/invalid-email') {
-          alert('Invalid email address');
+          alert({
+            title: 'Error',
+            description: 'Invalid email address',
+            variant: 'error'
+          });
         } else if (firebaseError.code === 'permission-denied') {
-          alert('Permission denied. Please check if you have admin privileges.');
+          alert({
+            title: 'Permission Denied',
+            description: 'Permission denied. Please check if you have admin privileges.',
+            variant: 'error'
+          });
         } else {
-          alert(`Failed to save user: ${firebaseError.message}`);
+          alert({
+            title: 'Error',
+            description: `Failed to save user: ${firebaseError.message}`,
+            variant: 'error'
+          });
         }
       } else {
-        alert('Failed to save user. Please check the console for details.');
+        alert({
+          title: 'Error',
+          description: 'Failed to save user. Please check the console for details.',
+          variant: 'error'
+        });
       }
     }
   };
@@ -283,15 +343,31 @@ export default function UserManagementPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      try {
-        await deleteDoc(doc(db, 'users', id));
-        loadData();
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('Failed to delete user');
+    confirm({
+      title: 'Delete User',
+      description: 'Are you sure you want to delete this user? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', id));
+          alert({
+            title: 'Success',
+            description: 'User deleted successfully',
+            variant: 'success'
+          });
+          loadData();
+        } catch (error) {
+          console.error('Error deleting user:', error);
+          alert({
+            title: 'Error',
+            description: 'Failed to delete user',
+            variant: 'error'
+          });
+        }
       }
-    }
+    });
   };
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
@@ -303,7 +379,11 @@ export default function UserManagementPage() {
       loadData();
     } catch (error) {
       console.error('Error updating user status:', error);
-      alert('Failed to update user status');
+      alert({
+        title: 'Error',
+        description: 'Failed to update user status',
+        variant: 'error'
+      });
     }
   };
 
@@ -694,6 +774,10 @@ export default function UserManagementPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Alert and Confirm Dialogs */}
+        {AlertDialogComponent}
+        {ConfirmDialogComponent}
       </div>
     </AdminLayout>
   );
