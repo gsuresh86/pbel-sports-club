@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,6 +94,7 @@ export default function TournamentDetailsPage() {
     status: 'upcoming' as 'upcoming' | 'ongoing' | 'completed' | 'cancelled',
     registrationOpen: true,
     banner: '',
+    isPublic: true, // Tournament visibility for public
   });
 
   useEffect(() => {
@@ -239,6 +240,7 @@ export default function TournamentDetailsPage() {
       status: tournament.status,
       registrationOpen: tournament.registrationOpen ?? true,
       banner: tournament.banner || '',
+      isPublic: (tournament as any).isPublic !== undefined ? (tournament as any).isPublic : true,
     });
     setDialogOpen(true);
   };
@@ -261,6 +263,7 @@ export default function TournamentDetailsPage() {
         rules: formData.rules,
         status: formData.status,
         registrationOpen: formData.registrationOpen,
+        isPublic: formData.isPublic,
         updatedAt: new Date(),
       };
 
@@ -317,6 +320,7 @@ export default function TournamentDetailsPage() {
       status: 'upcoming',
       registrationOpen: true,
       banner: '',
+      isPublic: true,
     });
   };
 
@@ -1121,16 +1125,17 @@ export default function TournamentDetailsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Edit Tournament Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit Tournament</DialogTitle>
-              <DialogDescription>
+        {/* Edit Tournament Drawer */}
+        <Drawer open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DrawerContent side="right" className="max-w-2xl">
+            <DrawerHeader className="flex-shrink-0">
+              <DrawerTitle>Edit Tournament</DrawerTitle>
+              <DrawerDescription>
                 Update tournament details and settings
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-6">
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Tournament Name</Label>
@@ -1312,17 +1317,28 @@ export default function TournamentDetailsPage() {
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="registrationOpen"
-                  checked={formData.registrationOpen}
-                  onChange={(e) => setFormData({ ...formData, registrationOpen: e.target.checked })}
-                  className="rounded"
-                />
-                <Label htmlFor="registrationOpen">Registration Open</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="registrationOpen"
+                    checked={formData.registrationOpen}
+                    onCheckedChange={(checked) => setFormData({ ...formData, registrationOpen: checked === true })}
+                  />
+                  <Label htmlFor="registrationOpen">Registration Open</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="isPublic"
+                    checked={formData.isPublic}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked === true })}
+                  />
+                  <Label htmlFor="isPublic">Tournament Visible to Public</Label>
+                </div>
               </div>
 
+              </form>
+            </div>
+            <DrawerFooter className="flex-shrink-0">
               <div className="flex justify-end space-x-2">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
@@ -1331,9 +1347,9 @@ export default function TournamentDetailsPage() {
                   Update Tournament
                 </Button>
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
 
         {/* Edit Registration Drawer */}
         <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>

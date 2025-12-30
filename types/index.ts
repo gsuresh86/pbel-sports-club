@@ -52,6 +52,7 @@ export interface Tournament {
   rules: string;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationOpen: boolean;
+  isPublic?: boolean; // Tournament visibility for public page
   banner?: string; // URL to the uploaded banner image
   createdAt: Date;
   updatedAt: Date;

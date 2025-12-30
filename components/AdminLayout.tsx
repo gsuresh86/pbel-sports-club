@@ -27,8 +27,7 @@ import {
   LogOut, 
   User,
   Search,
-  UserPlus,
-  Bell
+  UserPlus
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 
@@ -107,13 +106,6 @@ const adminMenuItems = [
     icon: Settings,
     description: 'Manage sports, categories, and system settings',
     roles: ['admin', 'super-admin']
-  },
-  {
-    title: 'Notifications',
-    href: '/admin/notifications',
-    icon: Bell,
-    description: 'View and manage notifications',
-    roles: ['admin', 'super-admin', 'tournament-admin']
   }
 ];
 

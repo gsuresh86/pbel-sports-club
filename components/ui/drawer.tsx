@@ -36,23 +36,54 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
-        className
-      )}
-      {...props}
-    >
-      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-))
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    side?: 'top' | 'bottom' | 'left' | 'right'
+  }
+>(({ className, children, side = 'bottom', ...props }, ref) => {
+  const sideClasses = {
+    top: "inset-x-0 top-0 border-b rounded-b-[10px]",
+    bottom: "inset-x-0 bottom-0 border-t rounded-t-[10px]",
+    left: "inset-y-0 left-0 border-r rounded-r-[10px]",
+    right: "inset-y-0 right-0 border-l rounded-l-[10px]"
+  };
+
+  // For side drawers, we need to use a custom implementation
+  if (side === 'left' || side === 'right') {
+    return (
+      <DrawerPortal>
+        <DrawerOverlay />
+        <DrawerPrimitive.Content
+          ref={ref}
+          className={cn(
+            "fixed z-50 flex flex-col border bg-background h-full w-full max-w-2xl",
+            sideClasses[side],
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </DrawerPrimitive.Content>
+      </DrawerPortal>
+    )
+  }
+
+  return (
+    <DrawerPortal>
+      <DrawerOverlay />
+      <DrawerPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+          className
+        )}
+        {...props}
+      >
+        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+        {children}
+      </DrawerPrimitive.Content>
+    </DrawerPortal>
+  )
+})
 DrawerContent.displayName = "DrawerContent"
 
 const DrawerHeader = ({

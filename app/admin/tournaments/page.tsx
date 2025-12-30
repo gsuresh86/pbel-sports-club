@@ -12,14 +12,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
-import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List } from 'lucide-react';
 import Link from 'next/link';
 
 const sports = [
@@ -47,6 +48,7 @@ export default function ManageTournamentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [formData, setFormData] = useState({
     name: '',
     sport: 'badminton' as SportType,
@@ -64,6 +66,7 @@ export default function ManageTournamentsPage() {
     status: 'upcoming' as 'upcoming' | 'ongoing' | 'completed' | 'cancelled',
     registrationOpen: true,
     banner: '',
+    isPublic: true, // Tournament visibility for public
   });
 
   useEffect(() => {
@@ -174,6 +177,7 @@ export default function ManageTournamentsPage() {
         rules: formData.rules,
         status: formData.status,
         registrationOpen: formData.registrationOpen,
+        isPublic: formData.isPublic,
         updatedAt: new Date(),
         createdBy: user?.id,
       };
@@ -243,6 +247,7 @@ export default function ManageTournamentsPage() {
       status: tournament.status,
       registrationOpen: tournament.registrationOpen ?? true,
       banner: tournament.banner || '',
+      isPublic: (tournament as any).isPublic !== undefined ? (tournament as any).isPublic : true,
     });
     setDialogOpen(true);
   };
@@ -274,6 +279,7 @@ export default function ManageTournamentsPage() {
       status: 'upcoming',
       registrationOpen: true,
       banner: '',
+      isPublic: true,
     });
     setEditingTournament(null);
   };
@@ -365,6 +371,26 @@ export default function ManageTournamentsPage() {
                 </SelectContent>
               </Select>
               
+              {/* View Toggle */}
+              <div className="flex items-center gap-1 border rounded-md p-1">
+                <Button
+                  variant={viewMode === 'card' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => setViewMode('card')}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => setViewMode('table')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+              
               {(user?.role === 'admin' || user?.role === 'super-admin') && (
                 <Button onClick={() => setDialogOpen(true)} className="h-9">
                   <Plus className="h-4 w-4 mr-1" />
@@ -380,9 +406,10 @@ export default function ManageTournamentsPage() {
           </div>
         </div>
 
-        {/* Tournaments Grid */}
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-          {filteredTournaments.map((tournament) => (
+        {/* Tournaments View */}
+        {viewMode === 'card' ? (
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+            {filteredTournaments.map((tournament) => (
             <Card key={tournament.id} className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start gap-3">
@@ -529,8 +556,116 @@ export default function ManageTournamentsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tournament</TableHead>
+                  <TableHead>Sport</TableHead>
+                  <TableHead>Dates</TableHead>
+                  <TableHead>Venue</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Participants</TableHead>
+                  <TableHead>Registration</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredTournaments.map((tournament) => (
+                  <TableRow key={tournament.id} className="hover:bg-gray-50">
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{getSportIcon(tournament.sport)}</span>
+                        <div>
+                          <div className="font-medium">{tournament.name}</div>
+                          <div className="text-sm text-gray-500">{tournament.tournamentType}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize">
+                        {tournament.sport.replace('-', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div>{formatDate(tournament.startDate)}</div>
+                        <div className="text-gray-500">to {formatDate(tournament.endDate)}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <MapPin className="h-3 w-3 text-gray-400" />
+                        <span>{tournament.venue}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(tournament.status)}>
+                        {tournament.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3 text-gray-400" />
+                          <span>{tournamentStats[tournament.id]?.registrations || 0} registered</span>
+                        </div>
+                        {tournament.maxParticipants && (
+                          <div className="text-gray-500">
+                            / {tournament.maxParticipants} max
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={tournament.registrationOpen ? 'default' : 'secondary'}>
+                        {tournament.registrationOpen ? 'Open' : 'Closed'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => router.push(`/admin/tournaments/${tournament.id}`)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(tournament)}
+                          title="Edit Tournament"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            navigator.clipboard.writeText(generateRegistrationLink(tournament.id));
+                            alert({
+                              title: 'Copied!',
+                              description: 'Registration link copied to clipboard',
+                              variant: 'success'
+                            });
+                          }}
+                          title="Copy Registration Link"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
 
         {/* Empty States */}
         {filteredTournaments.length === 0 && tournaments.length > 0 && !loading && (
@@ -561,16 +696,17 @@ export default function ManageTournamentsPage() {
         )}
       </div>
 
-      {/* Create/Edit Tournament Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingTournament ? 'Edit Tournament' : 'Create Tournament'}</DialogTitle>
-            <DialogDescription>
+      {/* Create/Edit Tournament Drawer */}
+      <Drawer open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DrawerContent side="right" className="max-w-2xl">
+          <DrawerHeader className="flex-shrink-0">
+            <DrawerTitle>{editingTournament ? 'Edit Tournament' : 'Create Tournament'}</DrawerTitle>
+            <DrawerDescription>
               {editingTournament ? 'Update tournament details and settings' : 'Create a new tournament'}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-6">
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
             {/* Tournament Name - Full Width */}
             <div className="space-y-2">
               <Label htmlFor="name">Tournament Name</Label>
@@ -670,76 +806,80 @@ export default function ManageTournamentsPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="registrationDeadline">Registration Deadline</Label>
-              <Input
-                id="registrationDeadline"
-                type="date"
-                value={formData.registrationDeadline}
-                onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="maxParticipants">Max Participants</Label>
-              <Input
-                id="maxParticipants"
-                type="number"
-                value={formData.maxParticipants}
-                onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="entryFee">Entry Fee (₹)</Label>
-              <Input
-                id="entryFee"
-                type="number"
-                value={formData.entryFee}
-                onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prizePool">Prize Pool (₹)</Label>
-              <Input
-                id="prizePool"
-                type="number"
-                value={formData.prizePool}
-                onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="upcoming">Upcoming</SelectItem>
-                  <SelectItem value="ongoing">Ongoing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Dates, Registration, and Tournament Details - 2 Column Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="registrationDeadline">Registration Deadline</Label>
+                <Input
+                  id="registrationDeadline"
+                  type="date"
+                  value={formData.registrationDeadline}
+                  onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxParticipants">Max Participants</Label>
+                <Input
+                  id="maxParticipants"
+                  type="number"
+                  value={formData.maxParticipants}
+                  onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="entryFee">Entry Fee (₹)</Label>
+                <Input
+                  id="entryFee"
+                  type="number"
+                  value={formData.entryFee}
+                  onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prizePool">Prize Pool (₹)</Label>
+                <Input
+                  id="prizePool"
+                  type="number"
+                  value={formData.prizePool}
+                  onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="ongoing">Ongoing</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -772,17 +912,28 @@ export default function ManageTournamentsPage() {
               />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="registrationOpen"
-                checked={formData.registrationOpen}
-                onChange={(e) => setFormData({ ...formData, registrationOpen: e.target.checked })}
-                className="rounded"
-              />
-              <Label htmlFor="registrationOpen">Registration Open</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="registrationOpen"
+                  checked={formData.registrationOpen}
+                  onCheckedChange={(checked) => setFormData({ ...formData, registrationOpen: checked === true })}
+                />
+                <Label htmlFor="registrationOpen">Registration Open</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isPublic"
+                  checked={formData.isPublic}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked === true })}
+                />
+                <Label htmlFor="isPublic">Tournament Visible to Public</Label>
+              </div>
             </div>
 
+            </form>
+          </div>
+          <DrawerFooter className="flex-shrink-0">
             <div className="flex justify-end space-x-2">
               <Button type="button" variant="outline" onClick={() => {
                 setDialogOpen(false);
@@ -790,13 +941,13 @@ export default function ManageTournamentsPage() {
               }}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" onClick={handleSubmit}>
                 {editingTournament ? 'Update Tournament' : 'Create Tournament'}
               </Button>
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
       
       {AlertDialogComponent}
     </AdminLayout>
