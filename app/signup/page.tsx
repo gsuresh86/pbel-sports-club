@@ -48,7 +48,7 @@ export default function SignUpPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Create Account</CardTitle>
-          <CardDescription>Sign up for PBEL Sports Association</CardDescription>
+          <CardDescription>Sign up for Sports Club Association</CardDescription>
         </CardHeader>
         <CardContent>
           {success && (

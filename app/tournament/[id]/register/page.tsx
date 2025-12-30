@@ -646,7 +646,7 @@ export default function TournamentRegistrationPage() {
                     onChange={(e) => setFormData({ ...formData, isResident: e.target.checked })}
                     className="rounded"
                   />
-                  <Label htmlFor="isResident" className="mb-0">I am a resident of PBEL City</Label>
+                  <Label htmlFor="isResident" className="mb-0">I am a local resident</Label>
                 </div>
 
                 {/* Partner Details Section - Only show for doubles tournaments */}

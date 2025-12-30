@@ -38,7 +38,14 @@ export default function TournamentsPage() {
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
-      setTournaments(tournamentsData);
+      
+      // Filter tournaments: only show public tournaments (isPublic !== false)
+      // Treat undefined/null as true for backward compatibility
+      const publicTournaments = tournamentsData.filter(tournament => {
+        return tournament.isPublic !== false; // Show if isPublic is true or undefined
+      });
+      
+      setTournaments(publicTournaments);
       
       // Load tournament statistics
       await loadTournamentStats(tournamentsData);
