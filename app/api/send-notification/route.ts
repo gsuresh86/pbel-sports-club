@@ -1,20 +1,5 @@
 import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
-
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID || 's3y-studio',
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
-  } catch (error) {
-    console.error('Firebase Admin initialization error:', error);
-  }
-}
+import { getAdminMessaging } from '@/lib/firebase-admin';
 
 interface NotificationPayload {
   title: string;
@@ -59,7 +44,8 @@ export async function POST(request: Request) {
       tokens: tokens,
     };
 
-    const response = await admin.messaging().sendEachForMulticast(message);
+    const messaging = getAdminMessaging();
+    const response = await messaging.sendEachForMulticast(message);
     
     console.log(`Successfully sent ${response.successCount} notifications`);
     if (response.failureCount > 0) {

@@ -42,7 +42,7 @@ const adminMenuItems = [
     href: '/admin',
     icon: LayoutDashboard,
     description: 'Overview and statistics',
-    roles: ['admin', 'super-admin', 'tournament-admin']
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Tournaments',

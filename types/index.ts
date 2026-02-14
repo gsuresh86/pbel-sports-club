@@ -54,6 +54,8 @@ export interface Tournament {
   registrationOpen: boolean;
   isPublic?: boolean; // Tournament visibility for public page
   banner?: string; // URL to the uploaded banner image
+  /** Match format: single set (1 set wins) or best of 3 (first to 2 sets) */
+  matchFormat?: 'single-set' | 'best-of-3';
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -153,6 +155,8 @@ export interface Match {
   status: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed';
   winner?: string;
   notes?: string;
+  /** Override tournament default: single set (1 set wins) or best of 3 (first to 2 sets) */
+  matchFormat?: 'single-set' | 'best-of-3';
   updatedAt: Date;
   createdBy: string;
 }

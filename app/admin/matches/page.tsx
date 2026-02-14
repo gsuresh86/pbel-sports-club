@@ -41,6 +41,7 @@ export default function ManageMatchesPage() {
     referee: '',
     status: 'scheduled' as 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed',
     notes: '',
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
   });
 
   useEffect(() => {
@@ -171,6 +172,7 @@ export default function ManageMatchesPage() {
         referee: formData.referee || undefined,
         status: formData.status,
         notes: formData.notes || undefined,
+        matchFormat: formData.matchFormat,
         sets: [],
         updatedAt: new Date(),
         createdBy: user?.id,
@@ -208,6 +210,7 @@ export default function ManageMatchesPage() {
       referee: match.referee || '',
       status: match.status,
       notes: match.notes || '',
+      matchFormat: (match as any).matchFormat || 'best-of-3',
     });
     setDialogOpen(true);
   };
@@ -258,6 +261,7 @@ export default function ManageMatchesPage() {
       referee: '',
       status: 'scheduled',
       notes: '',
+      matchFormat: 'best-of-3',
     });
     setEditingMatch(null);
   };
@@ -376,8 +380,12 @@ export default function ManageMatchesPage() {
                   <div>
                     <Label htmlFor="tournamentId">Tournament *</Label>
                     <Select value={formData.tournamentId} onValueChange={(value) => {
-                      console.log('Tournament selected:', value);
-                      setFormData({ ...formData, tournamentId: value });
+                      const tour = tournaments.find(t => t.id === value);
+                      setFormData({
+                        ...formData,
+                        tournamentId: value,
+                        matchFormat: (tour as any)?.matchFormat || 'best-of-3',
+                      });
                     }}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select tournament" />
@@ -510,6 +518,18 @@ export default function ManageMatchesPage() {
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                         <SelectItem value="postponed">Postponed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="matchFormat">Match format</Label>
+                    <Select value={formData.matchFormat} onValueChange={(value: 'single-set' | 'best-of-3') => setFormData({ ...formData, matchFormat: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single-set">Single set (1 set wins)</SelectItem>
+                        <SelectItem value="best-of-3">Best of 3 (first to 2 sets)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -161,7 +161,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     console.log('Admin page - loading:', loading, 'user:', user);
-    if (!loading && (!user || (user.role !== 'admin' && user.role !== 'super-admin' && user.role !== 'tournament-admin'))) {
+    if (!loading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
       console.log('Redirecting to login - user:', user ? `${user.name} (${user.role})` : 'null');
       router.push('/login');
     } else if (!loading && user) {
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
     }
   }, [user, loading, router]);
 
-  if (loading || !user || (user.role !== 'admin' && user.role !== 'super-admin' && user.role !== 'tournament-admin')) {
+  if (loading || !user || (user.role !== 'admin' && user.role !== 'super-admin')) {
     return null;
   }
 

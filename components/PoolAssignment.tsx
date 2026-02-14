@@ -1,20 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy, addDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
-import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X } from 'lucide-react';
+import { Team, Pool, Registration, Tournament, CategoryType, Match } from '@/types';
+import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X, Swords, Trophy, Award } from 'lucide-react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface PoolAssignmentProps {
   tournament: Tournament;
@@ -41,6 +42,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const [selectedPlayersForPool, setSelectedPlayersForPool] = useState<string[]>([]);
   const [editingPoolName, setEditingPoolName] = useState<string | null>(null);
   const [editingPoolNameValue, setEditingPoolNameValue] = useState<string>('');
+  const [matches, setMatches] = useState<Match[]>([]);
 
   useEffect(() => {
     loadData();
@@ -52,8 +54,28 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       loadTeams(),
       loadPools(),
       loadRegistrations(),
+      loadMatches(),
     ]);
     setLoading(false);
+  };
+
+  const loadMatches = async () => {
+    try {
+      const matchesSnapshot = await getDocs(
+        query(collection(db, 'matches'), where('tournamentId', '==', tournament.id))
+      );
+      const matchesData = matchesSnapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        scheduledTime: d.data().scheduledTime?.toDate(),
+        actualStartTime: d.data().actualStartTime?.toDate(),
+        actualEndTime: d.data().actualEndTime?.toDate(),
+        updatedAt: d.data().updatedAt?.toDate(),
+      })) as Match[];
+      setMatches(matchesData);
+    } catch (error) {
+      console.error('Error loading matches:', error);
+    }
   };
 
   const loadTeams = async () => {
@@ -398,6 +420,133 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     return teams.filter(team => pool.teams.includes(team.id));
   };
 
+  type PoolStandingRow = { id: string; name: string; played: number; wins: number; losses: number; setsFor: number; setsAgainst: number };
+  const getPoolStandings = (pool: Pool): PoolStandingRow[] => {
+    const poolMatches = matches.filter(
+      m => m.round === pool.name && m.status === 'completed'
+    );
+    const map = new Map<string, PoolStandingRow>();
+    for (const m of poolMatches) {
+      const p1Sets = m.player1Score ?? 0;
+      const p2Sets = m.player2Score ?? 0;
+      const p1Won = p1Sets > p2Sets;
+      if (!map.has(m.player1Id)) {
+        map.set(m.player1Id, { id: m.player1Id, name: m.player1Name, played: 0, wins: 0, losses: 0, setsFor: 0, setsAgainst: 0 });
+      }
+      if (!map.has(m.player2Id)) {
+        map.set(m.player2Id, { id: m.player2Id, name: m.player2Name, played: 0, wins: 0, losses: 0, setsFor: 0, setsAgainst: 0 });
+      }
+      const r1 = map.get(m.player1Id)!;
+      const r2 = map.get(m.player2Id)!;
+      r1.played++; r2.played++;
+      r1.setsFor += p1Sets; r1.setsAgainst += p2Sets;
+      r2.setsFor += p2Sets; r2.setsAgainst += p1Sets;
+      if (p1Won) { r1.wins++; r2.losses++; } else { r2.wins++; r1.losses++; }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return (b.setsFor - b.setsAgainst) - (a.setsFor - a.setsAgainst);
+    });
+  };
+
+  /** Generate round-robin matches for all pools in the selected category (works with one or many pools) */
+  const runGenerateMatchesFromPools = async () => {
+    if (!selectedCategory) {
+      alert({ title: 'Select category', description: 'Please select a category first.', variant: 'error' });
+      return;
+    }
+    const categoryPools = getCategoryPools();
+    if (categoryPools.length === 0) {
+      alert({ title: 'No pools', description: 'Create and fill at least one pool for this category first.', variant: 'error' });
+      return;
+    }
+
+    try {
+      let totalCreated = 0;
+      const scheduledTime = tournament.startDate ? new Date(tournament.startDate) : new Date();
+      const venue = tournament.venue || 'TBD';
+
+      for (const pool of categoryPools) {
+        const items = isOpenTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
+        if (items.length < 2) {
+          continue; // skip pool with 0 or 1 participant
+        }
+
+        const roundLabel = pool.name || `Pool ${pool.id.slice(0, 6)}`;
+        let matchNumber = 1;
+
+        for (let i = 0; i < items.length; i++) {
+          for (let j = i + 1; j < items.length; j++) {
+            const a = items[i];
+            const b = items[j];
+            const player1Id = 'id' in a ? a.id : (a as Registration).id;
+            const player1Name = 'name' in a ? a.name : (a as Registration).name;
+            const player2Id = 'id' in b ? b.id : (b as Registration).id;
+            const player2Name = 'name' in b ? b.name : (b as Registration).name;
+
+            await addDoc(collection(db, 'matches'), {
+              tournamentId: tournament.id,
+              round: roundLabel,
+              matchNumber,
+              player1Id,
+              player1Name,
+              player2Id,
+              player2Name,
+              scheduledTime,
+              venue,
+              status: 'scheduled',
+              sets: [],
+              matchFormat: (tournament as any).matchFormat || 'best-of-3',
+              updatedAt: new Date(),
+              createdBy: user.id,
+            });
+            matchNumber++;
+            totalCreated++;
+          }
+        }
+      }
+
+      if (totalCreated === 0) {
+        alert({
+          title: 'No matches created',
+          description: 'Each pool needs at least 2 ' + (isOpenTeamCategory() ? 'teams' : 'players') + ' to generate matches.',
+          variant: 'error',
+        });
+      } else {
+        alert({
+          title: 'Matches generated',
+          description: `Created ${totalCreated} round-robin match(es) for ${categoryPools.length} pool(s).`,
+          variant: 'success',
+        });
+      }
+    } catch (err) {
+      console.error('Error generating matches:', err);
+      alert({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to generate matches.',
+        variant: 'error',
+      });
+    }
+  };
+
+  const generateMatchesFromPools = () => {
+    if (!selectedCategory) {
+      alert({ title: 'Select category', description: 'Please select a category first.', variant: 'error' });
+      return;
+    }
+    const categoryPools = getCategoryPools();
+    if (categoryPools.length === 0) {
+      alert({ title: 'No pools', description: 'Create and fill at least one pool for this category first.', variant: 'error' });
+      return;
+    }
+    confirm({
+      title: 'Generate matches',
+      description: `Generate round-robin matches for ${categoryPools.length} pool(s) in this category? Each pool will have every ${isOpenTeamCategory() ? 'team' : 'player'} play every other once.`,
+      confirmText: 'Generate',
+      onConfirm: runGenerateMatchesFromPools,
+    });
+  };
+
   const openEditPool = (pool: Pool) => {
     setEditingPool(pool);
     if (isOpenTeamCategory()) {
@@ -517,6 +666,14 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
           <p className="text-gray-600">Assign {isOpenTeamCategory() ? 'teams' : 'players'} to pools/groups</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={generateMatchesFromPools}
+            disabled={!selectedCategory || getCategoryPools().length === 0}
+          >
+            <Swords className="h-4 w-4 mr-2" />
+            Generate matches
+          </Button>
           <Button onClick={autoAssignToPools} disabled={!selectedCategory || (isOpenTeamCategory() ? unassignedTeams.length === 0 : getUnassignedPlayers().length === 0)}>
             <Shuffle className="h-4 w-4 mr-2" />
             Auto Assign {isOpenTeamCategory() ? 'Teams' : 'Players'}
@@ -826,6 +983,66 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                           </div>
                         </div>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pool results / standings from completed matches */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Pool results
+              </CardTitle>
+              <CardDescription>
+                Standings from completed matches. Start matches and enter scores in the tournament Matches tab.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {categoryPools.map(pool => {
+                  const standings = getPoolStandings(pool);
+                  return (
+                    <div key={pool.id}>
+                      <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <Award className="h-4 w-4 text-amber-500" />
+                        {pool.name}
+                      </h3>
+                      {standings.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-2">No completed matches in this pool yet.</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10">#</TableHead>
+                              <TableHead>Name</TableHead>
+                              <TableHead className="text-center">Played</TableHead>
+                              <TableHead className="text-center">W</TableHead>
+                              <TableHead className="text-center">L</TableHead>
+                              <TableHead className="text-center">Sets For</TableHead>
+                              <TableHead className="text-center">Sets Agst</TableHead>
+                              <TableHead className="text-center">Diff</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {standings.map((row, idx) => (
+                              <TableRow key={row.id}>
+                                <TableCell className="font-medium">{idx + 1}</TableCell>
+                                <TableCell>{row.name}</TableCell>
+                                <TableCell className="text-center">{row.played}</TableCell>
+                                <TableCell className="text-center font-semibold text-green-600">{row.wins}</TableCell>
+                                <TableCell className="text-center text-red-600">{row.losses}</TableCell>
+                                <TableCell className="text-center">{row.setsFor}</TableCell>
+                                <TableCell className="text-center">{row.setsAgainst}</TableCell>
+                                <TableCell className="text-center">{row.setsFor - row.setsAgainst >= 0 ? `+${row.setsFor - row.setsAgainst}` : row.setsFor - row.setsAgainst}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
                     </div>
                   );
                 })}

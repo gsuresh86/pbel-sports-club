@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,13 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tournament, Registration, Match, TournamentBracket, BracketRound, BracketMatch, SportType, TournamentType, CategoryType } from '@/types';
+import { Tournament, Registration, Match, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
@@ -45,7 +45,9 @@ import {
   Edit,
   ExternalLink,
   Users2,
-  Shuffle
+  Shuffle,
+  Play,
+  Swords
 } from 'lucide-react';
 import Link from 'next/link';
 import TeamManagement from '@/components/TeamManagement';
@@ -64,7 +66,6 @@ export default function TournamentDetailsPage() {
   const [participants, setParticipants] = useState<Registration[]>([]);
   const [filteredParticipants, setFilteredParticipants] = useState<Registration[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [brackets, setBrackets] = useState<TournamentBracket[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -95,6 +96,7 @@ export default function TournamentDetailsPage() {
     registrationOpen: true,
     banner: '',
     isPublic: true, // Tournament visibility for public
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
   });
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function TournamentDetailsPage() {
   // Handle URL parameters for tab selection
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'participants', 'matches', 'brackets', 'teams', 'spin-wheel', 'pools', 'analytics'].includes(tab)) {
+    if (tab && ['overview', 'participants', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -191,33 +193,18 @@ export default function TournamentDetailsPage() {
 
       setMatches(matchesData);
 
-      // Load brackets for this tournament
-      const bracketsQuery = query(
-        collection(db, 'brackets'),
-        where('tournamentId', '==', tournamentId)
-      );
-      const bracketsSnapshot = await getDocs(bracketsQuery);
-      const bracketsData = bracketsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        rounds: doc.data().rounds?.map((round: BracketRound) => ({
-          ...round,
-          matches: round.matches?.map((match: BracketMatch) => ({
-            ...match,
-            scheduledTime: match.scheduledTime,
-          })),
-        })),
-      })) as TournamentBracket[];
-
-      setBrackets(bracketsData);
-
     } catch (error) {
       console.error('Error loading tournament data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toDateInputValue = (d: Date | string | undefined): string => {
+    if (d == null) return '';
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
   };
 
   const handleEdit = () => {
@@ -228,11 +215,11 @@ export default function TournamentDetailsPage() {
       sport: tournament.sport,
       tournamentType: tournament.tournamentType || 'individual',
       categories: tournament.categories || [],
-      startDate: new Date(tournament.startDate).toISOString().split('T')[0],
-      endDate: new Date(tournament.endDate).toISOString().split('T')[0],
+      startDate: toDateInputValue(tournament.startDate as Date),
+      endDate: toDateInputValue(tournament.endDate as Date),
       venue: tournament.venue,
       description: tournament.description,
-      registrationDeadline: new Date(tournament.registrationDeadline).toISOString().split('T')[0],
+      registrationDeadline: toDateInputValue(tournament.registrationDeadline as Date),
       maxParticipants: tournament.maxParticipants?.toString() || '',
       entryFee: tournament.entryFee?.toString() || '',
       prizePool: tournament.prizePool?.toString() || '',
@@ -241,6 +228,7 @@ export default function TournamentDetailsPage() {
       registrationOpen: tournament.registrationOpen ?? true,
       banner: tournament.banner || '',
       isPublic: (tournament as any).isPublic !== undefined ? (tournament as any).isPublic : true,
+      matchFormat: (tournament as any).matchFormat || 'best-of-3',
     });
     setDialogOpen(true);
   };
@@ -264,6 +252,7 @@ export default function TournamentDetailsPage() {
         status: formData.status,
         registrationOpen: formData.registrationOpen,
         isPublic: formData.isPublic,
+        matchFormat: formData.matchFormat,
         updatedAt: new Date(),
       };
 
@@ -321,6 +310,7 @@ export default function TournamentDetailsPage() {
       registrationOpen: true,
       banner: '',
       isPublic: true,
+      matchFormat: 'best-of-3',
     });
   };
 
@@ -542,15 +532,14 @@ export default function TournamentDetailsPage() {
 
         {/* Detailed Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="participants">Registrations</TabsTrigger>
-            <TabsTrigger value="matches">Matches</TabsTrigger>
-            <TabsTrigger value="brackets">Brackets</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="spin-wheel">Spin Wheel</TabsTrigger>
             <TabsTrigger value="pools">Pools</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="spin-wheel">Spin Wheel</TabsTrigger>
+            <TabsTrigger value="matches">Matches</TabsTrigger>
+            <TabsTrigger value="results">Results</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -860,7 +849,7 @@ export default function TournamentDetailsPage() {
           <TabsContent value="matches" className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold">Matches ({totalMatches})</h3>
-              <p className="text-sm text-gray-600">Tournament match schedule and results</p>
+              <p className="text-sm text-gray-600">Tournament match schedule and results. Start matches and enter scores below.</p>
             </div>
 
             <Card>
@@ -877,6 +866,7 @@ export default function TournamentDetailsPage() {
                         <TableHead>Status</TableHead>
                         <TableHead>Scheduled Time</TableHead>
                         <TableHead>Venue</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -889,7 +879,11 @@ export default function TournamentDetailsPage() {
                           <TableCell>
                             {match.status === 'completed' ? (
                               <span className="font-semibold">
-                                {match.player1Score} - {match.player2Score}
+                                {match.player1Score ?? '-'} - {match.player2Score ?? '-'}
+                              </span>
+                            ) : match.status === 'live' && match.sets?.length ? (
+                              <span className="text-green-600 text-sm">
+                                Sets: {match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}
                               </span>
                             ) : (
                               <span className="text-gray-400">-</span>
@@ -902,6 +896,51 @@ export default function TournamentDetailsPage() {
                           </TableCell>
                           <TableCell>{formatDate(match.scheduledTime)}</TableCell>
                           <TableCell>{match.venue}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              {match.status === 'scheduled' && (
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700"
+                                  onClick={async () => {
+                                    try {
+                                      await updateDoc(doc(db, 'matches', match.id), {
+                                        status: 'live',
+                                        actualStartTime: new Date(),
+                                        updatedAt: new Date(),
+                                      });
+                                      await setDoc(doc(db, 'liveScores', match.id), {
+                                        matchId: match.id,
+                                        tournamentId: match.tournamentId,
+                                        player1Name: match.player1Name,
+                                        player2Name: match.player2Name,
+                                        currentSet: 1,
+                                        player1Sets: 0,
+                                        player2Sets: 0,
+                                        player1CurrentScore: 0,
+                                        player2CurrentScore: 0,
+                                        isLive: true,
+                                        lastUpdated: new Date(),
+                                      });
+                                      await loadTournamentData();
+                                    } catch (e) {
+                                      console.error(e);
+                                      alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
+                                    }
+                                  }}
+                                >
+                                  <Play className="h-4 w-4 mr-1" />
+                                  Start
+                                </Button>
+                              )}
+                              <Link href={`/admin/matches/${match.id}`}>
+                                <Button size="sm" variant="outline">
+                                  <Swords className="h-4 w-4 mr-1" />
+                                  {match.status === 'scheduled' ? 'Enter score' : match.status === 'live' ? 'Update score' : 'View'}
+                                </Button>
+                              </Link>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -919,194 +958,131 @@ export default function TournamentDetailsPage() {
             </Card>
           </TabsContent>
 
-          {/* Brackets Tab */}
-          <TabsContent value="brackets" className="space-y-6">
+          {/* Results Tab */}
+          <TabsContent value="results" className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold">Tournament Brackets ({(brackets || []).length})</h3>
-              <p className="text-sm text-gray-600">View tournament brackets by category</p>
+              <h3 className="text-lg font-semibold">Results</h3>
+              <p className="text-sm text-gray-600">Group standings: rank by points, then set difference, then point difference</p>
             </div>
 
-            <div className="grid gap-6">
-              {(brackets || []).map((bracket) => (
-                <Card key={bracket.id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span className="capitalize">{bracket.category.replace('-', ' ')}</span>
-                      <Badge variant="outline" className={getStatusColor(bracket.status)}>
-                        {bracket.status}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      {bracket.participants.length} participants • {bracket.rounds.length} rounds
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {bracket.rounds.map((round, index) => (
-                        <div key={index} className="border rounded-lg p-4">
-                          <h4 className="font-semibold mb-2">{round.roundName}</h4>
-                          <div className="grid gap-2">
-                            {round.matches.map((match) => (
-                              <div key={match.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                <div className="flex items-center gap-4">
-                                  <span className="text-sm font-medium">Match #{match.matchNumber}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">{match.player1Name || 'TBD'}</span>
-                                    <span className="text-gray-400">vs</span>
-                                    <span className="text-sm">{match.player2Name || 'TBD'}</span>
-                                  </div>
-                                </div>
-                                <Badge variant="outline" className={getMatchStatusColor(match.status)}>
-                                  {match.status}
-                                </Badge>
-                              </div>
-                            ))}
+            {(() => {
+              const completed = matches?.filter(m => m.status === 'completed') ?? [];
+              type RowStat = { name: string; played: number; won: number; lost: number; pts: number; gw: number; gl: number; gd: number; pw: number; pl: number; pd: number };
+              const groupToStats = new Map<string, Map<string, RowStat>>();
+
+              const ensureStat = (round: string, name: string): RowStat => {
+                if (!groupToStats.has(round)) groupToStats.set(round, new Map());
+                const map = groupToStats.get(round)!;
+                if (!map.has(name)) map.set(name, { name, played: 0, won: 0, lost: 0, pts: 0, gw: 0, gl: 0, gd: 0, pw: 0, pl: 0, pd: 0 });
+                return map.get(name)!;
+              };
+
+              completed.forEach((m) => {
+                const round = (m.round || 'Standings').trim() || 'Standings';
+                const p1 = m.player1Name || 'TBD';
+                const p2 = m.player2Name || 'TBD';
+                const s1 = m.player1Score ?? 0;
+                const s2 = m.player2Score ?? 0;
+                const sets = (m as Match).sets || [];
+                const p1Points = sets.reduce((sum, set) => sum + (set.player1Score ?? 0), 0);
+                const p2Points = sets.reduce((sum, set) => sum + (set.player2Score ?? 0), 0);
+
+                [p1, p2].forEach((name) => {
+                  const stat = ensureStat(round, name);
+                  stat.played += 1;
+                  if (name === p1) {
+                    stat.gw += s1;
+                    stat.gl += s2;
+                    stat.pw += p1Points;
+                    stat.pl += p2Points;
+                    if (m.winner === name) { stat.won += 1; stat.pts += 2; } else stat.lost += 1;
+                  } else {
+                    stat.gw += s2;
+                    stat.gl += s1;
+                    stat.pw += p2Points;
+                    stat.pl += p1Points;
+                    if (m.winner === name) { stat.won += 1; stat.pts += 2; } else stat.lost += 1;
+                  }
+                  stat.gd = stat.gw - stat.gl;
+                  stat.pd = stat.pw - stat.pl;
+                });
+              });
+
+              const groups = Array.from(groupToStats.keys()).sort();
+              const tournamentShort = tournament?.name ? tournament.name.replace(/\s+/g, ' ').trim().slice(0, 6) : '';
+
+              if (groups.length === 0) {
+                return (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No results yet</h3>
+                      <p className="text-muted-foreground">Completed match results will show group standings here.</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return (
+                <div className="space-y-6">
+                  {groups.map((round) => {
+                    const map = groupToStats.get(round)!;
+                    const rows = Array.from(map.values()).sort(
+                      (a, b) => b.pts - a.pts || b.gd - a.gd || b.pd - a.pd
+                    );
+                    return (
+                      <Card key={round}>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base font-semibold">
+                            {tournamentShort ? `${tournamentShort} - ${round}` : round}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/60">
+                                  <TableHead className="font-semibold">TEAM</TableHead>
+                                  <TableHead className="text-center w-12 font-semibold">MP</TableHead>
+                                  <TableHead className="text-center w-10 font-semibold">W</TableHead>
+                                  <TableHead className="text-center w-10 font-semibold">L</TableHead>
+                                  <TableHead className="text-center w-12 font-semibold">PTS</TableHead>
+                                  <TableHead className="text-center w-10 font-semibold">GW</TableHead>
+                                  <TableHead className="text-center w-10 font-semibold">GL</TableHead>
+                                  <TableHead className="text-center w-10 font-semibold">GD</TableHead>
+                                  <TableHead className="text-center w-12 font-semibold">PW</TableHead>
+                                  <TableHead className="text-center w-12 font-semibold">PL</TableHead>
+                                  <TableHead className="text-center w-12 font-semibold">PD</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rows.map((row) => (
+                                  <TableRow key={row.name}>
+                                    <TableCell className="font-medium text-primary">{row.name}</TableCell>
+                                    <TableCell className="text-center">{row.played}</TableCell>
+                                    <TableCell className="text-center font-semibold text-green-600">{row.won}</TableCell>
+                                    <TableCell className="text-center font-semibold text-red-600">{row.lost}</TableCell>
+                                    <TableCell className="text-center font-semibold text-amber-600">{row.pts}</TableCell>
+                                    <TableCell className="text-center text-purple-600">{row.gw}</TableCell>
+                                    <TableCell className="text-center text-orange-600">{row.gl}</TableCell>
+                                    <TableCell className="text-center">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                                    <TableCell className="text-center">{row.pw}</TableCell>
+                                    <TableCell className="text-center">{row.pl}</TableCell>
+                                    <TableCell className={`text-center font-medium ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
+                                      {row.pd >= 0 ? `+${row.pd}` : row.pd}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {(brackets || []).length === 0 && (
-              <div className="text-center py-8">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No brackets generated</h3>
-                <p className="text-gray-600">Brackets will appear here once they are generated for the tournament.</p>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Tournament Analytics</h3>
-              <p className="text-sm text-gray-600">Detailed insights and statistics</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Registration Trends */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Registration Trends
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Registration Deadline</span>
-                      <span className="font-semibold">{formatDate(tournament.registrationDeadline)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Days Remaining</span>
-                      <span className="font-semibold">
-                        {Math.max(0, Math.ceil((tournament.registrationDeadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Capacity Utilization</span>
-                      <span className="font-semibold">
-                        {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Payment Analytics */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Payment Analytics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Total Revenue</span>
-                      <span className="font-semibold">₹{paidParticipants * (tournament.entryFee || 0)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Payment Rate</span>
-                      <span className="font-semibold">
-                        {totalParticipants > 0 ? Math.round((paidParticipants / totalParticipants) * 100) : 0}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Pending Payments</span>
-                      <span className="font-semibold">{totalParticipants - paidParticipants}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Category Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    Category Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {(tournament.categories || []).map((category) => {
-                      const categoryParticipants = participants.filter(p => p.selectedCategory === category).length;
-                      return (
-                        <div key={category} className="flex justify-between items-center">
-                          <span className="text-sm capitalize">{category.replace('-', ' ')}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{categoryParticipants}</span>
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full"
-                                style={{ width: `${totalParticipants > 0 ? (categoryParticipants / totalParticipants) * 100 : 0}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Expertise Level Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5" />
-                    Skill Level Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {['beginner', 'intermediate', 'advanced', 'expert'].map((level) => {
-                      const levelParticipants = participants.filter(p => p.expertiseLevel === level).length;
-                      return (
-                        <div key={level} className="flex justify-between items-center">
-                          <span className="text-sm capitalize">{level}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{levelParticipants}</span>
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-green-600 h-2 rounded-full"
-                                style={{ width: `${totalParticipants > 0 ? (levelParticipants / totalParticipants) * 100 : 0}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* Teams Tab */}
@@ -1125,17 +1101,17 @@ export default function TournamentDetailsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Edit Tournament Drawer */}
-        <Drawer open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DrawerContent side="right" className="max-w-2xl">
-            <DrawerHeader className="flex-shrink-0">
-              <DrawerTitle>Edit Tournament</DrawerTitle>
-              <DrawerDescription>
+        {/* Edit Tournament Dialog - using Dialog so native date inputs work (Vaul Drawer blocks date picker) */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+              <DialogTitle>Edit Tournament</DialogTitle>
+              <DialogDescription>
                 Update tournament details and settings
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="flex-1 overflow-y-auto px-6 pb-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-6 pb-2">
+              <form onSubmit={handleSubmit} className="space-y-6" id="edit-tournament-form">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Tournament Name</Label>
@@ -1285,6 +1261,18 @@ export default function TournamentDetailsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="matchFormat">Match format</Label>
+                  <Select value={formData.matchFormat} onValueChange={(value: 'single-set' | 'best-of-3') => setFormData({ ...formData, matchFormat: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single-set">Single set (1 set wins)</SelectItem>
+                      <SelectItem value="best-of-3">Best of 3 (first to 2 sets)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -1338,18 +1326,16 @@ export default function TournamentDetailsPage() {
 
               </form>
             </div>
-            <DrawerFooter className="flex-shrink-0">
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  Update Tournament
-                </Button>
-              </div>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+            <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" form="edit-tournament-form">
+                Update Tournament
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit Registration Drawer */}
         <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>

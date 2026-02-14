@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, addDoc, collection, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -182,14 +182,21 @@ export default function TournamentRegistrationPage() {
       const registrationRef = await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), registrationData);
       console.log('Registration created with ID:', registrationRef.id);
       
-      // Notify tournament admin about new registration
+      // Notify tournament admin about new registration (server-side so it works for public users)
       try {
-        const { notifyTournamentAdminNewRegistration } = await import('@/lib/notification-utils');
-        await notifyTournamentAdminNewRegistration(
-          tournamentId,
-          tournament?.name || 'Tournament',
-          formData.name
-        );
+        const res = await fetch('/api/notify-registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tournamentId,
+            tournamentName: tournament?.name || 'Tournament',
+            playerName: formData.name,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
       } catch (error) {
         console.error('Error sending notification:', error);
         // Don't fail the registration if notification fails
@@ -204,11 +211,8 @@ export default function TournamentRegistrationPage() {
         console.error('Error creating players from registration:', playerError);
         // Don't fail the registration if player creation fails
       }
-      
-      // Update tournament participant count
-      await updateDoc(doc(db, 'tournaments', tournamentId), {
-        currentParticipants: tournament!.currentParticipants + 1
-      });
+
+      // Participant count is incremented server-side by /api/notify-registration (no client write to tournaments)
 
       setSuccess(true);
     } catch (error: unknown) {

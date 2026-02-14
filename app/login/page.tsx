@@ -19,9 +19,14 @@ export default function LoginPage() {
 
   // Redirect to admin if user is already logged in
   useEffect(() => {
-    if (!loading && user && (user.role === 'admin' || user.role === 'super-admin' || user.role === 'tournament-admin')) {
-      console.log('User already logged in, redirecting to admin...');
-      router.push('/admin');
+    if (!loading && user) {
+      if (user.role === 'admin' || user.role === 'super-admin') {
+        console.log('User already logged in, redirecting to admin dashboard...');
+        router.push('/admin');
+      } else if (user.role === 'tournament-admin') {
+        console.log('Tournament admin logged in, redirecting to tournaments...');
+        router.push('/admin/tournaments');
+      }
     }
   }, [user, loading, router]);
 
