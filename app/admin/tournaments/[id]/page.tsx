@@ -387,10 +387,10 @@ export default function TournamentDetailsPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading tournament details...</p>
+          <div className="animate-spin rounded-full h-16 w-16 sm:h-32 sm:w-32 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-sm text-gray-600 sm:text-base">Loading tournament details...</p>
         </div>
       </div>
     );
@@ -399,12 +399,12 @@ export default function TournamentDetailsPage() {
   if (!tournament) {
     return (
       <AdminLayout moduleName="Tournament Details">
-        <div className="p-6">
-          <div className="text-center py-12">
-            <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Tournament not found</h3>
-            <p className="text-gray-600 mb-4">The tournament you&apos;re looking for doesn&apos;t exist or has been removed.</p>
-            <Button onClick={() => router.push('/admin/tournaments')}>
+        <div className="px-4 py-6 sm:p-6">
+          <div className="text-center py-8 sm:py-12">
+            <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-base font-medium text-gray-900 mb-2 sm:text-lg">Tournament not found</h3>
+            <p className="text-sm text-gray-600 mb-4 sm:text-base">The tournament you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+            <Button onClick={() => router.push('/admin/tournaments')} className="w-full sm:w-auto">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Tournaments
             </Button>
@@ -427,57 +427,57 @@ export default function TournamentDetailsPage() {
 
   return (
     <AdminLayout moduleName="Tournament Details">
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">{tournament.name}</h1>
-              <p className="text-gray-600 mt-1">{tournament.description}</p>
+      <div className="min-w-0 px-4 py-4 sm:p-6">
+        {/* Header - stacked on mobile */}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-4 mb-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 truncate sm:text-3xl">{tournament.name}</h1>
+              <p className="text-sm text-gray-600 mt-1 line-clamp-2 sm:line-clamp-none">{tournament.description}</p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleEdit}>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-shrink-0">
+              <Button variant="outline" size="sm" onClick={handleEdit} className="w-full sm:w-auto">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Tournament
               </Button>
-              <Button variant="outline" size="sm" onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')}>
+              <Button variant="outline" size="sm" onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')} className="w-full sm:w-auto">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Registration
               </Button>
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <Badge className={`${getStatusColor(tournament.status)} text-sm px-3 py-1`}>
+
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <Badge className={`${getStatusColor(tournament.status)} text-xs sm:text-sm px-2 py-0.5 sm:px-3 sm:py-1`}>
               {tournament.status}
             </Badge>
             {tournament.registrationOpen && (
-              <Badge variant="outline" className="text-green-600 border-green-600">
+              <Badge variant="outline" className="text-green-600 border-green-600 text-xs sm:text-sm">
                 Registration Open
               </Badge>
             )}
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <Calendar className="h-4 w-4" />
+            <div className="flex items-center gap-1 text-xs text-gray-600 sm:text-sm">
+              <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
               <span>{formatDate(tournament.startDate)} - {formatDate(tournament.endDate)}</span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-gray-600">
-              <MapPin className="h-4 w-4" />
-              <span>{tournament.venue}</span>
+            <div className="flex items-center gap-1 text-xs text-gray-600 sm:text-sm">
+              <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="truncate">{tournament.venue}</span>
             </div>
           </div>
         </div>
 
-        {/* Key Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Key Statistics - 2 cols on mobile */}
+        <div className="grid grid-cols-2 gap-3 mb-6 sm:mb-8 sm:gap-6 lg:grid-cols-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Participants</p>
-                  <p className="text-2xl font-bold">{totalParticipants}/{tournament.maxParticipants || '∞'}</p>
-                  <p className="text-xs text-gray-500">
-                    {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}% capacity` : 'Unlimited capacity'}
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-0">
+                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0 ml-0 sm:ml-4">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Participants</p>
+                  <p className="text-lg sm:text-2xl font-bold">{totalParticipants}/{tournament.maxParticipants || '∞'}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}% capacity` : 'Unlimited'}
                   </p>
                 </div>
               </div>
@@ -485,14 +485,14 @@ export default function TournamentDetailsPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <UserCheck className="h-8 w-8 text-green-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold">{approvedParticipants}</p>
-                  <p className="text-xs text-gray-500">
-                    {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}% approval rate
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-0">
+                <UserCheck className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
+                <div className="min-w-0 ml-0 sm:ml-4">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Approved</p>
+                  <p className="text-lg sm:text-2xl font-bold">{approvedParticipants}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}% approval
                   </p>
                 </div>
               </div>
@@ -500,14 +500,14 @@ export default function TournamentDetailsPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Activity className="h-8 w-8 text-purple-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Matches</p>
-                  <p className="text-2xl font-bold">{totalMatches}</p>
-                  <p className="text-xs text-gray-500">
-                    {completedMatches} completed, {liveMatches} live
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-0">
+                <Activity className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500 flex-shrink-0" />
+                <div className="min-w-0 ml-0 sm:ml-4">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Matches</p>
+                  <p className="text-lg sm:text-2xl font-bold">{totalMatches}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {completedMatches} done, {liveMatches} live
                   </p>
                 </div>
               </div>
@@ -515,14 +515,14 @@ export default function TournamentDetailsPage() {
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <DollarSign className="h-8 w-8 text-green-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Revenue</p>
-                  <p className="text-2xl font-bold">₹{paidParticipants * (tournament.entryFee || 0)}</p>
-                  <p className="text-xs text-gray-500">
-                    {paidParticipants} payments received
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-0">
+                <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
+                <div className="min-w-0 ml-0 sm:ml-4">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Revenue</p>
+                  <p className="text-lg sm:text-2xl font-bold">₹{paidParticipants * (tournament.entryFee || 0)}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                    {paidParticipants} payments
                   </p>
                 </div>
               </div>
@@ -530,31 +530,33 @@ export default function TournamentDetailsPage() {
           </Card>
         </div>
 
-        {/* Detailed Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="participants">Registrations</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="pools">Pools</TabsTrigger>
-            <TabsTrigger value="spin-wheel">Spin Wheel</TabsTrigger>
-            <TabsTrigger value="matches">Matches</TabsTrigger>
-            <TabsTrigger value="results">Results</TabsTrigger>
-          </TabsList>
+        {/* Detailed Tabs - horizontal scroll on mobile */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
+            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-7 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
+              <TabsTrigger value="overview" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Overview</TabsTrigger>
+              <TabsTrigger value="participants" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Registrations</TabsTrigger>
+              <TabsTrigger value="teams" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Teams</TabsTrigger>
+              <TabsTrigger value="pools" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Pools</TabsTrigger>
+              <TabsTrigger value="spin-wheel" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Spin Wheel</TabsTrigger>
+              <TabsTrigger value="matches" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Matches</TabsTrigger>
+              <TabsTrigger value="results" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Results</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TabsContent value="overview" className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Tournament Information */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
                     Tournament Information
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <p className="text-sm font-medium text-gray-600">Sport</p>
                       <p className="text-lg font-semibold capitalize">{tournament.sport.replace('-', ' ')}</p>
@@ -599,13 +601,13 @@ export default function TournamentDetailsPage() {
 
               {/* Registration Statistics */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
                     Registration Statistics
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
@@ -666,13 +668,13 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Registrations Tab */}
-          <TabsContent value="participants" className="space-y-6">
-            <div className="flex justify-between items-center">
+          <TabsContent value="participants" className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
               <div>
-                <h3 className="text-lg font-semibold">Registrations ({filteredParticipants.length})</h3>
-                <p className="text-sm text-gray-600">Manage tournament registrations</p>
+                <h3 className="text-base font-semibold sm:text-lg">Registrations ({filteredParticipants.length})</h3>
+                <p className="text-xs text-gray-600 sm:text-sm">Manage tournament registrations</p>
               </div>
-              <Button onClick={exportParticipants}>
+              <Button onClick={exportParticipants} size="sm" className="w-full sm:w-auto">
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
@@ -680,12 +682,12 @@ export default function TournamentDetailsPage() {
 
             {/* Filter Controls */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Filter Registrations</CardTitle>
-                <CardDescription>Filter registrations by category, level, and gender</CardDescription>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-sm sm:text-base">Filter Registrations</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Filter by category, level, and gender</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   {/* Category Filter */}
                   <div className="space-y-2">
                     <Label htmlFor="category-filter">Category</Label>
@@ -755,6 +757,7 @@ export default function TournamentDetailsPage() {
                   <Button 
                     variant="outline" 
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       setCategoryFilter('all');
                       setLevelFilter('all');
@@ -769,54 +772,52 @@ export default function TournamentDetailsPage() {
 
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <Table className="min-w-[720px]">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Age</TableHead>
-                        <TableHead>Gender</TableHead>
-                        <TableHead>Tower/Flat</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Level</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Phone</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Age</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Gender</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Tower/Flat</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Category</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Level</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                        <TableHead className="text-xs sm:text-sm w-12">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(filteredParticipants || []).map((participant) => (
                         <TableRow key={participant.id}>
-                          <TableCell className="font-medium">{participant.name}</TableCell>
-                          <TableCell>{participant.phone}</TableCell>
-                          <TableCell>{participant.age}</TableCell>
-                          <TableCell className="capitalize">{participant.gender}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              {participant.tower} {participant.flatNumber}
-                            </div>
+                          <TableCell className="font-medium text-xs sm:text-sm py-2">{participant.name}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2">{participant.phone}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2">{participant.age}</TableCell>
+                          <TableCell className="capitalize text-xs sm:text-sm py-2">{participant.gender}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2">
+                            <span className="whitespace-nowrap">{participant.tower} {participant.flatNumber}</span>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">
+                          <TableCell className="py-2">
+                            <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
                               {participant.selectedCategory.replace('-', ' ')}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize text-xs">
+                          <TableCell className="py-2">
+                            <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
                               {participant.expertiseLevel}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Badge className={getRegistrationStatusColor(participant.registrationStatus)}>
+                          <TableCell className="py-2">
+                            <Badge className={`text-[10px] sm:text-xs ${getRegistrationStatusColor(participant.registrationStatus)}`}>
                               {participant.registrationStatus}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="py-2">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditDrawer(participant)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-manipulation"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -846,62 +847,62 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Matches Tab */}
-          <TabsContent value="matches" className="space-y-6">
+          <TabsContent value="matches" className="space-y-4 sm:space-y-6">
             <div>
-              <h3 className="text-lg font-semibold">Matches ({totalMatches})</h3>
-              <p className="text-sm text-gray-600">Tournament match schedule and results. Start matches and enter scores below.</p>
+              <h3 className="text-base font-semibold sm:text-lg">Matches ({totalMatches})</h3>
+              <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
             </div>
 
             <Card>
               <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                  <Table className="min-w-[680px]">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Match #</TableHead>
-                        <TableHead>Round</TableHead>
-                        <TableHead>Player 1</TableHead>
-                        <TableHead>Player 2</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Scheduled Time</TableHead>
-                        <TableHead>Venue</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Match #</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Round</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Player 1</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Player 2</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Score</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Time</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Venue</TableHead>
+                        <TableHead className="text-right text-xs sm:text-sm w-24">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {(matches || []).map((match) => (
                         <TableRow key={match.id}>
-                          <TableCell className="font-medium">#{match.matchNumber}</TableCell>
-                          <TableCell>{match.round}</TableCell>
-                          <TableCell>{match.player1Name}</TableCell>
-                          <TableCell>{match.player2Name}</TableCell>
-                          <TableCell>
+                          <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player1Name}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player2Name}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2">
                             {match.status === 'completed' ? (
                               <span className="font-semibold">
-                                {match.player1Score ?? '-'} - {match.player2Score ?? '-'}
+                                {match.player1Score ?? '-'}-{match.player2Score ?? '-'}
                               </span>
                             ) : match.status === 'live' && match.sets?.length ? (
-                              <span className="text-green-600 text-sm">
-                                Sets: {match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}
+                              <span className="text-green-600 text-xs sm:text-sm">
+                                {match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}
                               </span>
                             ) : (
                               <span className="text-gray-400">-</span>
                             )}
                           </TableCell>
-                          <TableCell>
-                            <Badge className={getMatchStatusColor(match.status)}>
+                          <TableCell className="py-2">
+                            <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>
                               {match.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>{formatDate(match.scheduledTime)}</TableCell>
-                          <TableCell>{match.venue}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex gap-2 justify-end">
+                          <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2 max-w-[60px] sm:max-w-none truncate">{match.venue}</TableCell>
+                          <TableCell className="text-right py-2">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:gap-2 sm:justify-end">
                               {match.status === 'scheduled' && (
                                 <Button
                                   size="sm"
-                                  className="bg-green-600 hover:bg-green-700"
+                                  className="bg-green-600 hover:bg-green-700 text-xs touch-manipulation"
                                   onClick={async () => {
                                     try {
                                       await updateDoc(doc(db, 'matches', match.id), {
@@ -929,14 +930,14 @@ export default function TournamentDetailsPage() {
                                     }
                                   }}
                                 >
-                                  <Play className="h-4 w-4 mr-1" />
-                                  Start
+                                  <Play className="h-4 w-4 sm:mr-1" />
+                                  <span className="hidden sm:inline">Start</span>
                                 </Button>
                               )}
-                              <Link href={`/admin/matches/${match.id}`}>
-                                <Button size="sm" variant="outline">
-                                  <Swords className="h-4 w-4 mr-1" />
-                                  {match.status === 'scheduled' ? 'Enter score' : match.status === 'live' ? 'Update score' : 'View'}
+                              <Link href={`/admin/matches/${match.id}`} className="inline-block">
+                                <Button size="sm" variant="outline" className="w-full sm:w-auto text-xs touch-manipulation">
+                                  <Swords className="h-4 w-4 sm:mr-1" />
+                                  {match.status === 'scheduled' ? 'Score' : match.status === 'live' ? 'Update' : 'View'}
                                 </Button>
                               </Link>
                             </div>
@@ -959,10 +960,10 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Results Tab */}
-          <TabsContent value="results" className="space-y-6">
+          <TabsContent value="results" className="space-y-4 sm:space-y-6">
             <div>
-              <h3 className="text-lg font-semibold">Results</h3>
-              <p className="text-sm text-gray-600">Group standings: rank by points, then set difference, then point difference</p>
+              <h3 className="text-base font-semibold sm:text-lg">Results</h3>
+              <p className="text-xs text-gray-600 sm:text-sm">Group standings: rank by points, then set difference, then point difference</p>
             </div>
 
             {(() => {
@@ -1024,7 +1025,7 @@ export default function TournamentDetailsPage() {
               }
 
               return (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {groups.map((round) => {
                     const map = groupToStats.get(round)!;
                     const rows = Array.from(map.values()).sort(
@@ -1032,43 +1033,43 @@ export default function TournamentDetailsPage() {
                     );
                     return (
                       <Card key={round}>
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-base font-semibold">
+                        <CardHeader className="p-4 pb-2 sm:p-6">
+                          <CardTitle className="text-sm font-semibold sm:text-base">
                             {tournamentShort ? `${tournamentShort} - ${round}` : round}
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                          <div className="overflow-x-auto">
-                            <Table>
+                          <div className="overflow-x-auto -mx-4 sm:mx-0">
+                            <Table className="min-w-[520px]">
                               <TableHeader>
                                 <TableRow className="bg-muted/60">
-                                  <TableHead className="font-semibold">TEAM</TableHead>
-                                  <TableHead className="text-center w-12 font-semibold">MP</TableHead>
-                                  <TableHead className="text-center w-10 font-semibold">W</TableHead>
-                                  <TableHead className="text-center w-10 font-semibold">L</TableHead>
-                                  <TableHead className="text-center w-12 font-semibold">PTS</TableHead>
-                                  <TableHead className="text-center w-10 font-semibold">GW</TableHead>
-                                  <TableHead className="text-center w-10 font-semibold">GL</TableHead>
-                                  <TableHead className="text-center w-10 font-semibold">GD</TableHead>
-                                  <TableHead className="text-center w-12 font-semibold">PW</TableHead>
-                                  <TableHead className="text-center w-12 font-semibold">PL</TableHead>
-                                  <TableHead className="text-center w-12 font-semibold">PD</TableHead>
+                                  <TableHead className="font-semibold text-xs sm:text-sm">TEAM</TableHead>
+                                  <TableHead className="text-center w-10 sm:w-12 font-semibold text-xs sm:text-sm">MP</TableHead>
+                                  <TableHead className="text-center w-8 sm:w-10 font-semibold text-xs sm:text-sm">W</TableHead>
+                                  <TableHead className="text-center w-8 sm:w-10 font-semibold text-xs sm:text-sm">L</TableHead>
+                                  <TableHead className="text-center w-10 sm:w-12 font-semibold text-xs sm:text-sm">PTS</TableHead>
+                                  <TableHead className="text-center w-8 sm:w-10 font-semibold text-xs sm:text-sm">GW</TableHead>
+                                  <TableHead className="text-center w-8 sm:w-10 font-semibold text-xs sm:text-sm">GL</TableHead>
+                                  <TableHead className="text-center w-8 sm:w-10 font-semibold text-xs sm:text-sm">GD</TableHead>
+                                  <TableHead className="text-center w-10 sm:w-12 font-semibold text-xs sm:text-sm">PW</TableHead>
+                                  <TableHead className="text-center w-10 sm:w-12 font-semibold text-xs sm:text-sm">PL</TableHead>
+                                  <TableHead className="text-center w-10 sm:w-12 font-semibold text-xs sm:text-sm">PD</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {rows.map((row) => (
                                   <TableRow key={row.name}>
-                                    <TableCell className="font-medium text-primary">{row.name}</TableCell>
-                                    <TableCell className="text-center">{row.played}</TableCell>
-                                    <TableCell className="text-center font-semibold text-green-600">{row.won}</TableCell>
-                                    <TableCell className="text-center font-semibold text-red-600">{row.lost}</TableCell>
-                                    <TableCell className="text-center font-semibold text-amber-600">{row.pts}</TableCell>
-                                    <TableCell className="text-center text-purple-600">{row.gw}</TableCell>
-                                    <TableCell className="text-center text-orange-600">{row.gl}</TableCell>
-                                    <TableCell className="text-center">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
-                                    <TableCell className="text-center">{row.pw}</TableCell>
-                                    <TableCell className="text-center">{row.pl}</TableCell>
-                                    <TableCell className={`text-center font-medium ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
+                                    <TableCell className="font-medium text-primary text-xs sm:text-sm py-2">{row.name}</TableCell>
+                                    <TableCell className="text-center text-xs sm:text-sm py-2">{row.played}</TableCell>
+                                    <TableCell className="text-center font-semibold text-green-600 text-xs sm:text-sm py-2">{row.won}</TableCell>
+                                    <TableCell className="text-center font-semibold text-red-600 text-xs sm:text-sm py-2">{row.lost}</TableCell>
+                                    <TableCell className="text-center font-semibold text-amber-600 text-xs sm:text-sm py-2">{row.pts}</TableCell>
+                                    <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-2">{row.gw}</TableCell>
+                                    <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-2">{row.gl}</TableCell>
+                                    <TableCell className="text-center text-xs sm:text-sm py-2">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                                    <TableCell className="text-center text-xs sm:text-sm py-2">{row.pw}</TableCell>
+                                    <TableCell className="text-center text-xs sm:text-sm py-2">{row.pl}</TableCell>
+                                    <TableCell className={`text-center font-medium text-xs sm:text-sm py-2 ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
                                       {row.pd >= 0 ? `+${row.pd}` : row.pd}
                                     </TableCell>
                                   </TableRow>
@@ -1086,33 +1087,33 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Teams Tab */}
-          <TabsContent value="teams" className="space-y-6">
+          <TabsContent value="teams" className="space-y-4 sm:space-y-6 min-w-0">
             <TeamManagement tournament={tournament} user={user!} />
           </TabsContent>
 
           {/* Spin Wheel Tab */}
-          <TabsContent value="spin-wheel" className="space-y-6">
+          <TabsContent value="spin-wheel" className="space-y-4 sm:space-y-6 min-w-0">
             <SpinWheel tournament={tournament} user={user!} />
           </TabsContent>
 
           {/* Pools Tab */}
-          <TabsContent value="pools" className="space-y-6">
+          <TabsContent value="pools" className="space-y-4 sm:space-y-6 min-w-0">
             <PoolAssignment tournament={tournament} user={user!} />
           </TabsContent>
         </Tabs>
 
         {/* Edit Tournament Dialog - using Dialog so native date inputs work (Vaul Drawer blocks date picker) */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
-            <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-2">
+          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 sm:w-full">
+            <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
               <DialogTitle>Edit Tournament</DialogTitle>
               <DialogDescription>
                 Update tournament details and settings
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-6 pb-2">
-              <form onSubmit={handleSubmit} className="space-y-6" id="edit-tournament-form">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex-1 overflow-y-auto px-4 pb-2 sm:px-6">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6" id="edit-tournament-form">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Tournament Name</Label>
                   <Input

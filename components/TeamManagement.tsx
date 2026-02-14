@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -184,14 +184,45 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
   const handleUpdateTeam = async () => {
     if (!editingTeam) return;
+    const oldName = editingTeam.name;
+    const newName = teamForm.name.trim();
+    if (!newName) return;
 
     try {
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', editingTeam.id), {
-        name: teamForm.name,
+        name: newName,
         category: teamForm.category,
         captainId: teamForm.captainId === 'none' ? null : teamForm.captainId,
         updatedAt: new Date(),
       });
+
+      // Sync new team name to all matches and liveScores for this tournament
+      const matchesSnap = await getDocs(
+        query(collection(db, 'matches'), where('tournamentId', '==', tournament.id))
+      );
+      for (const matchDoc of matchesSnap.docs) {
+        const data = matchDoc.data();
+        const isP1 = data.player1Id === editingTeam.id;
+        const isP2 = data.player2Id === editingTeam.id;
+        if (!isP1 && !isP2) continue;
+        const matchUpdate: Record<string, unknown> = {
+          updatedAt: new Date(),
+        };
+        if (isP1) matchUpdate.player1Name = newName;
+        if (isP2) matchUpdate.player2Name = newName;
+        if (data.winner === oldName) matchUpdate.winner = newName;
+        await updateDoc(doc(db, 'matches', matchDoc.id), matchUpdate);
+        const liveSnap = await getDoc(doc(db, 'liveScores', matchDoc.id));
+        if (liveSnap.exists()) {
+          const liveUpdate: Record<string, unknown> = {};
+          if (isP1) liveUpdate.player1Name = newName;
+          if (isP2) liveUpdate.player2Name = newName;
+          if (Object.keys(liveUpdate).length) {
+            liveUpdate.lastUpdated = new Date();
+            await updateDoc(doc(db, 'liveScores', matchDoc.id), liveUpdate);
+          }
+        }
+      }
 
       setEditingTeam(null);
       setTeamForm({ name: '', category: '' as CategoryType, captainId: 'none' });
