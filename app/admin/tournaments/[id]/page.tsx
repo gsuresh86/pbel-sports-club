@@ -4,8 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { doc, getDoc, collection, getDocs, query, where, orderBy, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  useTournament,
+  useTournamentRegistrations,
+  useTournamentMatches,
+  useUpdateTournamentMutation,
+  useInvalidateTournament,
+} from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,6 +61,9 @@ import TeamManagement from '@/components/TeamManagement';
 import SpinWheel from '@/components/SpinWheel';
 import PoolAssignment from '@/components/PoolAssignment';
 
+const isAdminRole = (role: string) =>
+  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+
 export default function TournamentDetailsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -61,12 +71,29 @@ export default function TournamentDetailsPage() {
   const searchParams = useSearchParams();
   const tournamentId = params.id as string;
   const { alert, AlertDialogComponent } = useAlertDialog();
-  
-  const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [participants, setParticipants] = useState<Registration[]>([]);
+  const queriesEnabled = !authLoading && !!user && isAdminRole(user.role) && !!tournamentId;
+
+  const { data: tournamentData, isLoading: tournamentLoading } = useTournament(
+    tournamentId,
+    { enabled: queriesEnabled }
+  );
+  const { data: registrationsData = [], isLoading: registrationsLoading } =
+    useTournamentRegistrations(tournamentId, { enabled: queriesEnabled });
+  const { data: matchesData = [], isLoading: matchesLoading } = useTournamentMatches(
+    tournamentId,
+    { enabled: queriesEnabled }
+  );
+  const updateTournamentMutation = useUpdateTournamentMutation();
+  const invalidateTournament = useInvalidateTournament();
+
+  const tournament = tournamentData ?? null;
+  const participants = registrationsData;
+  const matches = matchesData;
+  const loading =
+    authLoading ||
+    (queriesEnabled && (tournamentLoading || registrationsLoading || matchesLoading));
+
   const [filteredParticipants, setFilteredParticipants] = useState<Registration[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [dialogOpen, setDialogOpen] = useState(false);
   
@@ -100,12 +127,27 @@ export default function TournamentDetailsPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'tournament-admin' && user.role !== 'super-admin'))) {
+    if (!authLoading && (!user || !isAdminRole(user.role))) {
       router.push('/login');
-    } else if (user?.role === 'admin' || user?.role === 'tournament-admin' || user?.role === 'super-admin') {
-      loadTournamentData();
     }
-  }, [user, authLoading, router, tournamentId]);
+  }, [user, authLoading, router]);
+
+  // Redirect if tournament not found or tournament-admin without access
+  useEffect(() => {
+    if (authLoading || !queriesEnabled) return;
+    if (!tournamentLoading && tournamentData === null) {
+      router.push('/admin/tournaments');
+      return;
+    }
+    if (
+      tournament &&
+      user?.role === 'tournament-admin' &&
+      user.assignedTournaments &&
+      !user.assignedTournaments.includes(tournamentId)
+    ) {
+      router.push('/admin/tournaments');
+    }
+  }, [authLoading, queriesEnabled, tournamentLoading, tournamentData, tournament, user, tournamentId, router]);
 
   // Handle URL parameters for tab selection
   useEffect(() => {
@@ -133,72 +175,6 @@ export default function TournamentDetailsPage() {
 
     setFilteredParticipants(filtered);
   }, [participants, categoryFilter, levelFilter, genderFilter]);
-
-  const loadTournamentData = async () => {
-    try {
-      // Load tournament details
-      const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
-      if (!tournamentDoc.exists()) {
-        router.push('/admin/tournaments');
-        return;
-      }
-
-      const tournamentData = {
-        id: tournamentDoc.id,
-        ...tournamentDoc.data(),
-        startDate: tournamentDoc.data()?.startDate?.toDate(),
-        endDate: tournamentDoc.data()?.endDate?.toDate(),
-        registrationDeadline: tournamentDoc.data()?.registrationDeadline?.toDate(),
-        createdAt: tournamentDoc.data()?.createdAt?.toDate(),
-        updatedAt: tournamentDoc.data()?.updatedAt?.toDate(),
-      } as Tournament;
-
-      // Check if user has permission to access this tournament
-      if (user?.role === 'tournament-admin' && user.assignedTournaments) {
-        if (!user.assignedTournaments.includes(tournamentId)) {
-          router.push('/admin/tournaments');
-          return;
-        }
-      }
-
-      setTournament(tournamentData);
-
-      // Load registrations for this tournament from subcollection
-      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournamentId, 'registrations'));
-      const registrationsData = registrationsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-        paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
-      })) as Registration[];
-
-      setParticipants(registrationsData);
-
-      // Load matches for this tournament
-      const matchesQuery = query(
-        collection(db, 'matches'),
-        where('tournamentId', '==', tournamentId),
-        orderBy('scheduledTime', 'asc')
-      );
-      const matchesSnapshot = await getDocs(matchesQuery);
-      const matchesData = matchesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        scheduledTime: doc.data().scheduledTime?.toDate(),
-        actualStartTime: doc.data().actualStartTime?.toDate(),
-        actualEndTime: doc.data().actualEndTime?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Match[];
-
-      setMatches(matchesData);
-
-    } catch (error) {
-      console.error('Error loading tournament data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const toDateInputValue = (d: Date | string | undefined): string => {
     if (d == null) return '';
@@ -270,10 +246,10 @@ export default function TournamentDetailsPage() {
         tournamentData.banner = formData.banner;
       }
 
-      await updateDoc(doc(db, 'tournaments', tournament.id), tournamentData);
-      
-      // Reload tournament data
-      await loadTournamentData();
+      await updateTournamentMutation.mutateAsync({
+        tournamentId: tournament.id,
+        data: { ...tournamentData, updatedAt: new Date() },
+      });
       
       setDialogOpen(false);
       alert({
@@ -923,7 +899,7 @@ export default function TournamentDetailsPage() {
                                         isLive: true,
                                         lastUpdated: new Date(),
                                       });
-                                      await loadTournamentData();
+                                      invalidateTournament(tournamentId);
                                     } catch (e) {
                                       console.error(e);
                                       alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
@@ -1581,11 +1557,7 @@ export default function TournamentDetailsPage() {
                             updatedAt: new Date()
                           });
                           
-                          // Update local state
-                          setParticipants(prev => 
-                            prev.map(p => p.id === selectedParticipant.id ? selectedParticipant : p)
-                          );
-                          
+                          invalidateTournament(tournamentId);
                           setEditDrawerOpen(false);
                         } catch (error) {
                           console.error('Error updating registration:', error);

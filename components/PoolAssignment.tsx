@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { collection, getDocs, updateDoc, doc, query, orderBy, addDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  useTournamentTeams,
+  useTournamentPools,
+  useTournamentRegistrations,
+  useTournamentMatches,
+  useInvalidateTournament,
+} from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +32,14 @@ interface PoolAssignmentProps {
 export default function PoolAssignment({ tournament, user }: PoolAssignmentProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const { alert, AlertDialogComponent } = useAlertDialog();
-  
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [pools, setPools] = useState<Pool[]>([]);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const invalidateTournament = useInvalidateTournament();
+  const { data: teams = [], isLoading: teamsLoading } = useTournamentTeams(tournament.id);
+  const { data: pools = [], isLoading: poolsLoading } = useTournamentPools(tournament.id);
+  const { data: registrations = [], isLoading: registrationsLoading } =
+    useTournamentRegistrations(tournament.id);
+  const { data: matches = [], isLoading: matchesLoading } = useTournamentMatches(tournament.id);
+  const loading = teamsLoading || poolsLoading || registrationsLoading || matchesLoading;
+
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | ''>('');
   const [selectedPool, setSelectedPool] = useState<string>('');
   const [playerPoolSelections, setPlayerPoolSelections] = useState<Record<string, string>>({});
@@ -42,94 +52,6 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const [selectedPlayersForPool, setSelectedPlayersForPool] = useState<string[]>([]);
   const [editingPoolName, setEditingPoolName] = useState<string | null>(null);
   const [editingPoolNameValue, setEditingPoolNameValue] = useState<string>('');
-  const [matches, setMatches] = useState<Match[]>([]);
-
-  useEffect(() => {
-    loadData();
-  }, [tournament.id]);
-
-  const loadData = async () => {
-    setLoading(true);
-    await Promise.all([
-      loadTeams(),
-      loadPools(),
-      loadRegistrations(),
-      loadMatches(),
-    ]);
-    setLoading(false);
-  };
-
-  const loadMatches = async () => {
-    try {
-      const matchesSnapshot = await getDocs(
-        query(collection(db, 'matches'), where('tournamentId', '==', tournament.id))
-      );
-      const matchesData = matchesSnapshot.docs.map(d => ({
-        id: d.id,
-        ...d.data(),
-        scheduledTime: d.data().scheduledTime?.toDate(),
-        actualStartTime: d.data().actualStartTime?.toDate(),
-        actualEndTime: d.data().actualEndTime?.toDate(),
-        updatedAt: d.data().updatedAt?.toDate(),
-      })) as Match[];
-      setMatches(matchesData);
-    } catch (error) {
-      console.error('Error loading matches:', error);
-    }
-  };
-
-  const loadTeams = async () => {
-    try {
-      const teamsSnapshot = await getDocs(
-        query(collection(db, 'tournaments', tournament.id, 'teams'), orderBy('createdAt', 'desc'))
-      );
-      const teamsData = teamsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Team[];
-      setTeams(teamsData);
-    } catch (error) {
-      console.error('Error loading teams:', error);
-    }
-  };
-
-  const loadPools = async () => {
-    try {
-      const poolsSnapshot = await getDocs(
-        query(collection(db, 'tournaments', tournament.id, 'pools'), orderBy('createdAt', 'desc'))
-      );
-      const poolsData = poolsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Pool[];
-      setPools(poolsData);
-    } catch (error) {
-      console.error('Error loading pools:', error);
-    }
-  };
-
-  const loadRegistrations = async () => {
-    try {
-      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
-      
-      const registrationsData = registrationsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-      })) as unknown as Registration[];
-      
-      setRegistrations(registrationsData);
-    } catch (error) {
-      console.error('Error loading registrations:', error);
-    }
-  };
 
   const assignTeamToPool = async (teamId: string, poolId: string) => {
     try {
@@ -159,24 +81,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Update local state immediately instead of reloading
-      setPools(prevPools => 
-        prevPools.map(p => 
-          p.id === poolId 
-            ? { ...p, teams: updatedTeams, updatedAt: new Date() }
-            : p
-        )
-      );
-
-      setTeams(prevTeams =>
-        prevTeams.map(t =>
-          t.id === teamId
-            ? { ...t, poolId: poolId, updatedAt: new Date() }
-            : t
-        )
-      );
-
-      // Clear the selection for this team
+      invalidateTournament(tournament.id);
       setTeamPoolSelections(prev => {
         const newSelections = { ...prev };
         delete newSelections[teamId];
@@ -209,16 +114,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Update local state immediately instead of reloading
-      setPools(prevPools => 
-        prevPools.map(p => 
-          p.id === poolId 
-            ? { ...p, teams: updatedPlayers, updatedAt: new Date() }
-            : p
-        )
-      );
-
-      // Clear the selection for this player
+      invalidateTournament(tournament.id);
       setPlayerPoolSelections(prev => {
         const newSelections = { ...prev };
         delete newSelections[playerId];
@@ -241,14 +137,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Update local state immediately instead of reloading
-      setPools(prevPools => 
-        prevPools.map(p => 
-          p.id === poolId 
-            ? { ...p, teams: updatedPlayers, updatedAt: new Date() }
-            : p
-        )
-      );
+      invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error removing player from pool:', error);
     }
@@ -272,22 +161,12 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Update local state immediately instead of reloading
-      setPools(prevPools => 
-        prevPools.map(p => 
-          p.id === poolId 
-            ? { ...p, teams: updatedTeams, updatedAt: new Date() }
-            : p
-        )
-      );
-
-      setTeams(prevTeams =>
-        prevTeams.map(t =>
-          t.id === teamId
-            ? { ...t, poolId: undefined, updatedAt: new Date() }
-            : t
-        )
-      );
+      invalidateTournament(tournament.id);
+      setTeamPoolSelections(prev => {
+        const next = { ...prev };
+        delete next[teamId];
+        return next;
+      });
     } catch (error) {
       console.error('Error removing team from pool:', error);
     }
@@ -384,15 +263,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         updatedAt: new Date(),
       });
 
-      // Update local state immediately instead of reloading
-      setPools(prevPools => 
-        prevPools.map(p => 
-          p.id === poolId 
-            ? { ...p, name: editingPoolNameValue.trim(), updatedAt: new Date() }
-            : p
-        )
-      );
-
+      invalidateTournament(tournament.id);
       setEditingPoolName(null);
       setEditingPoolNameValue('');
     } catch (error) {
@@ -513,6 +384,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
           variant: 'error',
         });
       } else {
+        invalidateTournament(tournament.id);
         alert({
           title: 'Matches generated',
           description: `Created ${totalCreated} round-robin match(es) for ${categoryPools.length} pool(s).`,
@@ -625,8 +497,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       }
       // For player assignments, no additional updates needed
 
-      // Refresh data
-      await loadData();
+      invalidateTournament(tournament.id);
       closeEditPool();
 
       alert({

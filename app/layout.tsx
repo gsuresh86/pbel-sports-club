@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 const poppins = Poppins({
@@ -26,7 +27,9 @@ export default function RootLayout({
         className={`${poppins.variable} font-poppins antialiased`}
       >
         <AuthProvider>
-          {children}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
         </AuthProvider>
         <Analytics />
       </body>

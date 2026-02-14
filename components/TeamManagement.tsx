@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  useTournamentTeams,
+  useTournamentPools,
+  useTournamentRegistrations,
+  useInvalidateTournament,
+} from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,10 +25,13 @@ interface TeamManagementProps {
 }
 
 export default function TeamManagement({ tournament, user }: TeamManagementProps) {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [pools, setPools] = useState<Pool[]>([]);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [loading, setLoading] = useState(true);
+  const invalidateTournament = useInvalidateTournament();
+  const { data: teams = [], isLoading: teamsLoading } = useTournamentTeams(tournament.id);
+  const { data: pools = [], isLoading: poolsLoading } = useTournamentPools(tournament.id);
+  const { data: registrations = [], isLoading: registrationsLoading } =
+    useTournamentRegistrations(tournament.id);
+  const loading = teamsLoading || poolsLoading || registrationsLoading;
+
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -42,75 +51,6 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     maxTeams: 4,
   });
 
-  useEffect(() => {
-    loadData();
-  }, [tournament.id]);
-
-  const loadData = async () => {
-    setLoading(true);
-    await Promise.all([
-      loadTeams(),
-      loadPools(),
-      loadRegistrations(),
-    ]);
-    setLoading(false);
-  };
-
-  const loadTeams = async () => {
-    try {
-      const teamsSnapshot = await getDocs(
-        query(collection(db, 'tournaments', tournament.id, 'teams'), orderBy('createdAt', 'desc'))
-      );
-      
-      const teamsData = teamsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Team[];
-      
-      setTeams(teamsData);
-    } catch (error) {
-      console.error('Error loading teams:', error);
-    }
-  };
-
-  const loadPools = async () => {
-    try {
-      const poolsSnapshot = await getDocs(
-        query(collection(db, 'tournaments', tournament.id, 'pools'), orderBy('createdAt', 'desc'))
-      );
-      const poolsData = poolsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Pool[];
-      setPools(poolsData);
-    } catch (error) {
-      console.error('Error loading pools:', error);
-    }
-  };
-
-  const loadRegistrations = async () => {
-    try {
-      const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
-      
-      const registrationsData = registrationsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate(),
-        registeredAt: doc.data().registeredAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-      })) as unknown as Registration[];
-      
-      setRegistrations(registrationsData);
-    } catch (error) {
-      console.error('Error loading registrations:', error);
-    }
-  };
-
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -126,7 +66,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       await addDoc(collection(db, 'tournaments', tournament.id, 'teams'), teamData);
       setShowCreateTeam(false);
       setTeamForm({ name: '', category: '' as CategoryType, captainId: '' });
-      loadTeams();
+      invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error creating team:', error);
     }
@@ -147,7 +87,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       await addDoc(collection(db, 'tournaments', tournament.id, 'pools'), poolData);
       setShowCreatePool(false);
       setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4 });
-      loadPools();
+      invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error creating pool:', error);
     }
@@ -157,7 +97,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     if (confirm('Are you sure you want to delete this team?')) {
       try {
         await deleteDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId));
-        loadTeams();
+        invalidateTournament(tournament.id);
       } catch (error) {
         console.error('Error deleting team:', error);
       }
@@ -226,7 +166,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
       setEditingTeam(null);
       setTeamForm({ name: '', category: '' as CategoryType, captainId: 'none' });
-      await loadData();
+      invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error updating team:', error);
     }
@@ -245,7 +185,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
       setEditingPool(null);
       setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4 });
-      await loadData();
+      invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error updating pool:', error);
     }
@@ -255,7 +195,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     if (confirm('Are you sure you want to delete this pool?')) {
       try {
         await deleteDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId));
-        loadPools();
+        invalidateTournament(tournament.id);
       } catch (error) {
         console.error('Error deleting pool:', error);
       }
