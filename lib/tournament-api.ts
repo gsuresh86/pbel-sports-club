@@ -138,6 +138,9 @@ export type TournamentUpdatePayload = Partial<
     | 'banner'
     | 'isPublic'
     | 'matchFormat'
+    | 'showTowerAndFlat'
+    | 'showEmergencyContact'
+    | 'showIsResident'
   >
 > & { updatedAt: Date };
 

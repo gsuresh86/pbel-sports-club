@@ -6,7 +6,10 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(pkill:*)",
       "Bash(firebase deploy:*)",
-      "Bash(firebase init:*)"
+      "Bash(firebase init:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx next build:*)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

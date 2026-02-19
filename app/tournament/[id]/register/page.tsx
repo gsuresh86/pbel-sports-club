@@ -111,10 +111,16 @@ export default function TournamentRegistrationPage() {
       }
 
       // Validate partner details for doubles tournaments
+      const showTowerAndFlat = tournament?.showTowerAndFlat ?? true;
+      const showEmergencyContact = tournament?.showEmergencyContact ?? true;
+      const showIsResident = tournament?.showIsResident ?? true;
+
       if (formData.selectedCategory === 'mens-doubles' || formData.selectedCategory === 'mixed-doubles') {
-        if (!formData.partnerName || !formData.partnerPhone || !formData.partnerEmail || 
-            !formData.partnerTower || !formData.partnerFlatNumber) {
+        if (!formData.partnerName || !formData.partnerPhone || !formData.partnerEmail) {
           throw new Error('Partner details are required for doubles tournaments');
+        }
+        if (showTowerAndFlat && (!formData.partnerTower || !formData.partnerFlatNumber)) {
+          throw new Error('Partner tower and flat number are required for doubles tournaments');
         }
       }
 
@@ -155,19 +161,17 @@ export default function TournamentRegistrationPage() {
         phone: formData.phone,
         age: parseInt(formData.age),
         gender: formData.gender as 'male' | 'female' | 'other',
-        tower: formData.tower,
-        flatNumber: formData.flatNumber,
-        emergencyContact: formData.emergencyContact,
+        ...(showTowerAndFlat ? { tower: formData.tower, flatNumber: formData.flatNumber } : {}),
+        ...(showEmergencyContact ? { emergencyContact: formData.emergencyContact } : {}),
         expertiseLevel: formData.expertiseLevel as 'beginner' | 'intermediate' | 'advanced' | 'expert',
         previousExperience: formData.previousExperience || null,
-        isResident: formData.isResident,
+        ...(showIsResident ? { isResident: formData.isResident } : {}),
         selectedCategory: formData.selectedCategory as CategoryType,
         // Partner details
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
         partnerEmail: formData.partnerEmail || null,
-        partnerTower: formData.partnerTower || null,
-        partnerFlatNumber: formData.partnerFlatNumber || null,
+        ...(showTowerAndFlat ? { partnerTower: formData.partnerTower || null, partnerFlatNumber: formData.partnerFlatNumber || null } : {}),
         // Payment details
         paymentReference: formData.paymentReference || null,
         paymentAmount: tournament?.entryFee || 0,
@@ -486,16 +490,18 @@ export default function TournamentRegistrationPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="emergencyContact" className="mb-2 block">Emergency Contact Number *</Label>
-                    <Input
-                      id="emergencyContact"
-                      type="tel"
-                      value={formData.emergencyContact}
-                      onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                      required
-                    />
-                  </div>
+                  {(tournament?.showEmergencyContact ?? true) && (
+                    <div>
+                      <Label htmlFor="emergencyContact" className="mb-2 block">Emergency Contact Number *</Label>
+                      <Input
+                        id="emergencyContact"
+                        type="tel"
+                        value={formData.emergencyContact}
+                        onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -526,31 +532,33 @@ export default function TournamentRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="tower" className="mb-2 block">Tower *</Label>
-                    <Select value={formData.tower} onValueChange={(value) => setFormData({ ...formData, tower: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select tower" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P'].map(tower => (
-                          <SelectItem key={tower} value={tower}>Tower {tower}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {(tournament?.showTowerAndFlat ?? true) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="tower" className="mb-2 block">Tower *</Label>
+                      <Select value={formData.tower} onValueChange={(value) => setFormData({ ...formData, tower: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tower" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P'].map(tower => (
+                            <SelectItem key={tower} value={tower}>Tower {tower}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="flatNumber" className="mb-2 block">Flat Number *</Label>
+                      <Input
+                        id="flatNumber"
+                        value={formData.flatNumber}
+                        onChange={(e) => setFormData({ ...formData, flatNumber: e.target.value })}
+                        placeholder="e.g., 101, 201, 301"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="flatNumber" className="mb-2 block">Flat Number *</Label>
-                    <Input
-                      id="flatNumber"
-                      value={formData.flatNumber}
-                      onChange={(e) => setFormData({ ...formData, flatNumber: e.target.value })}
-                      placeholder="e.g., 101, 201, 301"
-                      required
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Payment Section */}
                 {tournament?.entryFee && tournament.entryFee > 0 && (
@@ -642,16 +650,18 @@ export default function TournamentRegistrationPage() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isResident"
-                    checked={formData.isResident}
-                    onChange={(e) => setFormData({ ...formData, isResident: e.target.checked })}
-                    className="rounded"
-                  />
-                  <Label htmlFor="isResident" className="mb-0">I am a local resident</Label>
-                </div>
+                {(tournament?.showIsResident ?? true) && (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isResident"
+                      checked={formData.isResident}
+                      onChange={(e) => setFormData({ ...formData, isResident: e.target.checked })}
+                      className="rounded"
+                    />
+                    <Label htmlFor="isResident" className="mb-0">I am a local resident</Label>
+                  </div>
+                )}
 
                 {/* Partner Details Section - Only show for doubles tournaments */}
                 {(formData.selectedCategory === 'mens-doubles' || formData.selectedCategory === 'mixed-doubles') && (
@@ -691,43 +701,47 @@ export default function TournamentRegistrationPage() {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                          <div>
-                            <Label htmlFor="partnerEmail" className="mb-2 block">Partner Email *</Label>
-                            <Input
-                              id="partnerEmail"
-                              type="email"
-                              value={formData.partnerEmail}
-                              onChange={(e) => setFormData({ ...formData, partnerEmail: e.target.value })}
-                              placeholder="Partner's email address"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="partnerTower" className="mb-2 block">Partner Tower *</Label>
-                            <Select value={formData.partnerTower} onValueChange={(value) => setFormData({ ...formData, partnerTower: value })}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select partner's tower" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P'].map(tower => (
-                                  <SelectItem key={tower} value={tower}>Tower {tower}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        
                         <div className="mt-4">
-                          <Label htmlFor="partnerFlatNumber" className="mb-2 block">Partner Flat Number *</Label>
+                          <Label htmlFor="partnerEmail" className="mb-2 block">Partner Email *</Label>
                           <Input
-                            id="partnerFlatNumber"
-                            value={formData.partnerFlatNumber}
-                            onChange={(e) => setFormData({ ...formData, partnerFlatNumber: e.target.value })}
-                            placeholder="e.g., 101, 201, 301"
+                            id="partnerEmail"
+                            type="email"
+                            value={formData.partnerEmail}
+                            onChange={(e) => setFormData({ ...formData, partnerEmail: e.target.value })}
+                            placeholder="Partner's email address"
                             required
                           />
                         </div>
+
+                        {(tournament?.showTowerAndFlat ?? true) && (
+                          <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <Label htmlFor="partnerTower" className="mb-2 block">Partner Tower *</Label>
+                                <Select value={formData.partnerTower} onValueChange={(value) => setFormData({ ...formData, partnerTower: value })}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select partner's tower" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P'].map(tower => (
+                                      <SelectItem key={tower} value={tower}>Tower {tower}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <Label htmlFor="partnerFlatNumber" className="mb-2 block">Partner Flat Number *</Label>
+                                <Input
+                                  id="partnerFlatNumber"
+                                  value={formData.partnerFlatNumber}
+                                  onChange={(e) => setFormData({ ...formData, partnerFlatNumber: e.target.value })}
+                                  placeholder="e.g., 101, 201, 301"
+                                  required
+                                />
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

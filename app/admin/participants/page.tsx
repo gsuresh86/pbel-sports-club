@@ -213,8 +213,8 @@ export default function ManageRegistrationsPage() {
           p.phone,
           p.age,
           p.gender,
-          p.tower,
-          p.flatNumber,
+          p.tower || '',
+          p.flatNumber || '',
           p.expertiseLevel,
           tournament?.name || 'Unknown',
           p.registrationStatus,
@@ -371,7 +371,7 @@ export default function ManageRegistrationsPage() {
       let hasErrors = false;
 
       // Required fields validation
-      const requiredFields = ['name', 'email', 'phone', 'age', 'gender', 'tower', 'flatNumber', 'emergencyContact', 'expertiseLevel', 'selectedCategory'];
+      const requiredFields = ['name', 'email', 'phone', 'age', 'gender', 'expertiseLevel', 'selectedCategory'];
       
       requiredFields.forEach(field => {
         const mappedField = Object.keys(fieldMapping).find(key => fieldMapping[key] === field);
@@ -667,8 +667,14 @@ export default function ManageRegistrationsPage() {
                         <TableCell className="capitalize">{participant.gender}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <p><strong>Tower {participant.tower}</strong></p>
-                            <p className="text-gray-500">Flat {participant.flatNumber}</p>
+                            {participant.tower || participant.flatNumber ? (
+                              <>
+                                {participant.tower && <p><strong>Tower {participant.tower}</strong></p>}
+                                {participant.flatNumber && <p className="text-gray-500">Flat {participant.flatNumber}</p>}
+                              </>
+                            ) : (
+                              <p className="text-gray-400">N/A</p>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -817,8 +823,8 @@ export default function ManageRegistrationsPage() {
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h4 className="font-medium text-blue-900 mb-2">Expected CSV/Excel Format:</h4>
                     <div className="text-sm text-blue-800 mb-3">
-                      <p><strong>Required columns:</strong> Name, Email, Phone, Age, Gender, Tower, Flat Number, Emergency Contact, Expertise Level, Category</p>
-                      <p><strong>Optional columns:</strong> Partner Name, Partner Phone, Partner Email, Partner Tower, Partner Flat Number, Payment Reference, Payment Method, Payment Amount</p>
+                      <p><strong>Required columns:</strong> Name, Email, Phone, Age, Gender, Expertise Level, Category</p>
+                      <p><strong>Optional columns:</strong> Tower, Flat Number, Emergency Contact, Partner Name, Partner Phone, Partner Email, Partner Tower, Partner Flat Number, Payment Reference, Payment Method, Payment Amount</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={downloadTemplate}>
                       <Download className="h-4 w-4 mr-2" />
@@ -886,9 +892,9 @@ export default function ManageRegistrationsPage() {
                             <SelectItem value="phone">Phone (Required)</SelectItem>
                             <SelectItem value="age">Age (Required)</SelectItem>
                             <SelectItem value="gender">Gender (Required)</SelectItem>
-                            <SelectItem value="tower">Tower (Required)</SelectItem>
-                            <SelectItem value="flatNumber">Flat Number (Required)</SelectItem>
-                            <SelectItem value="emergencyContact">Emergency Contact (Required)</SelectItem>
+                            <SelectItem value="tower">Tower</SelectItem>
+                            <SelectItem value="flatNumber">Flat Number</SelectItem>
+                            <SelectItem value="emergencyContact">Emergency Contact</SelectItem>
                             <SelectItem value="expertiseLevel">Expertise Level (Required)</SelectItem>
                             <SelectItem value="selectedCategory">Category (Required)</SelectItem>
                             <SelectItem value="partnerName">Partner Name</SelectItem>

@@ -56,6 +56,10 @@ export interface Tournament {
   banner?: string; // URL to the uploaded banner image
   /** Match format: single set (1 set wins) or best of 3 (first to 2 sets) */
   matchFormat?: 'single-set' | 'best-of-3';
+  /** Registration form field visibility toggles (default: true for backwards compatibility) */
+  showTowerAndFlat?: boolean;
+  showEmergencyContact?: boolean;
+  showIsResident?: boolean;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -70,9 +74,9 @@ export interface Registration {
   phone: string;
   age: number;
   gender: 'male' | 'female' | 'other';
-  tower: string; // A to P (except O, I)
-  flatNumber: string;
-  emergencyContact: string;
+  tower?: string; // A to P (except O, I)
+  flatNumber?: string;
+  emergencyContact?: string;
   // Partner details for doubles games
   partnerName?: string;
   partnerPhone?: string;
@@ -83,7 +87,7 @@ export interface Registration {
   expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   previousExperience?: string;
   // Additional community details
-  isResident: boolean;
+  isResident?: boolean;
   selectedCategory: CategoryType;
   // Payment details
   paymentReference?: string;
@@ -109,12 +113,12 @@ export interface Player {
   phone: string;
   age: number;
   gender: 'male' | 'female' | 'other';
-  tower: string;
-  flatNumber: string;
-  emergencyContact: string;
+  tower?: string;
+  flatNumber?: string;
+  emergencyContact?: string;
   expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   previousExperience?: string;
-  isResident: boolean;
+  isResident?: boolean;
   selectedCategory: CategoryType;
   // Player status
   status: 'active' | 'eliminated' | 'withdrawn';

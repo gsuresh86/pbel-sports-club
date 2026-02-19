@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
@@ -10,23 +10,18 @@ import {
   useTournament,
   useTournamentRegistrations,
   useTournamentMatches,
-  useUpdateTournamentMutation,
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Tournament, Registration, Match, SportType, TournamentType, CategoryType } from '@/types';
-import { ImageUpload } from '@/components/ui/image-upload';
+import { Tournament, Registration, Match, CategoryType } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
 import { 
@@ -83,7 +78,6 @@ export default function TournamentDetailsPage() {
     tournamentId,
     { enabled: queriesEnabled }
   );
-  const updateTournamentMutation = useUpdateTournamentMutation();
   const invalidateTournament = useInvalidateTournament();
 
   const tournament = tournamentData ?? null;
@@ -93,38 +87,30 @@ export default function TournamentDetailsPage() {
     authLoading ||
     (queriesEnabled && (tournamentLoading || registrationsLoading || matchesLoading));
 
-  const [filteredParticipants, setFilteredParticipants] = useState<Registration[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
-  const [dialogOpen, setDialogOpen] = useState(false);
   
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+
+  const filteredParticipants = useMemo(() => {
+    let filtered = participants;
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(p => p.selectedCategory === categoryFilter);
+    }
+    if (levelFilter !== 'all') {
+      filtered = filtered.filter(p => p.expertiseLevel === levelFilter);
+    }
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter(p => p.gender === genderFilter);
+    }
+    return filtered;
+  }, [participants, categoryFilter, levelFilter, genderFilter]);
   
   // Edit drawer states
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    sport: 'badminton' as SportType,
-    tournamentType: 'individual' as TournamentType,
-    categories: [] as CategoryType[],
-    startDate: '',
-    endDate: '',
-    venue: '',
-    description: '',
-    registrationDeadline: '',
-    maxParticipants: '',
-    entryFee: '',
-    prizePool: '',
-    rules: '',
-    status: 'upcoming' as 'upcoming' | 'ongoing' | 'completed' | 'cancelled',
-    registrationOpen: true,
-    banner: '',
-    isPublic: true, // Tournament visibility for public
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
-  });
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(user.role))) {
@@ -156,139 +142,6 @@ export default function TournamentDetailsPage() {
       setActiveTab(tab);
     }
   }, [searchParams]);
-
-  // Filter participants based on selected filters
-  useEffect(() => {
-    let filtered = participants;
-
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(p => p.selectedCategory === categoryFilter);
-    }
-
-    if (levelFilter !== 'all') {
-      filtered = filtered.filter(p => p.expertiseLevel === levelFilter);
-    }
-
-    if (genderFilter !== 'all') {
-      filtered = filtered.filter(p => p.gender === genderFilter);
-    }
-
-    setFilteredParticipants(filtered);
-  }, [participants, categoryFilter, levelFilter, genderFilter]);
-
-  const toDateInputValue = (d: Date | string | undefined): string => {
-    if (d == null) return '';
-    const date = typeof d === 'string' ? new Date(d) : d;
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toISOString().split('T')[0];
-  };
-
-  const handleEdit = () => {
-    if (!tournament) return;
-    
-    setFormData({
-      name: tournament.name,
-      sport: tournament.sport,
-      tournamentType: tournament.tournamentType || 'individual',
-      categories: tournament.categories || [],
-      startDate: toDateInputValue(tournament.startDate as Date),
-      endDate: toDateInputValue(tournament.endDate as Date),
-      venue: tournament.venue,
-      description: tournament.description,
-      registrationDeadline: toDateInputValue(tournament.registrationDeadline as Date),
-      maxParticipants: tournament.maxParticipants?.toString() || '',
-      entryFee: tournament.entryFee?.toString() || '',
-      prizePool: tournament.prizePool?.toString() || '',
-      rules: tournament.rules || '',
-      status: tournament.status,
-      registrationOpen: tournament.registrationOpen ?? true,
-      banner: tournament.banner || '',
-      isPublic: (tournament as any).isPublic !== undefined ? (tournament as any).isPublic : true,
-      matchFormat: (tournament as any).matchFormat || 'best-of-3',
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tournament) return;
-    
-    try {
-      const tournamentData: Partial<Tournament> = {
-        name: formData.name,
-        sport: formData.sport,
-        tournamentType: formData.tournamentType,
-        categories: formData.categories,
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
-        venue: formData.venue,
-        description: formData.description,
-        registrationDeadline: new Date(formData.registrationDeadline),
-        rules: formData.rules,
-        status: formData.status,
-        registrationOpen: formData.registrationOpen,
-        isPublic: formData.isPublic,
-        matchFormat: formData.matchFormat,
-        updatedAt: new Date(),
-      };
-
-      // Only add optional fields if they have values
-      if (formData.maxParticipants && formData.maxParticipants.trim() !== '') {
-        tournamentData.maxParticipants = parseInt(formData.maxParticipants);
-      }
-      if (formData.entryFee && formData.entryFee.trim() !== '') {
-        tournamentData.entryFee = parseFloat(formData.entryFee);
-      }
-      if (formData.prizePool && formData.prizePool.trim() !== '') {
-        tournamentData.prizePool = parseFloat(formData.prizePool);
-      }
-      if (formData.banner && formData.banner.trim() !== '') {
-        tournamentData.banner = formData.banner;
-      }
-
-      await updateTournamentMutation.mutateAsync({
-        tournamentId: tournament.id,
-        data: { ...tournamentData, updatedAt: new Date() },
-      });
-      
-      setDialogOpen(false);
-      alert({
-        title: 'Success',
-        description: 'Tournament updated successfully!',
-        variant: 'success'
-      });
-    } catch (error) {
-      console.error('Error updating tournament:', error);
-      alert({
-        title: 'Error',
-        description: 'Failed to update tournament. Please try again.',
-        variant: 'error'
-      });
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      sport: 'badminton',
-      tournamentType: 'individual',
-      categories: [],
-      startDate: '',
-      endDate: '',
-      venue: '',
-      description: '',
-      registrationDeadline: '',
-      maxParticipants: '',
-      entryFee: '',
-      prizePool: '',
-      rules: '',
-      status: 'upcoming',
-      registrationOpen: true,
-      banner: '',
-      isPublic: true,
-      matchFormat: 'best-of-3',
-    });
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -336,14 +189,20 @@ export default function TournamentDetailsPage() {
   };
 
   const exportParticipants = () => {
+    const showTower = tournament?.showTowerAndFlat ?? true;
+    const headers = [
+      'Name', 'Phone', 'Age', 'Gender',
+      ...(showTower ? ['Tower/Flat'] : []),
+      'Level', 'Category', 'Status', 'Partner Name', 'Partner Phone'
+    ];
     const csvContent = [
-      ['Name', 'Phone', 'Age', 'Gender', 'Tower/Flat', 'Level', 'Category', 'Status', 'Partner Name', 'Partner Phone'].join(','),
+      headers.join(','),
       ...filteredParticipants.map(p => [
         p.name,
         p.phone,
         p.age,
         p.gender,
-        `${p.tower} ${p.flatNumber}`,
+        ...(showTower ? [`${p.tower || ''} ${p.flatNumber || ''}`] : []),
         p.expertiseLevel,
         p.selectedCategory,
         p.registrationStatus,
@@ -412,10 +271,12 @@ export default function TournamentDetailsPage() {
               <p className="text-sm text-gray-600 mt-1 line-clamp-2 sm:line-clamp-none">{tournament.description}</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-shrink-0">
-              <Button variant="outline" size="sm" onClick={handleEdit} className="w-full sm:w-auto">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Tournament
-              </Button>
+              <Link href={`/admin/tournaments/${tournamentId}/edit`}>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Tournament
+                </Button>
+              </Link>
               <Button variant="outline" size="sm" onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')} className="w-full sm:w-auto">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 View Registration
@@ -443,63 +304,56 @@ export default function TournamentDetailsPage() {
           </div>
         </div>
 
-        {/* Key Statistics - 2 cols on mobile */}
-        <div className="grid grid-cols-2 gap-3 mb-6 sm:mb-8 sm:gap-6 lg:grid-cols-4">
+        {/* Key Statistics - compact 4-up */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
           <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center gap-2 sm:gap-0">
-                <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 flex-shrink-0" />
-                <div className="min-w-0 ml-0 sm:ml-4">
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Participants</p>
-                  <p className="text-lg sm:text-2xl font-bold">{totalParticipants}/{tournament.maxParticipants || '∞'}</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                    {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}% capacity` : 'Unlimited'}
+            <CardContent className="p-2.5 sm:p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Participants</p>
+                  <p className="text-base sm:text-lg font-bold leading-tight">{totalParticipants}/{tournament.maxParticipants || '∞'}</p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center gap-2 sm:gap-0">
-                <UserCheck className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
-                <div className="min-w-0 ml-0 sm:ml-4">
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Approved</p>
-                  <p className="text-lg sm:text-2xl font-bold">{approvedParticipants}</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                    {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}% approval
+            <CardContent className="p-2.5 sm:p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Approved</p>
+                  <p className="text-base sm:text-lg font-bold leading-tight">{approvedParticipants}</p>
+                  <p className="text-[10px] text-gray-500 truncate">
+                    {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center gap-2 sm:gap-0">
-                <Activity className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500 flex-shrink-0" />
-                <div className="min-w-0 ml-0 sm:ml-4">
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Matches</p>
-                  <p className="text-lg sm:text-2xl font-bold">{totalMatches}</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                    {completedMatches} done, {liveMatches} live
-                  </p>
+            <CardContent className="p-2.5 sm:p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Matches</p>
+                  <p className="text-base sm:text-lg font-bold leading-tight">{totalMatches}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{completedMatches} done, {liveMatches} live</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardContent className="p-3 sm:p-6">
-              <div className="flex items-center gap-2 sm:gap-0">
-                <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 flex-shrink-0" />
-                <div className="min-w-0 ml-0 sm:ml-4">
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Revenue</p>
-                  <p className="text-lg sm:text-2xl font-bold">₹{paidParticipants * (tournament.entryFee || 0)}</p>
-                  <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-                    {paidParticipants} payments
-                  </p>
+            <CardContent className="p-2.5 sm:p-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Revenue</p>
+                  <p className="text-base sm:text-lg font-bold leading-tight">₹{paidParticipants * (tournament.entryFee || 0)}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{paidParticipants} paid</p>
                 </div>
               </div>
             </CardContent>
@@ -656,20 +510,15 @@ export default function TournamentDetailsPage() {
               </Button>
             </div>
 
-            {/* Filter Controls */}
+            {/* Filter Controls - compact single row */}
             <Card>
-              <CardHeader className="p-4 sm:p-6">
-                <CardTitle className="text-sm sm:text-base">Filter Registrations</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Filter by category, level, and gender</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  {/* Category Filter */}
-                  <div className="space-y-2">
-                    <Label htmlFor="category-filter">Category</Label>
+              <CardContent className="p-3">
+                <div className="flex flex-wrap items-end gap-2 sm:gap-3">
+                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px]">
+                    <Label htmlFor="category-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Category</Label>
                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                      <SelectTrigger id="category-filter" className="h-8 text-xs">
+                        <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
@@ -693,13 +542,11 @@ export default function TournamentDetailsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Level Filter */}
-                  <div className="space-y-2">
-                    <Label htmlFor="level-filter">Expertise Level</Label>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[120px]">
+                    <Label htmlFor="level-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Level</Label>
                     <Select value={levelFilter} onValueChange={setLevelFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
+                      <SelectTrigger id="level-filter" className="h-8 text-xs">
+                        <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Levels</SelectItem>
@@ -710,13 +557,11 @@ export default function TournamentDetailsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Gender Filter */}
-                  <div className="space-y-2">
-                    <Label htmlFor="gender-filter">Gender</Label>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[100px]">
+                    <Label htmlFor="gender-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Gender</Label>
                     <Select value={genderFilter} onValueChange={setGenderFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
+                      <SelectTrigger id="gender-filter" className="h-8 text-xs">
+                        <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Genders</SelectItem>
@@ -726,21 +571,17 @@ export default function TournamentDetailsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-
-                {/* Clear Filters Button */}
-                <div className="mt-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="ghost"
                     size="sm"
-                    className="w-full sm:w-auto"
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
                     onClick={() => {
                       setCategoryFilter('all');
                       setLevelFilter('all');
                       setGenderFilter('all');
                     }}
                   >
-                    Clear All Filters
+                    Clear
                   </Button>
                 </div>
               </CardContent>
@@ -756,7 +597,9 @@ export default function TournamentDetailsPage() {
                         <TableHead className="text-xs sm:text-sm">Phone</TableHead>
                         <TableHead className="text-xs sm:text-sm">Age</TableHead>
                         <TableHead className="text-xs sm:text-sm">Gender</TableHead>
-                        <TableHead className="text-xs sm:text-sm">Tower/Flat</TableHead>
+                        {(tournament?.showTowerAndFlat ?? true) && (
+                          <TableHead className="text-xs sm:text-sm">Tower/Flat</TableHead>
+                        )}
                         <TableHead className="text-xs sm:text-sm">Category</TableHead>
                         <TableHead className="text-xs sm:text-sm">Level</TableHead>
                         <TableHead className="text-xs sm:text-sm">Status</TableHead>
@@ -770,9 +613,11 @@ export default function TournamentDetailsPage() {
                           <TableCell className="text-xs sm:text-sm py-2">{participant.phone}</TableCell>
                           <TableCell className="text-xs sm:text-sm py-2">{participant.age}</TableCell>
                           <TableCell className="capitalize text-xs sm:text-sm py-2">{participant.gender}</TableCell>
-                          <TableCell className="text-xs sm:text-sm py-2">
-                            <span className="whitespace-nowrap">{participant.tower} {participant.flatNumber}</span>
-                          </TableCell>
+                          {(tournament?.showTowerAndFlat ?? true) && (
+                            <TableCell className="text-xs sm:text-sm py-2">
+                              <span className="whitespace-nowrap">{participant.tower || ''} {participant.flatNumber || ''}</span>
+                            </TableCell>
+                          )}
                           <TableCell className="py-2">
                             <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
                               {participant.selectedCategory.replace('-', ' ')}
@@ -1078,242 +923,6 @@ export default function TournamentDetailsPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Edit Tournament Dialog - using Dialog so native date inputs work (Vaul Drawer blocks date picker) */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0 sm:w-full">
-            <DialogHeader className="flex-shrink-0 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
-              <DialogTitle>Edit Tournament</DialogTitle>
-              <DialogDescription>
-                Update tournament details and settings
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto px-4 pb-2 sm:px-6">
-              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6" id="edit-tournament-form">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Tournament Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sport">Sport</Label>
-                  <Select value={formData.sport} onValueChange={(value: SportType) => setFormData({ ...formData, sport: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="badminton">Badminton</SelectItem>
-                      <SelectItem value="table-tennis">Table Tennis</SelectItem>
-                      <SelectItem value="volleyball">Volleyball</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tournamentType">Tournament Type</Label>
-                  <Select value={formData.tournamentType} onValueChange={(value: TournamentType) => setFormData({ ...formData, tournamentType: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="individual">Individual</SelectItem>
-                      <SelectItem value="team">Team</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label>Categories</Label>
-                  <p className="text-sm text-gray-600">Select tournament categories</p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
-                    {[
-                      'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
-                      'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles',
-                      'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'
-                    ].map((category) => (
-                      <div key={category} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`category-${category}`}
-                          checked={formData.categories.includes(category as CategoryType)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData({
-                                ...formData,
-                                categories: [...formData.categories, category as CategoryType]
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                categories: formData.categories.filter(cat => cat !== category)
-                              });
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`category-${category}`} className="text-sm capitalize">
-                          {category.replace('-', ' ')}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="venue">Venue</Label>
-                  <Input
-                    id="venue"
-                    value={formData.venue}
-                    onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="registrationDeadline">Registration Deadline</Label>
-                  <Input
-                    id="registrationDeadline"
-                    type="date"
-                    value={formData.registrationDeadline}
-                    onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxParticipants">Max Participants</Label>
-                  <Input
-                    id="maxParticipants"
-                    type="number"
-                    value={formData.maxParticipants}
-                    onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="entryFee">Entry Fee (₹)</Label>
-                  <Input
-                    id="entryFee"
-                    type="number"
-                    value={formData.entryFee}
-                    onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="prizePool">Prize Pool (₹)</Label>
-                  <Input
-                    id="prizePool"
-                    type="number"
-                    value={formData.prizePool}
-                    onChange={(e) => setFormData({ ...formData, prizePool: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={formData.status} onValueChange={(value: 'upcoming' | 'ongoing' | 'completed' | 'cancelled') => setFormData({ ...formData, status: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="upcoming">Upcoming</SelectItem>
-                      <SelectItem value="ongoing">Ongoing</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="matchFormat">Match format</Label>
-                  <Select value={formData.matchFormat} onValueChange={(value: 'single-set' | 'best-of-3') => setFormData({ ...formData, matchFormat: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="single-set">Single set (1 set wins)</SelectItem>
-                      <SelectItem value="best-of-3">Best of 3 (first to 2 sets)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="rules">Rules</Label>
-                <Textarea
-                  id="rules"
-                  value={formData.rules}
-                  onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
-                  rows={4}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <ImageUpload
-                  label="Tournament Banner"
-                  value={formData.banner}
-                  onChange={(url) => setFormData({ ...formData, banner: url || '' })}
-                  aspectRatio="16/9"
-                  maxSize={5}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="registrationOpen"
-                    checked={formData.registrationOpen}
-                    onCheckedChange={(checked) => setFormData({ ...formData, registrationOpen: checked === true })}
-                  />
-                  <Label htmlFor="registrationOpen">Registration Open</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="isPublic"
-                    checked={formData.isPublic}
-                    onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked === true })}
-                  />
-                  <Label htmlFor="isPublic">Tournament Visible to Public</Label>
-                </div>
-              </div>
-
-              </form>
-            </div>
-            <DialogFooter className="flex-shrink-0 px-6 pb-6 pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" form="edit-tournament-form">
-                Update Tournament
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Edit Registration Drawer */}
         <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>
           <DrawerContent>
@@ -1471,37 +1080,39 @@ export default function TournamentDetailsPage() {
                 </div>
 
                 {/* Address Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Address Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-tower">Tower</Label>
-                      <Input
-                        id="edit-tower"
-                        value={selectedParticipant.tower}
-                        onChange={(e) => setSelectedParticipant({
-                          ...selectedParticipant,
-                          tower: e.target.value
-                        })}
-                      />
-                    </div>
+                {(tournament?.showTowerAndFlat ?? true) && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Address Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-tower">Tower</Label>
+                        <Input
+                          id="edit-tower"
+                          value={selectedParticipant.tower || ''}
+                          onChange={(e) => setSelectedParticipant({
+                            ...selectedParticipant,
+                            tower: e.target.value
+                          })}
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-flat">Flat Number</Label>
-                      <Input
-                        id="edit-flat"
-                        value={selectedParticipant.flatNumber}
-                        onChange={(e) => setSelectedParticipant({
-                          ...selectedParticipant,
-                          flatNumber: e.target.value
-                        })}
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-flat">Flat Number</Label>
+                        <Input
+                          id="edit-flat"
+                          value={selectedParticipant.flatNumber || ''}
+                          onChange={(e) => setSelectedParticipant({
+                            ...selectedParticipant,
+                            flatNumber: e.target.value
+                          })}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Display format: {selectedParticipant.tower || ''} {selectedParticipant.flatNumber || ''}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Display format: {selectedParticipant.tower} {selectedParticipant.flatNumber}
-                  </div>
-                </div>
+                )}
 
                 {/* Partner Information (for team registrations) */}
                 {(selectedParticipant.selectedCategory.includes('team') || selectedParticipant.selectedCategory === 'open-team') && (

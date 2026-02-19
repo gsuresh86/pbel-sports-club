@@ -67,6 +67,10 @@ export default function ManageTournamentsPage() {
     registrationOpen: true,
     banner: '',
     isPublic: true, // Tournament visibility for public
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
+    showTowerAndFlat: true,
+    showEmergencyContact: true,
+    showIsResident: true,
   });
 
   useEffect(() => {
@@ -178,6 +182,10 @@ export default function ManageTournamentsPage() {
         status: formData.status,
         registrationOpen: formData.registrationOpen,
         isPublic: formData.isPublic,
+        matchFormat: formData.matchFormat,
+        showTowerAndFlat: formData.showTowerAndFlat,
+        showEmergencyContact: formData.showEmergencyContact,
+        showIsResident: formData.showIsResident,
         updatedAt: new Date(),
         createdBy: user?.id,
       };
@@ -248,6 +256,10 @@ export default function ManageTournamentsPage() {
       registrationOpen: tournament.registrationOpen ?? true,
       banner: tournament.banner || '',
       isPublic: (tournament as any).isPublic !== undefined ? (tournament as any).isPublic : true,
+      matchFormat: tournament.matchFormat || 'best-of-3',
+      showTowerAndFlat: tournament.showTowerAndFlat ?? true,
+      showEmergencyContact: tournament.showEmergencyContact ?? true,
+      showIsResident: tournament.showIsResident ?? true,
     });
     setDialogOpen(true);
   };
@@ -280,6 +292,10 @@ export default function ManageTournamentsPage() {
       registrationOpen: true,
       banner: '',
       isPublic: true,
+      matchFormat: 'best-of-3',
+      showTowerAndFlat: true,
+      showEmergencyContact: true,
+      showIsResident: true,
     });
     setEditingTournament(null);
   };
@@ -880,6 +896,18 @@ export default function ManageTournamentsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="matchFormat">Match Format</Label>
+                <Select value={formData.matchFormat} onValueChange={(value: 'single-set' | 'best-of-3') => setFormData({ ...formData, matchFormat: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single-set">Single set (1 set wins)</SelectItem>
+                    <SelectItem value="best-of-3">Best of 3 (first to 2 sets)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="space-y-2">
@@ -928,6 +956,40 @@ export default function ManageTournamentsPage() {
                   onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked === true })}
                 />
                 <Label htmlFor="isPublic">Tournament Visible to Public</Label>
+              </div>
+            </div>
+
+            {/* Registration Form Fields Visibility */}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-semibold">Registration Form Fields</Label>
+                <p className="text-xs text-gray-500">Choose which optional fields appear on the public registration form</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="showTowerAndFlat"
+                    checked={formData.showTowerAndFlat}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showTowerAndFlat: checked === true })}
+                  />
+                  <Label htmlFor="showTowerAndFlat">Tower & Flat Number</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="showEmergencyContact"
+                    checked={formData.showEmergencyContact}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showEmergencyContact: checked === true })}
+                  />
+                  <Label htmlFor="showEmergencyContact">Emergency Contact</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="showIsResident"
+                    checked={formData.showIsResident}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showIsResident: checked === true })}
+                  />
+                  <Label htmlFor="showIsResident">Resident Checkbox</Label>
+                </div>
               </div>
             </div>
 

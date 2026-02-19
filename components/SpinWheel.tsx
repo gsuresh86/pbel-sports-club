@@ -588,7 +588,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                       <div className="text-center">
                         <div className="font-medium text-lg">{spinResult.name}</div>
                         <div className="text-sm text-gray-600">Age: {spinResult.age} | Gender: {spinResult.gender}</div>
-                        <div className="text-sm text-gray-600">Tower: {spinResult.tower} | Flat: {spinResult.flatNumber}</div>
+                        {(spinResult.tower || spinResult.flatNumber) && (
+                          <div className="text-sm text-gray-600">Tower: {spinResult.tower || 'N/A'} | Flat: {spinResult.flatNumber || 'N/A'}</div>
+                        )}
                         <Badge variant="outline" className="mt-1">{spinResult.expertiseLevel}</Badge>
                       </div>
                     </div>
@@ -643,7 +645,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                             <div>
                               <div className="font-medium text-sm">{result.name}</div>
                               <div className="text-xs text-gray-600">Age: {result.age} | {result.gender}</div>
-                              <div className="text-xs text-gray-600">{result.tower} - {result.flatNumber}</div>
+                              {(result.tower || result.flatNumber) && (
+                                <div className="text-xs text-gray-600">{result.tower || ''} - {result.flatNumber || ''}</div>
+                              )}
                             </div>
                             <div className="text-right">
                               <Badge variant="outline" className="text-xs mb-1">{result.expertiseLevel}</Badge>
@@ -723,7 +727,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                     <div key={registration.id} className="bg-gray-50 p-3 rounded-lg">
                       <div className="font-medium text-sm">{registration.name}</div>
                       <div className="text-xs text-gray-600">Age: {registration.age} | {registration.gender}</div>
-                      <div className="text-xs text-gray-600">{registration.tower} - {registration.flatNumber}</div>
+                      {(registration.tower || registration.flatNumber) && (
+                        <div className="text-xs text-gray-600">{registration.tower || ''} - {registration.flatNumber || ''}</div>
+                      )}
                       <Badge variant="outline" className="text-xs mt-1">
                         {registration.expertiseLevel}
                       </Badge>
