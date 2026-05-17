@@ -1,6 +1,6 @@
 # Tournament Craft
 
-A comprehensive sports tournament management system built with Next.js 15, Firebase, and Tailwind CSS for managing badminton, table tennis, and volleyball tournaments.
+A comprehensive sports tournament management system built with Next.js 15, Firebase, and Tailwind CSS for managing badminton, table tennis, and volleyball tournaments. reelase
 
 ## Features
 
