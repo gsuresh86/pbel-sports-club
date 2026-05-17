@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tournament, CategoryType } from '@/types';
 import { createPlayersFromRegistration } from '@/lib/utils';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
-import { Calendar, MapPin, Trophy, Clock, CheckCircle, AlertCircle, ScrollText } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Clock, CheckCircle, AlertCircle, ScrollText, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -20,6 +20,7 @@ import Image from 'next/image';
 type FormErrors = Partial<Record<string, string>>;
 
 const DOUBLES_CATEGORIES: CategoryType[] = ['mens-doubles', 'womens-doubles', 'mixed-doubles', 'family-doubles'];
+const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'];
 
 const CATEGORY_LABELS: Record<string, string> = {
   'girls-under-13': 'Girls Under 13',
@@ -40,9 +41,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
-
 function isDoublesCategory(category: string): boolean {
   return DOUBLES_CATEGORIES.includes(category as CategoryType);
+}
+
+function isTeamCategory(category: string): boolean {
+  return TEAM_CATEGORIES.includes(category as CategoryType);
 }
 
 function validateForm(
@@ -109,7 +113,8 @@ function validateForm(
     }
   }
 
-  if (tournament?.entryFee && tournament.entryFee > 0 && formData.paymentMethod !== 'cash') {
+  const hasDoublesOrFee = isDoublesCategory(formData.selectedCategory) || (tournament?.entryFee ?? 0) > 0;
+  if (hasDoublesOrFee) {
     if (!formData.paymentReference.trim()) errors.paymentReference = 'Payment reference is required';
   }
 
@@ -139,6 +144,10 @@ function getInitialFormData() {
     paymentMethod: 'qr_code',
     profilePhotoUrl: null as string | null,
     partnerProfilePhotoUrl: null as string | null,
+    isVolunteer: false,
+    teamPreference: '',
+    partnerTshirtSize: '',
+    selectedPaymentAccount: '',
   };
 }
 
@@ -167,6 +176,11 @@ export default function TournamentRegistrationPage() {
   const [formData, setFormData] = useState(getInitialFormData());
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoUploadStateRef = useRef({ player: false, partner: false });
+  const [registrationCount, setRegistrationCount] = useState<number | null>(null);
+  const [partnerRegistrationCount, setPartnerRegistrationCount] = useState<number | null>(null);
+  const profilePhotoPrefilledRef = useRef(false);
+  const partnerPhotoPrefilledRef = useRef(false);
+  const MAX_REGISTRATIONS_PER_PARTICIPANT = 3;
 
   const setPhotoUploadState = useCallback((key: 'player' | 'partner', uploading: boolean) => {
     photoUploadStateRef.current[key] = uploading;
@@ -174,6 +188,96 @@ export default function TournamentRegistrationPage() {
       photoUploadStateRef.current.player || photoUploadStateRef.current.partner
     );
   }, []);
+
+  const checkParticipantLimit = async (
+    email: string,
+    phone: string
+  ): Promise<{ count: number; profilePhotoUrl: string | null }> => {
+    if (!tournamentId || (!email && !phone)) return { count: 0, profilePhotoUrl: null };
+    const regRef = collection(db, 'tournaments', tournamentId, 'registrations');
+    const docMap = new Map<string, { profilePhotoUrl?: string }>();
+    const fetches: Promise<void>[] = [];
+    if (email) {
+      fetches.push(
+        getDocs(query(regRef, where('email', '==', email.trim().toLowerCase())))
+          .then(s => s.docs.forEach(d => docMap.set(d.id, d.data() as { profilePhotoUrl?: string })))
+      );
+    }
+    if (phone) {
+      fetches.push(
+        getDocs(query(regRef, where('phone', '==', phone.trim())))
+          .then(s => s.docs.forEach(d => docMap.set(d.id, d.data() as { profilePhotoUrl?: string })))
+      );
+    }
+    await Promise.all(fetches);
+    const docs = Array.from(docMap.values());
+    const profilePhotoUrl = docs.find(d => d.profilePhotoUrl)?.profilePhotoUrl ?? null;
+    return { count: docMap.size, profilePhotoUrl };
+  };
+
+  const handleEmailBlur = async () => {
+    touch('email');
+    const emailVal = formData.email.trim().toLowerCase();
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) return;
+    try {
+      const { count, profilePhotoUrl } = await checkParticipantLimit(emailVal, formData.phone.trim());
+      setRegistrationCount(count);
+      if (profilePhotoUrl && !formData.profilePhotoUrl) {
+        setFormData(prev => ({ ...prev, profilePhotoUrl }));
+        profilePhotoPrefilledRef.current = true;
+      }
+    } catch {
+      // silently ignore — submit will catch it
+    }
+  };
+
+  const handlePhoneBlur = async () => {
+    touch('phone');
+    const phoneVal = formData.phone.trim();
+    if (!phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
+    try {
+      const { count, profilePhotoUrl } = await checkParticipantLimit(formData.email.trim().toLowerCase(), phoneVal);
+      setRegistrationCount(count);
+      if (profilePhotoUrl && !formData.profilePhotoUrl) {
+        setFormData(prev => ({ ...prev, profilePhotoUrl }));
+        profilePhotoPrefilledRef.current = true;
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handlePartnerEmailBlur = async () => {
+    touch('partnerEmail');
+    const emailVal = formData.partnerEmail.trim().toLowerCase();
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) return;
+    try {
+      const { count, profilePhotoUrl } = await checkParticipantLimit(emailVal, formData.partnerPhone.trim());
+      setPartnerRegistrationCount(count);
+      if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
+        setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
+        partnerPhotoPrefilledRef.current = true;
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handlePartnerPhoneBlur = async () => {
+    touch('partnerPhone');
+    const phoneVal = formData.partnerPhone.trim();
+    if (!phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
+    try {
+      const { count, profilePhotoUrl } = await checkParticipantLimit(formData.partnerEmail.trim().toLowerCase(), phoneVal);
+      setPartnerRegistrationCount(count);
+      if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
+        setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
+        partnerPhotoPrefilledRef.current = true;
+      }
+    } catch {
+      // silently ignore
+    }
+  };
 
   useEffect(() => {
     if (tournamentId) loadTournament();
@@ -211,9 +315,7 @@ export default function TournamentRegistrationPage() {
   const updateField = (field: string, value: string | boolean) => {
     const next = { ...formData, [field]: value };
     setFormData(next);
-    if (touched.has(field)) {
-      setErrors(validateForm(next, tournament));
-    }
+    setErrors(validateForm(next, tournament));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -243,10 +345,20 @@ export default function TournamentRegistrationPage() {
       if (new Date() > tournament!.registrationDeadline) throw new Error('Registration deadline has passed');
       if (tournament!.currentParticipants >= tournament!.maxParticipants) throw new Error('Tournament is full');
 
+      const { count: existingCount } = await checkParticipantLimit(
+        formData.email.trim().toLowerCase(),
+        formData.phone.trim()
+      );
+      setRegistrationCount(existingCount);
+      if (existingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT) {
+        throw new Error(`You have already registered for ${existingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
+      }
+
       const showTowerAndFlat = tournament?.showTowerAndFlat ?? true;
       const showEmergencyContact = tournament?.showEmergencyContact ?? true;
       const showIsResident = tournament?.showIsResident ?? true;
       const showTshirtSize = tournament?.showTshirtSize ?? false;
+      const showVolunteerNomination = tournament?.showVolunteerNomination ?? false;
 
       const registrationData = {
         tournamentId,
@@ -260,6 +372,9 @@ export default function TournamentRegistrationPage() {
         expertiseLevel: formData.expertiseLevel as 'beginner' | 'intermediate' | 'advanced' | 'expert',
         ...(showIsResident ? { isResident: formData.isResident } : {}),
         ...(showTshirtSize ? { tshirtSize: formData.tshirtSize } : {}),
+        ...(showTshirtSize && isDoublesCategory(formData.selectedCategory) ? { partnerTshirtSize: formData.partnerTshirtSize || null } : {}),
+        ...(showVolunteerNomination ? { isVolunteer: formData.isVolunteer } : {}),
+        ...(isTeamCategory(formData.selectedCategory) && formData.teamPreference ? { teamPreference: formData.teamPreference } : {}),
         selectedCategory: formData.selectedCategory as CategoryType,
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
@@ -268,7 +383,19 @@ export default function TournamentRegistrationPage() {
         ...(formData.profilePhotoUrl ? { profilePhotoUrl: formData.profilePhotoUrl } : {}),
         ...(formData.partnerProfilePhotoUrl ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl } : {}),
         paymentReference: formData.paymentReference || null,
-        paymentAmount: tournament?.entryFee || 0,
+        selectedPaymentAccount: formData.selectedPaymentAccount || null,
+        paymentAmount: (() => {
+          const dFee = tournament?.doublesFee ?? 700;
+          const rFee = tournament?.repeatFee ?? 300;
+          const cat = formData.selectedCategory;
+          if (isDoublesCategory(cat)) {
+            const myFee = existingCount > 0 ? rFee : dFee;
+            const partnerFeeAmt = (partnerRegistrationCount ?? 0) > 0 ? rFee : dFee;
+            return myFee + partnerFeeAmt;
+          }
+          if (existingCount > 0) return rFee;
+          return tournament?.entryFee || 0;
+        })(),
         paymentMethod: formData.paymentMethod,
         registrationStatus: 'pending',
         paymentStatus: 'pending',
@@ -354,6 +481,17 @@ export default function TournamentRegistrationPage() {
             <p className="text-sm text-gray-500 mb-6">
               You will receive a confirmation email once your registration is approved.
             </p>
+            {tournament?.whatsappGroupLink && (
+              <a
+                href={tournament.whatsappGroupLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full mb-4 px-4 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+              >
+                <MessageCircle className="h-5 w-5" />
+                Join WhatsApp Group
+              </a>
+            )}
             <div className="space-y-2">
               <Link href="/" className="block"><Button className="w-full">Go Home</Button></Link>
               <Link href="/schedules" className="block"><Button variant="outline" className="w-full">View Schedules</Button></Link>
@@ -368,7 +506,28 @@ export default function TournamentRegistrationPage() {
   const showEmergencyContact = tournament?.showEmergencyContact ?? true;
   const showIsResident = tournament?.showIsResident ?? true;
   const showTshirtSize = tournament?.showTshirtSize ?? false;
+  const showVolunteerNomination = tournament?.showVolunteerNomination ?? false;
   const isDoubles = isDoublesCategory(formData.selectedCategory);
+  const isTeam = isTeamCategory(formData.selectedCategory);
+
+  const DOUBLES_FEE = tournament?.doublesFee ?? 700;
+  const REPEAT_FEE = tournament?.repeatFee ?? 300;
+
+  const isReturningParticipant = registrationCount !== null && registrationCount > 0;
+  const isPartnerReturning = partnerRegistrationCount !== null && partnerRegistrationCount > 0;
+
+  const primaryFee = (() => {
+    if (isDoubles) return isReturningParticipant ? REPEAT_FEE : DOUBLES_FEE;
+    if (!tournament?.entryFee) return 0;
+    return isReturningParticipant ? REPEAT_FEE : tournament.entryFee;
+  })();
+
+  const partnerFee = isDoubles
+    ? (isPartnerReturning ? REPEAT_FEE : DOUBLES_FEE)
+    : 0;
+
+  const effectiveFee = primaryFee + partnerFee;
+  const hasPayment = effectiveFee > 0;
 
   const err = (field: string) => (touched.has(field) ? errors[field] : undefined);
 
@@ -468,6 +627,11 @@ export default function TournamentRegistrationPage() {
                 </div>
               )}
 
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
+                <span>Each participant may register for up to <strong>{MAX_REGISTRATIONS_PER_PARTICIPANT} categories</strong> per tournament.</span>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
 
                 {/* ── Row: Category + Playing Level ── */}
@@ -526,11 +690,19 @@ export default function TournamentRegistrationPage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => updateField('email', e.target.value)}
-                      onBlur={() => touch('email')}
+                      onChange={(e) => { updateField('email', e.target.value); setRegistrationCount(null); if (profilePhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, profilePhotoUrl: null })); profilePhotoPrefilledRef.current = false; } }}
+                      onBlur={handleEmailBlur}
                       className={err('email') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('email')} />
+                    {registrationCount !== null && registrationCount > 0 && (
+                      <p className={`text-xs mt-0.5 flex items-center gap-1 ${registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
+                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                        {registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+                          ? `Already registered for ${registrationCount} categories — limit reached.`
+                          : `Already registered for ${registrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} allowed categories.`}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -542,8 +714,8 @@ export default function TournamentRegistrationPage() {
                       id="phone"
                       type="tel"
                       value={formData.phone}
-                      onChange={(e) => updateField('phone', e.target.value)}
-                      onBlur={() => touch('phone')}
+                      onChange={(e) => { updateField('phone', e.target.value); setRegistrationCount(null); if (profilePhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, profilePhotoUrl: null })); profilePhotoPrefilledRef.current = false; } }}
+                      onBlur={handlePhoneBlur}
                       className={err('phone') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('phone')} />
@@ -596,12 +768,31 @@ export default function TournamentRegistrationPage() {
                   </div>
                 </div>
 
+                {/* ── Team Preference (for team categories) ── */}
+                {isTeam && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <Label htmlFor="teamPreference">Playing Preference</Label>
+                      <Select value={formData.teamPreference} onValueChange={(v) => updateField('teamPreference', v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Singles / Doubles / Both" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="singles">Singles</SelectItem>
+                          <SelectItem value="doubles">Doubles</SelectItem>
+                          <SelectItem value="both">Both (Singles &amp; Doubles)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 <ProfilePhotoUpload
                   label="Your profile photo (optional)"
                   tournamentId={tournamentId}
                   uploadKey="player"
                   value={formData.profilePhotoUrl}
-                  onChange={(url) => setFormData(prev => ({ ...prev, profilePhotoUrl: url }))}
+                  onChange={(url) => { profilePhotoPrefilledRef.current = false; setFormData(prev => ({ ...prev, profilePhotoUrl: url })); }}
                   onUploadingChange={(uploading) => setPhotoUploadState('player', uploading)}
                   disabled={submitting}
                 />
@@ -672,6 +863,23 @@ export default function TournamentRegistrationPage() {
                   </div>
                 )}
 
+                {/* ── Volunteer Nomination (conditional) ── */}
+                {showVolunteerNomination && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="isVolunteer"
+                      checked={formData.isVolunteer}
+                      onChange={(e) => updateField('isVolunteer', e.target.checked)}
+                      className="rounded mt-0.5"
+                    />
+                    <div>
+                      <Label htmlFor="isVolunteer" className="mb-0 font-medium cursor-pointer">I want to volunteer for this tournament</Label>
+                      <p className="text-xs text-amber-700 mt-0.5">Volunteers help with event coordination, score-keeping, and logistics.</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Partner Details ── */}
                 {isDoubles && (
                   <div className="border-t pt-5">
@@ -699,8 +907,8 @@ export default function TournamentRegistrationPage() {
                             id="partnerPhone"
                             type="tel"
                             value={formData.partnerPhone}
-                            onChange={(e) => updateField('partnerPhone', e.target.value)}
-                            onBlur={() => touch('partnerPhone')}
+                            onChange={(e) => { updateField('partnerPhone', e.target.value); setPartnerRegistrationCount(null); if (partnerPhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: null })); partnerPhotoPrefilledRef.current = false; } }}
+                            onBlur={handlePartnerPhoneBlur}
                             placeholder="Partner's phone number"
                             className={err('partnerPhone') ? 'border-red-500' : ''}
                           />
@@ -713,22 +921,47 @@ export default function TournamentRegistrationPage() {
                           id="partnerEmail"
                           type="email"
                           value={formData.partnerEmail}
-                          onChange={(e) => updateField('partnerEmail', e.target.value)}
-                          onBlur={() => touch('partnerEmail')}
+                          onChange={(e) => { updateField('partnerEmail', e.target.value); setPartnerRegistrationCount(null); if (partnerPhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: null })); partnerPhotoPrefilledRef.current = false; } }}
+                          onBlur={handlePartnerEmailBlur}
                           placeholder="Partner's email address"
                           className={err('partnerEmail') ? 'border-red-500' : ''}
                         />
                         <FieldError message={err('partnerEmail')} />
+                        {partnerRegistrationCount !== null && partnerRegistrationCount > 0 && (
+                          <p className={`text-xs mt-0.5 flex items-center gap-1 ${partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
+                            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                            {partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+                              ? `Partner already registered for ${partnerRegistrationCount} categories — limit reached.`
+                              : `Partner already registered for ${partnerRegistrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`}
+                          </p>
+                        )}
                       </div>
                       <ProfilePhotoUpload
                         label="Partner profile photo (optional)"
                         tournamentId={tournamentId}
                         uploadKey="partner"
                         value={formData.partnerProfilePhotoUrl}
-                        onChange={(url) => setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: url }))}
+                        onChange={(url) => { partnerPhotoPrefilledRef.current = false; setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: url })); }}
                         onUploadingChange={(uploading) => setPhotoUploadState('partner', uploading)}
                         disabled={submitting}
                       />
+                      {showTshirtSize && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="flex flex-col gap-1">
+                            <Label htmlFor="partnerTshirtSize">Partner T-Shirt Size</Label>
+                            <Select value={formData.partnerTshirtSize} onValueChange={(v) => updateField('partnerTshirtSize', v)}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TSHIRT_SIZES.map(size => (
+                                  <SelectItem key={size} value={size}>{size}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
                       {showTowerAndFlat && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="flex flex-col gap-1">
@@ -764,15 +997,54 @@ export default function TournamentRegistrationPage() {
                 )}
 
                 {/* ── Payment Section ── */}
-                {tournament?.entryFee && tournament.entryFee > 0 && (
+                {hasPayment && (
                   <div className="border-t pt-5">
                     <div className="bg-yellow-50 p-4 rounded-lg mb-4">
                       <h3 className="text-base font-semibold text-yellow-900 mb-1">Payment Required</h3>
                       <p className="text-sm text-yellow-700">
-                        Entry fee: <strong>₹{tournament.entryFee}</strong>. Complete payment then provide the reference number.
+                        Total: <strong>₹{effectiveFee}</strong>. Complete payment then provide the reference number.
                       </p>
+                      {isDoubles && (
+                        <div className="mt-2 text-xs text-yellow-700 space-y-0.5 border-t border-yellow-200 pt-2">
+                          <p>You: ₹{primaryFee}{isReturningParticipant ? ' (returning rate)' : ''}</p>
+                          {formData.partnerEmail && (
+                            <p>Partner: ₹{partnerFee}{isPartnerReturning ? ' (returning rate)' : ''}</p>
+                          )}
+                        </div>
+                      )}
+                      {!isDoubles && isReturningParticipant && (
+                        <p className="text-xs text-yellow-600 mt-1">Returning participant rate applied.</p>
+                      )}
                     </div>
                     <div className="space-y-4">
+                      {(tournament?.paymentAccounts?.length ?? 0) > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="selectedPaymentAccount">Pay To *</Label>
+                          <Select
+                            value={formData.selectedPaymentAccount}
+                            onValueChange={(v) => updateField('selectedPaymentAccount', v)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select payment recipient" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tournament!.paymentAccounts!.map((acc, i) => (
+                                <SelectItem key={i} value={`${acc.name}||${acc.number}`}>
+                                  {acc.name} — {acc.number}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {formData.selectedPaymentAccount && (() => {
+                            const [, num] = formData.selectedPaymentAccount.split('||');
+                            return (
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Pay to: <span className="font-medium text-gray-800 select-all">{num}</span>
+                              </p>
+                            );
+                          })()}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="paymentMethod">Payment Method *</Label>
@@ -782,32 +1054,29 @@ export default function TournamentRegistrationPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="qr_code">QR Code</SelectItem>
-                              <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                              <SelectItem value="cash">Cash</SelectItem>
+                              <SelectItem value="phone_number">Phone Number</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        {formData.paymentMethod !== 'cash' && (
-                          <div className="flex flex-col gap-1">
-                            <Label htmlFor="paymentReference">Reference Number *</Label>
-                            <Input
-                              id="paymentReference"
-                              value={formData.paymentReference}
-                              onChange={(e) => updateField('paymentReference', e.target.value)}
-                              onBlur={() => touch('paymentReference')}
-                              placeholder="Transaction / UPI reference"
-                              className={err('paymentReference') ? 'border-red-500' : ''}
-                            />
-                            <FieldError message={err('paymentReference')} />
-                          </div>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="paymentReference">Reference Number *</Label>
+                          <Input
+                            id="paymentReference"
+                            value={formData.paymentReference}
+                            onChange={(e) => updateField('paymentReference', e.target.value)}
+                            onBlur={() => touch('paymentReference')}
+                            placeholder="Transaction / UPI reference"
+                            className={err('paymentReference') ? 'border-red-500' : ''}
+                          />
+                          <FieldError message={err('paymentReference')} />
+                        </div>
                       </div>
 
                       {formData.paymentMethod === 'qr_code' && (
                         <div className="bg-blue-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-blue-900 mb-3">Scan & Pay ₹{tournament.entryFee}</h4>
+                          <h4 className="font-medium text-blue-900 mb-3">Scan & Pay ₹{effectiveFee}</h4>
                           <div className="flex flex-col items-center">
-                            {tournament.paymentQrCode ? (
+                            {tournament?.paymentQrCode ? (
                               <div className="relative w-40 h-40 mb-2 rounded-lg overflow-hidden border-2 border-blue-200">
                                 <Image src={tournament.paymentQrCode} alt="Payment QR Code" fill className="object-contain" />
                               </div>
@@ -817,30 +1086,30 @@ export default function TournamentRegistrationPage() {
                               </div>
                             )}
                             <p className="text-sm text-blue-700 text-center">
-                              Scan the QR code and pay ₹{tournament.entryFee}, then enter the reference number above.
+                              Scan the QR code and pay ₹{effectiveFee}, then enter the reference number above.
                             </p>
                           </div>
                         </div>
                       )}
 
-                      {formData.paymentMethod === 'bank_transfer' && (
+                      {formData.paymentMethod === 'phone_number' && (
                         <div className="bg-green-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-green-900 mb-2">Bank Transfer Details</h4>
-                          <div className="text-sm text-green-700 space-y-1">
-                            <p><strong>Account Name:</strong> Tournament Craft</p>
-                            <p><strong>Account Number:</strong> 1234567890</p>
-                            <p><strong>IFSC Code:</strong> SBIN0001234</p>
-                            <p><strong>Amount:</strong> ₹{tournament.entryFee}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.paymentMethod === 'cash' && (
-                        <div className="bg-orange-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-orange-900 mb-2">Cash Payment</h4>
-                          <p className="text-sm text-orange-700">
-                            Pay ₹{tournament.entryFee} in cash to the tournament organizers before the event.
-                          </p>
+                          <h4 className="font-medium text-green-900 mb-3">Pay via Phone Number ₹{effectiveFee}</h4>
+                          {formData.selectedPaymentAccount ? (() => {
+                            const [accName, accNumber] = formData.selectedPaymentAccount.split('||');
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <p className="text-sm text-green-700">Send ₹{effectiveFee} to:</p>
+                                <div className="bg-white border border-green-200 rounded-lg px-4 py-3 flex flex-col gap-0.5">
+                                  <p className="text-xs text-green-600">{accName}</p>
+                                  <p className="text-lg font-semibold text-green-900 select-all tracking-wide">{accNumber}</p>
+                                </div>
+                                <p className="text-xs text-green-600 mt-1">After payment, enter the UPI transaction reference number above.</p>
+                              </div>
+                            );
+                          })() : (
+                            <p className="text-sm text-green-700">Select a payment recipient above, then send ₹{effectiveFee} via UPI/phone number and enter the reference number above.</p>
+                          )}
                         </div>
                       )}
                     </div>

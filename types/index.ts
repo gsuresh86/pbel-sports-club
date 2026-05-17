@@ -30,6 +30,11 @@ export interface Notification {
   readAt?: Date;
 }
 
+export interface PaymentAccount {
+  name: string;   // Recipient name (e.g. "PBEL Sports Club - Badminton")
+  number: string; // UPI ID, phone, or account number
+}
+
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball' | 'throw-ball';
 export type TournamentType = 'individual' | 'team' | 'mixed';
 export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'womens-doubles' | 'mixed-doubles' | 'family-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18' | 'open-team';
@@ -62,6 +67,14 @@ export interface Tournament {
   showIsResident?: boolean;
   showTshirtSize?: boolean;
   paymentQrCode?: string;
+  whatsappGroupLink?: string;
+  showVolunteerNomination?: boolean;
+  /** Fee for doubles category registrations (per person). Default 700. */
+  doublesFee?: number;
+  /** Discounted fee when a participant re-registers for an additional category. Default 300. */
+  repeatFee?: number;
+  /** Payment recipients shown as a dropdown in the registration form */
+  paymentAccounts?: PaymentAccount[];
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -89,16 +102,21 @@ export interface Registration {
   partnerProfilePhotoUrl?: string;
   // T-shirt size
   tshirtSize?: string;
+  partnerTshirtSize?: string;
   // Expertise level
   expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   previousExperience?: string;
+  // Volunteer
+  isVolunteer?: boolean;
+  // Team preference (for team categories)
+  teamPreference?: 'singles' | 'doubles' | 'both';
   // Additional community details
   isResident?: boolean;
   selectedCategory: CategoryType;
   // Payment details
   paymentReference?: string;
   paymentAmount?: number;
-  paymentMethod?: 'qr_code' | 'cash' | 'bank_transfer';
+  paymentMethod?: 'qr_code' | 'phone_number';
   paymentVerifiedAt?: Date;
   paymentVerifiedBy?: string;
   // Registration status
@@ -137,7 +155,7 @@ export interface Player {
   paymentStatus: 'pending' | 'paid' | 'refunded';
   paymentReference?: string;
   paymentAmount?: number;
-  paymentMethod?: 'qr_code' | 'cash' | 'bank_transfer';
+  paymentMethod?: 'qr_code' | 'phone_number';
   paymentVerifiedAt?: Date;
   paymentVerifiedBy?: string;
   // Timestamps

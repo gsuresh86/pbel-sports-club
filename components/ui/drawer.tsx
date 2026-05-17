@@ -34,6 +34,8 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
+const DRAWER_CONTENT_Z = "z-[60]"
+
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
@@ -47,7 +49,6 @@ const DrawerContent = React.forwardRef<
     right: "inset-y-0 right-0 border-l rounded-l-[10px]"
   };
 
-  // For side drawers, we need to use a custom implementation
   if (side === 'left' || side === 'right') {
     return (
       <DrawerPortal>
@@ -55,7 +56,8 @@ const DrawerContent = React.forwardRef<
         <DrawerPrimitive.Content
           ref={ref}
           className={cn(
-            "fixed z-50 flex flex-col border bg-background h-full w-full max-w-2xl",
+            "fixed flex h-full w-full max-w-2xl flex-col overflow-hidden border bg-background",
+            DRAWER_CONTENT_Z,
             sideClasses[side],
             className
           )}
@@ -73,7 +75,8 @@ const DrawerContent = React.forwardRef<
       <DrawerPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+          "fixed inset-x-0 bottom-0 mt-24 flex h-auto flex-col overflow-hidden rounded-t-[10px] border bg-background",
+          DRAWER_CONTENT_Z,
           className
         )}
         {...props}
@@ -91,7 +94,7 @@ const DrawerHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)}
+    className={cn("grid flex-shrink-0 gap-1.5 p-4 text-center sm:text-left", className)}
     {...props}
   />
 )
@@ -101,7 +104,7 @@ const DrawerFooter = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("mt-auto flex flex-col gap-2 p-4", className)} {...props} />
+  <div className={cn("mt-auto flex flex-shrink-0 flex-col gap-2 p-4", className)} {...props} />
 )
 DrawerFooter.displayName = "DrawerFooter"
 

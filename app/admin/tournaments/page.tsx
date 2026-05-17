@@ -16,11 +16,12 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
+import { Tournament, SportType, TournamentType, CategoryType, PaymentAccount } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
-import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const sports = [
@@ -181,7 +182,12 @@ export default function ManageTournamentsPage() {
     showEmergencyContact: true,
     showIsResident: true,
     showTshirtSize: false,
+    showVolunteerNomination: false,
     paymentQrCode: '',
+    whatsappGroupLink: '',
+    doublesFee: '700',
+    repeatFee: '300',
+    paymentAccounts: [] as PaymentAccount[],
   });
 
   useEffect(() => {
@@ -298,6 +304,7 @@ export default function ManageTournamentsPage() {
         showEmergencyContact: formData.showEmergencyContact,
         showIsResident: formData.showIsResident,
         showTshirtSize: formData.showTshirtSize,
+        showVolunteerNomination: formData.showVolunteerNomination,
         updatedAt: new Date(),
         createdBy: user?.id,
       };
@@ -320,6 +327,18 @@ export default function ManageTournamentsPage() {
       } else {
         tournamentData.paymentQrCode = null as unknown as string;
       }
+      if (formData.whatsappGroupLink && formData.whatsappGroupLink.trim() !== '') {
+        tournamentData.whatsappGroupLink = formData.whatsappGroupLink.trim();
+      } else {
+        tournamentData.whatsappGroupLink = null as unknown as string;
+      }
+      if (formData.doublesFee && formData.doublesFee.trim() !== '') {
+        tournamentData.doublesFee = parseFloat(formData.doublesFee);
+      }
+      if (formData.repeatFee && formData.repeatFee.trim() !== '') {
+        tournamentData.repeatFee = parseFloat(formData.repeatFee);
+      }
+      tournamentData.paymentAccounts = formData.paymentAccounts.filter(a => a.name.trim() && a.number.trim());
 
       if (editingTournament) {
         await updateDoc(doc(db, 'tournaments', editingTournament.id), tournamentData);
@@ -378,7 +397,12 @@ export default function ManageTournamentsPage() {
       showEmergencyContact: tournament.showEmergencyContact ?? true,
       showIsResident: tournament.showIsResident ?? true,
       showTshirtSize: tournament.showTshirtSize ?? false,
+      showVolunteerNomination: tournament.showVolunteerNomination ?? false,
       paymentQrCode: tournament.paymentQrCode || '',
+      whatsappGroupLink: tournament.whatsappGroupLink || '',
+      doublesFee: tournament.doublesFee?.toString() || '700',
+      repeatFee: tournament.repeatFee?.toString() || '300',
+      paymentAccounts: tournament.paymentAccounts || [],
     });
     setDialogOpen(true);
   };
@@ -416,7 +440,12 @@ export default function ManageTournamentsPage() {
       showEmergencyContact: true,
       showIsResident: true,
       showTshirtSize: false,
+      showVolunteerNomination: false,
       paymentQrCode: '',
+      whatsappGroupLink: '',
+      doublesFee: '700',
+      repeatFee: '300',
+      paymentAccounts: [],
     });
     setEditingTournament(null);
   };
@@ -875,13 +904,13 @@ export default function ManageTournamentsPage() {
       {/* Create/Edit Tournament Drawer */}
       <Drawer open={dialogOpen} onOpenChange={setDialogOpen}>
         <DrawerContent side="right" className="max-w-2xl">
-          <DrawerHeader className="flex-shrink-0">
+          <DrawerHeader className="flex-shrink-0 border-b">
             <DrawerTitle>{editingTournament ? 'Edit Tournament' : 'Create Tournament'}</DrawerTitle>
             <DrawerDescription>
               {editingTournament ? 'Update tournament details and settings' : 'Create a new tournament'}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             <form onSubmit={handleSubmit} className="space-y-6">
             {/* Tournament Name - Full Width */}
             <div className="space-y-2">
@@ -986,36 +1015,27 @@ export default function ManageTournamentsPage() {
 
             {/* Dates, Registration, and Tournament Details - 2 Column Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Start Date</Label>
-                <Input
-                  id="startDate"
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endDate">End Date</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="registrationDeadline">Registration Deadline</Label>
-                <Input
-                  id="registrationDeadline"
-                  type="date"
-                  value={formData.registrationDeadline}
-                  onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })}
-                  required
-                />
-              </div>
+              <DatePickerInput
+                id="startDate"
+                label="Start Date"
+                value={formData.startDate}
+                onChange={(startDate) => setFormData({ ...formData, startDate })}
+                required
+              />
+              <DatePickerInput
+                id="endDate"
+                label="End Date"
+                value={formData.endDate}
+                onChange={(endDate) => setFormData({ ...formData, endDate })}
+                required
+              />
+              <DatePickerInput
+                id="registrationDeadline"
+                label="Registration Deadline"
+                value={formData.registrationDeadline}
+                onChange={(registrationDeadline) => setFormData({ ...formData, registrationDeadline })}
+                required
+              />
               <div className="space-y-2">
                 <Label htmlFor="maxParticipants">Max Participants</Label>
                 <Input
@@ -1181,6 +1201,14 @@ export default function ManageTournamentsPage() {
                   />
                   <Label htmlFor="showTshirtSize">T-Shirt Size</Label>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="showVolunteerNomination"
+                    checked={formData.showVolunteerNomination}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showVolunteerNomination: checked === true })}
+                  />
+                  <Label htmlFor="showVolunteerNomination">Volunteer Nomination</Label>
+                </div>
               </div>
             </div>
 
@@ -1193,6 +1221,99 @@ export default function ManageTournamentsPage() {
                 maxSize={2}
               />
               <p className="text-xs text-gray-500">Upload a QR code image for participants to scan during payment</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="doublesFee">Doubles Fee (₹ per person)</Label>
+                <Input
+                  id="doublesFee"
+                  type="number"
+                  min="0"
+                  placeholder="700"
+                  value={formData.doublesFee}
+                  onChange={(e) => setFormData({ ...formData, doublesFee: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">Fee per player for doubles categories</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="repeatFee">Repeat Registration Fee (₹)</Label>
+                <Input
+                  id="repeatFee"
+                  type="number"
+                  min="0"
+                  placeholder="300"
+                  value={formData.repeatFee}
+                  onChange={(e) => setFormData({ ...formData, repeatFee: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">Discounted fee for an additional category</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <DollarSign className="h-4 w-4 text-blue-600" />
+                  Payment Accounts
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData({ ...formData, paymentAccounts: [...formData.paymentAccounts, { name: '', number: '' }] })}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Account
+                </Button>
+              </div>
+              {formData.paymentAccounts.length === 0 && (
+                <p className="text-xs text-gray-400 italic">No accounts added yet. Add UPI IDs or bank details that participants can pay to.</p>
+              )}
+              {formData.paymentAccounts.map((account, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    placeholder="Recipient name"
+                    value={account.name}
+                    onChange={(e) => {
+                      const updated = formData.paymentAccounts.map((a, i) => i === idx ? { ...a, name: e.target.value } : a);
+                      setFormData({ ...formData, paymentAccounts: updated });
+                    }}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="UPI ID / phone / account no."
+                    value={account.number}
+                    onChange={(e) => {
+                      const updated = formData.paymentAccounts.map((a, i) => i === idx ? { ...a, number: e.target.value } : a);
+                      setFormData({ ...formData, paymentAccounts: updated });
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFormData({ ...formData, paymentAccounts: formData.paymentAccounts.filter((_, i) => i !== idx) })}
+                    className="text-red-500 hover:text-red-700 flex-shrink-0 px-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="whatsappGroupLink" className="flex items-center gap-1.5">
+                <MessageCircle className="h-4 w-4 text-green-600" />
+                WhatsApp Group Link
+              </Label>
+              <Input
+                id="whatsappGroupLink"
+                type="url"
+                placeholder="https://chat.whatsapp.com/..."
+                value={formData.whatsappGroupLink}
+                onChange={(e) => setFormData({ ...formData, whatsappGroupLink: e.target.value })}
+              />
+              <p className="text-xs text-gray-500">Participants will see this link on their registration confirmation screen</p>
             </div>
 
             </form>

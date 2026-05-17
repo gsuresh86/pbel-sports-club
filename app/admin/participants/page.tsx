@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { collection, getDocs, updateDoc, doc, query, where, orderBy, addDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, where, addDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,7 @@ export default function ManageRegistrationsPage() {
   const [selectedTournament, setSelectedTournament] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   
   // Import functionality state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -101,6 +102,7 @@ export default function ManageRegistrationsPage() {
           tournamentName: tournament.name, // Add tournament name for display
           registeredAt: doc.data().registeredAt?.toDate(),
           approvedAt: doc.data().approvedAt?.toDate(),
+          paymentVerifiedAt: doc.data().paymentVerifiedAt?.toDate(),
         })) as (Registration & { tournamentId: string; tournamentName: string })[];
         
         allRegistrations.push(...tournamentRegistrations);
@@ -114,6 +116,87 @@ export default function ManageRegistrationsPage() {
       console.error('Error loading registrations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePaymentStatusChange = async (
+    participantId: string,
+    newPaymentStatus: Registration['paymentStatus']
+  ) => {
+    const participant = registrations.find(p => p.id === participantId);
+    if (!participant?.tournamentId) {
+      alert({
+        title: 'Error',
+        description: 'Participant or tournament not found.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setUpdatingPaymentId(participantId);
+
+    try {
+      const updateData: Record<string, unknown> = {
+        paymentStatus: newPaymentStatus,
+      };
+
+      if (newPaymentStatus === 'paid') {
+        updateData.paymentVerifiedAt = new Date();
+        updateData.paymentVerifiedBy = user?.id ?? null;
+      } else {
+        updateData.paymentVerifiedAt = deleteField();
+        updateData.paymentVerifiedBy = deleteField();
+      }
+
+      const registrationRef = doc(
+        db,
+        'tournaments',
+        participant.tournamentId,
+        'registrations',
+        participantId
+      );
+      await updateDoc(registrationRef, updateData);
+
+      const playersSnapshot = await getDocs(
+        query(
+          collection(db, 'tournaments', participant.tournamentId, 'players'),
+          where('registrationId', '==', participantId)
+        )
+      );
+
+      await Promise.all(
+        playersSnapshot.docs.map((playerDoc) => updateDoc(playerDoc.ref, updateData))
+      );
+
+      setRegistrations(prev =>
+        prev.map(p => {
+          if (p.id !== participantId) return p;
+          const next = { ...p, paymentStatus: newPaymentStatus };
+          if (newPaymentStatus === 'paid') {
+            next.paymentVerifiedAt = new Date();
+            next.paymentVerifiedBy = user?.id;
+          } else {
+            delete next.paymentVerifiedAt;
+            delete next.paymentVerifiedBy;
+          }
+          return next;
+        })
+      );
+
+      alert({
+        title: 'Payment updated',
+        description: `Payment status set to ${newPaymentStatus}.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      alert({
+        title: 'Error',
+        description: 'Failed to update payment status. Please try again.',
+        variant: 'error',
+      });
+    } finally {
+      setUpdatingPaymentId(null);
     }
   };
 
@@ -178,16 +261,6 @@ export default function ManageRegistrationsPage() {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-800';
       case 'rejected': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      case 'refunded': return 'bg-blue-100 text-blue-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -714,10 +787,31 @@ export default function ManageRegistrationsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <Badge className={getPaymentStatusColor(participant.paymentStatus)}>
-                              {participant.paymentStatus}
-                            </Badge>
+                          <div className="space-y-2 min-w-[150px]">
+                            <Select
+                              value={participant.paymentStatus || 'pending'}
+                              onValueChange={(value) =>
+                                handlePaymentStatusChange(
+                                  participant.id,
+                                  value as Registration['paymentStatus']
+                                )
+                              }
+                              disabled={updatingPaymentId === participant.id}
+                            >
+                              <SelectTrigger className="h-8 w-full capitalize">
+                                <SelectValue placeholder="Payment status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="paid">Paid</SelectItem>
+                                <SelectItem value="refunded">Refunded</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {participant.paymentVerifiedAt && participant.paymentStatus === 'paid' && (
+                              <p className="text-xs text-gray-500">
+                                Verified {new Date(participant.paymentVerifiedAt).toLocaleDateString()}
+                              </p>
+                            )}
                             {participant.paymentReference && (
                               <div className="text-xs text-gray-500">
                                 Ref: {participant.paymentReference}
