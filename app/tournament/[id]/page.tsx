@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
-import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck, Shield, Users2 } from 'lucide-react';
+import { Calendar, MapPin, Users, Trophy, Clock, Target, ExternalLink, UserCheck, Shield, Users2, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -322,6 +322,16 @@ export default function TournamentDetailPage() {
                     <p><strong>Teams:</strong> {tournamentStats.teams}</p>
                     <p><strong>Pools:</strong> {tournamentStats.pools}</p>
                   </div>
+                  {tournament.rules && (
+                    <div className="mt-4">
+                      <Link href={`/tournament/${tournamentId}/rules`}>
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <ScrollText className="h-4 w-4" />
+                          View Full Rules
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
           </CardContent>
         </Card>

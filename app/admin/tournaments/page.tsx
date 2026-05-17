@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
@@ -20,7 +20,7 @@ import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { generateRegistrationLink } from '@/lib/utils';
-import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X } from 'lucide-react';
 import Link from 'next/link';
 
 const sports = [
@@ -34,6 +34,72 @@ const sports = [
   { value: 'throw-ball', label: 'Throw Ball', icon: '🏐' },
   { value: 'other', label: 'Other Sport', icon: '🏆' }
 ];
+
+// --------------- inline bold/italic renderer ---------------
+// Handles ***bold italic***, **bold**, *italic*
+function renderInline(text: string): React.ReactNode {
+  const INLINE = /(\*{3}[^*]+\*{3}|\*{2}[^*]+\*{2}|\*[^*]+\*)/g;
+  const parts = text.split(INLINE);
+  if (parts.length === 1) return text;
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith('***') && part.endsWith('***'))
+          return <strong key={i}><em>{part.slice(3, -3)}</em></strong>;
+        if (part.startsWith('**') && part.endsWith('**'))
+          return <strong key={i}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith('*') && part.endsWith('*') && part.length >= 3)
+          return <em key={i}>{part.slice(1, -1)}</em>;
+        return part || null;
+      })}
+    </>
+  );
+}
+
+// --------------- rules preview ---------------
+function RulesPreview({ rules }: { rules: string }) {
+  const lines = rules.split('\n');
+  const elements: React.ReactNode[] = [];
+  let bulletBuf: string[] = [];
+  let numBuf: string[] = [];
+  let numStart = 1;
+  let key = 0;
+
+  const flush = () => {
+    if (bulletBuf.length) {
+      elements.push(
+        <ul key={key++} className="list-disc list-outside ml-5 space-y-0.5 my-1.5">
+          {bulletBuf.map((t, i) => <li key={i} className="text-gray-700 text-sm">{renderInline(t)}</li>)}
+        </ul>
+      );
+      bulletBuf = [];
+    }
+    if (numBuf.length) {
+      elements.push(
+        <ol key={key++} start={numStart} className="list-decimal list-outside ml-5 space-y-0.5 my-1.5">
+          {numBuf.map((t, i) => <li key={i} className="text-gray-700 text-sm">{renderInline(t)}</li>)}
+        </ol>
+      );
+      numBuf = [];
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { flush(); elements.push(<div key={key++} className="h-2" />); continue; }
+    if (line.startsWith('## ')) { flush(); elements.push(<h3 key={key++} className="text-sm font-semibold text-gray-800 mt-3 mb-1">{renderInline(line.slice(3))}</h3>); continue; }
+    if (line.startsWith('# '))  { flush(); elements.push(<h2 key={key++} className="text-base font-bold text-gray-900 mt-4 mb-1 pb-1 border-b border-gray-200 first:mt-0">{renderInline(line.slice(2))}</h2>); continue; }
+    const bm = line.match(/^[-•]\s+(.+)/);
+    if (bm) { if (numBuf.length) flush(); bulletBuf.push(bm[1]); continue; }
+    const nm = line.match(/^(\d+)[.)]\s+(.+)/);
+    if (nm) { if (bulletBuf.length) flush(); if (!numBuf.length) numStart = parseInt(nm[1]); numBuf.push(nm[2]); continue; }
+    flush();
+    elements.push(<p key={key++} className="text-gray-700 text-sm leading-relaxed">{renderInline(line)}</p>);
+  }
+  flush();
+
+  return <div className="space-y-0.5">{elements}</div>;
+}
 
 export default function ManageTournamentsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -49,6 +115,49 @@ export default function ManageTournamentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [rulesDrawerOpen, setRulesDrawerOpen] = useState(false);
+  const [rulesEditingTournament, setRulesEditingTournament] = useState<Tournament | null>(null);
+  const [rulesContent, setRulesContent] = useState('');
+  const [rulesSaving, setRulesSaving] = useState(false);
+  const rulesTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const wrapSelection = (marker: string) => {
+    const el = rulesTextareaRef.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e, value } = el;
+    const selected = value.slice(s, e);
+    const before = value.slice(0, s);
+    const after = value.slice(e);
+
+    let newValue: string;
+    let newS: number;
+    let newE: number;
+
+    if (selected) {
+      // Toggle off if already wrapped
+      if (selected.startsWith(marker) && selected.endsWith(marker) && selected.length > marker.length * 2) {
+        const inner = selected.slice(marker.length, selected.length - marker.length);
+        newValue = before + inner + after;
+        newS = s;
+        newE = s + inner.length;
+      } else {
+        newValue = before + marker + selected + marker + after;
+        newS = s + marker.length;
+        newE = e + marker.length;
+      }
+    } else {
+      const placeholder = marker === '**' ? 'bold text' : marker === '***' ? 'bold italic' : 'italic text';
+      newValue = before + marker + placeholder + marker + after;
+      newS = s + marker.length;
+      newE = s + marker.length + placeholder.length;
+    }
+
+    setRulesContent(newValue);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(newS, newE);
+    });
+  };
   const [formData, setFormData] = useState({
     name: '',
     sport: 'badminton' as SportType,
@@ -71,6 +180,8 @@ export default function ManageTournamentsPage() {
     showTowerAndFlat: true,
     showEmergencyContact: true,
     showIsResident: true,
+    showTshirtSize: false,
+    paymentQrCode: '',
   });
 
   useEffect(() => {
@@ -186,6 +297,7 @@ export default function ManageTournamentsPage() {
         showTowerAndFlat: formData.showTowerAndFlat,
         showEmergencyContact: formData.showEmergencyContact,
         showIsResident: formData.showIsResident,
+        showTshirtSize: formData.showTshirtSize,
         updatedAt: new Date(),
         createdBy: user?.id,
       };
@@ -202,6 +314,11 @@ export default function ManageTournamentsPage() {
       }
       if (formData.banner && formData.banner.trim() !== '') {
         tournamentData.banner = formData.banner;
+      }
+      if (formData.paymentQrCode && formData.paymentQrCode.trim() !== '') {
+        tournamentData.paymentQrCode = formData.paymentQrCode;
+      } else {
+        tournamentData.paymentQrCode = null as unknown as string;
       }
 
       if (editingTournament) {
@@ -260,6 +377,8 @@ export default function ManageTournamentsPage() {
       showTowerAndFlat: tournament.showTowerAndFlat ?? true,
       showEmergencyContact: tournament.showEmergencyContact ?? true,
       showIsResident: tournament.showIsResident ?? true,
+      showTshirtSize: tournament.showTshirtSize ?? false,
+      paymentQrCode: tournament.paymentQrCode || '',
     });
     setDialogOpen(true);
   };
@@ -296,8 +415,40 @@ export default function ManageTournamentsPage() {
       showTowerAndFlat: true,
       showEmergencyContact: true,
       showIsResident: true,
+      showTshirtSize: false,
+      paymentQrCode: '',
     });
     setEditingTournament(null);
+  };
+
+  const handleOpenRules = (tournament: Tournament) => {
+    setRulesEditingTournament(tournament);
+    setRulesContent(tournament.rules || '');
+    setRulesDrawerOpen(true);
+  };
+
+  const handleSaveRules = async () => {
+    if (!rulesEditingTournament) return;
+    setRulesSaving(true);
+    try {
+      await updateDoc(doc(db, 'tournaments', rulesEditingTournament.id), {
+        rules: rulesContent,
+        updatedAt: new Date(),
+      });
+      setTournaments(prev =>
+        prev.map(t => t.id === rulesEditingTournament.id ? { ...t, rules: rulesContent } : t)
+      );
+      // Also keep the main edit form in sync if editing the same tournament
+      if (editingTournament?.id === rulesEditingTournament.id) {
+        setFormData(prev => ({ ...prev, rules: rulesContent }));
+      }
+      setRulesDrawerOpen(false);
+      alert({ title: 'Saved', description: 'Tournament rules updated successfully.', variant: 'success' });
+    } catch {
+      alert({ title: 'Error', description: 'Failed to save rules. Please try again.', variant: 'error' });
+    } finally {
+      setRulesSaving(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -540,33 +691,42 @@ export default function ManageTournamentsPage() {
                   </div>
                   
                   {/* Management Buttons */}
-                  <div className="grid grid-cols-3 gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                  <div className="grid grid-cols-4 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="text-xs h-8"
                         onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=teams`)}
                       >
                         <Users2 className="h-3 w-3 mr-1" />
                         Teams
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="text-xs h-8"
                         onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=spin-wheel`)}
                       >
                         <Shuffle className="h-3 w-3 mr-1" />
                         Spin
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         className="text-xs h-8"
                         onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=pools`)}
                       >
                         <Target className="h-3 w-3 mr-1" />
                         Pools
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                        onClick={() => handleOpenRules(tournament)}
+                      >
+                        <ScrollText className="h-3 w-3 mr-1" />
+                        Rules
                       </Button>
                   </div>
                 </div>
@@ -771,6 +931,7 @@ export default function ManageTournamentsPage() {
                   <SelectContent>
                     <SelectItem value="individual">Individual</SelectItem>
                     <SelectItem value="team">Team</SelectItem>
+                    <SelectItem value="mixed">Mixed</SelectItem>
                   </SelectContent>
                 </Select>
                 
@@ -784,7 +945,7 @@ export default function ManageTournamentsPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
                   {[
                     'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
-                    'mens-single', 'womens-single', 'mens-doubles', 'mixed-doubles',
+                    'mens-single', 'womens-single', 'mens-doubles', 'womens-doubles', 'mixed-doubles', 'family-doubles',
                     'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'
                   ].map((category) => (
                     <div key={category} className="flex items-center space-x-2">
@@ -806,7 +967,7 @@ export default function ManageTournamentsPage() {
                         }}
                       />
                       <Label htmlFor={`category-${category}`} className="text-sm capitalize">
-                        {category.replace('-', ' ')}
+                        {category.replace(/-/g, ' ')}
                       </Label>
                     </div>
                   ))}
@@ -920,16 +1081,38 @@ export default function ManageTournamentsPage() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="rules">Rules</Label>
-              <Textarea
-                id="rules"
-                value={formData.rules}
-                onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
-                rows={4}
-              />
-            </div>
-            
+            {editingTournament && (
+              <div className="space-y-2">
+                <Label>Rules</Label>
+                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <ScrollText className="h-4 w-4 text-blue-500" />
+                    <span>
+                      {formData.rules.trim()
+                        ? `${formData.rules.trim().split('\n').filter(Boolean).length} lines of rules`
+                        : 'No rules added yet'}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-blue-600 border-blue-200 hover:bg-blue-50"
+                    onClick={() => {
+                      if (editingTournament) {
+                        setRulesEditingTournament({ ...editingTournament, rules: formData.rules });
+                        setRulesContent(formData.rules);
+                        setRulesDrawerOpen(true);
+                      }
+                    }}
+                  >
+                    <ScrollText className="h-3.5 w-3.5" />
+                    Edit Rules
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <ImageUpload
                 label="Tournament Banner"
@@ -990,7 +1173,26 @@ export default function ManageTournamentsPage() {
                   />
                   <Label htmlFor="showIsResident">Resident Checkbox</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="showTshirtSize"
+                    checked={formData.showTshirtSize}
+                    onCheckedChange={(checked) => setFormData({ ...formData, showTshirtSize: checked === true })}
+                  />
+                  <Label htmlFor="showTshirtSize">T-Shirt Size</Label>
+                </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <ImageUpload
+                label="Payment QR Code"
+                value={formData.paymentQrCode}
+                onChange={(url) => setFormData({ ...formData, paymentQrCode: url || '' })}
+                aspectRatio="1/1"
+                maxSize={2}
+              />
+              <p className="text-xs text-gray-500">Upload a QR code image for participants to scan during payment</p>
             </div>
 
             </form>
@@ -1011,6 +1213,117 @@ export default function ManageTournamentsPage() {
         </DrawerContent>
       </Drawer>
       
+      {/* Rules Sidebar Drawer */}
+      <Drawer open={rulesDrawerOpen} onOpenChange={setRulesDrawerOpen}>
+        <DrawerContent side="right" className="max-w-3xl">
+          <DrawerHeader className="flex-shrink-0 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ScrollText className="h-5 w-5 text-blue-600" />
+                <div>
+                  <DrawerTitle>Edit Rules</DrawerTitle>
+                  <DrawerDescription className="mt-0.5">
+                    {rulesEditingTournament?.name}
+                  </DrawerDescription>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setRulesDrawerOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
+            {/* Editor panel */}
+            <div className="flex-1 flex flex-col min-h-0 border-r border-gray-100">
+              {/* Toolbar */}
+              <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-100">
+                <button
+                  type="button"
+                  title="Bold (Ctrl+B)"
+                  onMouseDown={(e) => { e.preventDefault(); wrapSelection('**'); }}
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors"
+                >B</button>
+                <button
+                  type="button"
+                  title="Italic (Ctrl+I)"
+                  onMouseDown={(e) => { e.preventDefault(); wrapSelection('*'); }}
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm italic font-serif text-gray-700 hover:bg-gray-200 transition-colors"
+                >I</button>
+                <button
+                  type="button"
+                  title="Bold + Italic"
+                  onMouseDown={(e) => { e.preventDefault(); wrapSelection('***'); }}
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold italic font-serif text-gray-700 hover:bg-gray-200 transition-colors"
+                >BI</button>
+                <div className="w-px h-4 bg-gray-300 mx-1" />
+                <div className="flex items-center gap-2 text-xs text-gray-400 select-none">
+                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600"># H1</code></span>
+                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">## H2</code></span>
+                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">1.</code> num</span>
+                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">-</code> bullet</span>
+                </div>
+              </div>
+              {/* Textarea */}
+              <div className="flex-1 p-4 overflow-auto">
+                <Textarea
+                  ref={rulesTextareaRef}
+                  value={rulesContent}
+                  onChange={(e) => setRulesContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); wrapSelection('**'); }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); wrapSelection('*'); }
+                  }}
+                  placeholder={`# General Rules\n\n1. All players must register before the deadline.\n2. Players must arrive **15 minutes** before their scheduled match.\n\n# Scoring Rules\n\n- Each set is played to 21 points.\n- A player must win by *2 clear points*.`}
+                  className="font-mono text-sm resize-none h-full min-h-[320px] border-gray-200"
+                />
+              </div>
+            </div>
+
+            {/* Preview panel */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                <p className="text-xs font-medium text-gray-700">Live Preview</p>
+              </div>
+              <div className="flex-1 overflow-auto p-5">
+                {rulesContent.trim() ? (
+                  <RulesPreview rules={rulesContent} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 py-12">
+                    <ScrollText className="h-10 w-10 mb-3 text-gray-200" />
+                    <p className="text-sm">Start typing to see a preview</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DrawerFooter className="flex-shrink-0 border-t">
+            <div className="flex justify-between items-center">
+              {rulesEditingTournament && (
+                <a
+                  href={`/tournament/${rulesEditingTournament.id}/rules`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  View public rules page
+                </a>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={() => setRulesDrawerOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveRules} disabled={rulesSaving}>
+                  {rulesSaving ? 'Saving…' : 'Save Rules'}
+                </Button>
+              </div>
+            </div>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+
       {AlertDialogComponent}
     </AdminLayout>
   );

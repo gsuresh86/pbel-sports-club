@@ -31,8 +31,8 @@ export interface Notification {
 }
 
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball' | 'throw-ball';
-export type TournamentType = 'individual' | 'team';
-export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'mixed-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18' | 'open-team';
+export type TournamentType = 'individual' | 'team' | 'mixed';
+export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'womens-doubles' | 'mixed-doubles' | 'family-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18' | 'open-team';
 
 export interface Tournament {
   id: string;
@@ -60,6 +60,8 @@ export interface Tournament {
   showTowerAndFlat?: boolean;
   showEmergencyContact?: boolean;
   showIsResident?: boolean;
+  showTshirtSize?: boolean;
+  paymentQrCode?: string;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -83,6 +85,10 @@ export interface Registration {
   partnerEmail?: string;
   partnerTower?: string;
   partnerFlatNumber?: string;
+  profilePhotoUrl?: string;
+  partnerProfilePhotoUrl?: string;
+  // T-shirt size
+  tshirtSize?: string;
   // Expertise level
   expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   previousExperience?: string;
@@ -126,6 +132,7 @@ export interface Player {
   // Partner information (for doubles)
   partnerId?: string; // Reference to partner player
   partnerName?: string;
+  profilePhotoUrl?: string;
   // Payment status
   paymentStatus: 'pending' | 'paid' | 'refunded';
   paymentReference?: string;

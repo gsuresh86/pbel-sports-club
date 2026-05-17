@@ -30,6 +30,14 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
     
+    // Player profile photos from public registration (optional)
+    match /participant-profiles/{tournamentId}/{fileName} {
+      allow read: if true;
+      allow create: if request.resource.size < 2 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
     // Participant documents - authenticated users only (role check handled in app)
     match /participant-documents/{allPaths=**} {
       allow read: if request.auth != null;

@@ -640,6 +640,7 @@ export default function ManageRegistrationsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-14">Photo</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
@@ -660,6 +661,22 @@ export default function ManageRegistrationsPage() {
                     const tournament = tournaments.find(t => t.id === participant.tournamentId);
                     return (
                       <TableRow key={participant.id}>
+                        <TableCell>
+                          {participant.profilePhotoUrl ? (
+                            <div className="relative h-10 w-10 overflow-hidden rounded-full bg-gray-100">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={participant.profilePhotoUrl}
+                                alt={participant.name}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-400">
+                              —
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{participant.name}</TableCell>
                         <TableCell>{participant.email}</TableCell>
                         <TableCell>{participant.phone}</TableCell>
