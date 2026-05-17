@@ -1,26 +1,58 @@
 import { Metadata } from 'next';
-import { getAdminFirestore } from '@/lib/firebase-admin';
 
 type Props = { params: Promise<{ id: string }> };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+async function fetchTournamentMeta(id: string) {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) return null;
   try {
-    const db = getAdminFirestore();
-    const snap = await db.collection('tournaments').doc(id).get();
-    if (!snap.exists) {
-      return { title: 'Tournament Registration' };
-    }
-    const d = snap.data()!;
-    const sport = (d.sport as string | undefined) ?? '';
-    const venue = (d.venue as string | undefined) ?? '';
+    const res = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/tournaments/${id}`,
+      { next: { revalidate: 300 } }
+    );
+    if (!res.ok) return null;
+    const doc = await res.json();
+    if (doc.error) return null;
+    const f = doc.fields ?? {};
+    const str = (key: string): string => f[key]?.stringValue ?? '';
     return {
-      title: `Register – ${d.name}`,
-      description: d.description || `Register for ${d.name}${sport ? `, a ${sport} tournament` : ''}${venue ? ` at ${venue}` : ''}.`,
+      name: str('name'),
+      description: str('description'),
+      sport: str('sport'),
+      venue: str('venue'),
+      banner: str('banner'),
     };
   } catch {
-    return { title: 'Tournament Registration' };
+    return null;
   }
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params;
+  const t = await fetchTournamentMeta(id);
+  if (!t?.name) return { title: 'Tournament Registration' };
+
+  const title = `Register – ${t.name}`;
+  const description =
+    t.description ||
+    `Register for ${t.name}${t.sport ? `, a ${t.sport} tournament` : ''}${t.venue ? ` at ${t.venue}` : ''}.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      ...(t.banner ? { images: [{ url: t.banner, width: 1200, height: 400, alt: t.name }] } : {}),
+    },
+    twitter: {
+      card: t.banner ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(t.banner ? { images: [t.banner] } : {}),
+    },
+  };
 }
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {
