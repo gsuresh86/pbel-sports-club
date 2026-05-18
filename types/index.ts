@@ -117,6 +117,8 @@ export interface Registration {
   paymentReference?: string;
   paymentAmount?: number;
   paymentMethod?: 'qr_code' | 'phone_number';
+  /** Stored as "name||number" from the Pay To dropdown */
+  selectedPaymentAccount?: string;
   paymentVerifiedAt?: Date;
   paymentVerifiedBy?: string;
   // Registration status
@@ -156,6 +158,8 @@ export interface Player {
   paymentReference?: string;
   paymentAmount?: number;
   paymentMethod?: 'qr_code' | 'phone_number';
+  /** Stored as "name||number" from the Pay To dropdown */
+  selectedPaymentAccount?: string;
   paymentVerifiedAt?: Date;
   paymentVerifiedBy?: string;
   // Timestamps

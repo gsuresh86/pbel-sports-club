@@ -25,6 +25,24 @@ export function generateTournamentLink(tournamentId: string): string {
   return `${baseUrl}/tournament/${tournamentId}`;
 }
 
+/** Parse "name||number" from registration Pay To selection */
+export function parsePaymentRecipient(selectedPaymentAccount?: string | null): { name: string; number: string } | null {
+  if (!selectedPaymentAccount?.trim()) return null;
+  const [namePart, numberPart] = selectedPaymentAccount.split('||');
+  const name = namePart?.trim() ?? '';
+  const number = numberPart?.trim() ?? '';
+  if (!name && !number) return null;
+  return { name, number };
+}
+
+/** Format "name||number" from registration Pay To selection */
+export function formatPaymentRecipient(selectedPaymentAccount?: string | null): string | null {
+  const parsed = parsePaymentRecipient(selectedPaymentAccount);
+  if (!parsed) return null;
+  if (parsed.name && parsed.number) return `${parsed.name} — ${parsed.number}`;
+  return parsed.name || parsed.number || null;
+}
+
 /**
  * Clean data for Firebase by removing undefined values and converting empty strings to null
  */

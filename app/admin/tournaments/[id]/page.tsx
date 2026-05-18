@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { doc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, collection, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   useTournament,
@@ -18,22 +18,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tournament, Registration, Match, CategoryType } from '@/types';
+import { Tournament, Registration, Match, CategoryType, User } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { generateRegistrationLink } from '@/lib/utils';
+import { generateRegistrationLink, parsePaymentRecipient } from '@/lib/utils';
 import { 
-  ArrowLeft, 
-  Calendar, 
-  MapPin, 
-  Users, 
-  Trophy, 
-  DollarSign, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Users,
+  Trophy,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   Download,
   BarChart3,
@@ -49,7 +50,13 @@ import {
   Users2,
   Shuffle,
   Play,
-  Swords
+  Swords,
+  UserPlus,
+  X,
+  PieChart,
+  HandHeart,
+  Home,
+  TrendingDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import TeamManagement from '@/components/TeamManagement';
@@ -93,6 +100,80 @@ export default function TournamentDetailsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+
+  // Tournament admin management
+  const [tournamentAdmins, setTournamentAdmins] = useState<User[]>([]);
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const isFullAdmin = user?.role === 'admin' || user?.role === 'super-admin';
+
+  useEffect(() => {
+    if (!isFullAdmin) return;
+    getDocs(query(collection(db, 'users'), where('role', '==', 'tournament-admin'))).then(snap => {
+      setTournamentAdmins(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)));
+    });
+  }, [isFullAdmin]);
+
+  const refreshAdmins = () => {
+    getDocs(query(collection(db, 'users'), where('role', '==', 'tournament-admin'))).then(snap => {
+      setTournamentAdmins(snap.docs.map(d => ({ id: d.id, ...d.data() } as User)));
+    });
+  };
+
+  const addAdminToTournament = async (userId: string) => {
+    await updateDoc(doc(db, 'users', userId), { assignedTournaments: arrayUnion(tournamentId), updatedAt: new Date() });
+    refreshAdmins();
+  };
+
+  const removeAdminFromTournament = async (userId: string) => {
+    await updateDoc(doc(db, 'users', userId), { assignedTournaments: arrayRemove(tournamentId), updatedAt: new Date() });
+    refreshAdmins();
+  };
+
+  const assignedAdmins = tournamentAdmins.filter(u => u.assignedTournaments?.includes(tournamentId));
+  const unassignedAdmins = tournamentAdmins.filter(u => !u.assignedTournaments?.includes(tournamentId));
+
+  // Analytics computation
+  const analytics = useMemo(() => {
+    if (!participants.length) return null;
+
+    // Category breakdown
+    const catMap = new Map<string, { total: number; approved: number; pending: number; rejected: number }>();
+    participants.forEach(p => {
+      if (!catMap.has(p.selectedCategory)) catMap.set(p.selectedCategory, { total: 0, approved: 0, pending: 0, rejected: 0 });
+      const e = catMap.get(p.selectedCategory)!;
+      e.total++;
+      e[p.registrationStatus as 'approved' | 'pending' | 'rejected']++;
+    });
+    const categories = Array.from(catMap.entries()).sort((a, b) => b[1].total - a[1].total);
+
+    // Gender
+    const gender = { male: 0, female: 0, other: 0 };
+    participants.forEach(p => { gender[p.gender as keyof typeof gender] = (gender[p.gender as keyof typeof gender] || 0) + 1; });
+
+    // Expertise level
+    const level = { beginner: 0, intermediate: 0, advanced: 0, expert: 0 };
+    participants.forEach(p => { level[p.expertiseLevel as keyof typeof level] = (level[p.expertiseLevel as keyof typeof level] || 0) + 1; });
+
+    // Payment
+    const paid = participants.filter(p => p.paymentStatus === 'paid');
+    const totalRevenue = paid.reduce((sum, p) => sum + (p.paymentAmount ?? 0), 0);
+    const pendingPayment = participants.filter(p => p.paymentStatus === 'pending').length;
+
+    // Misc
+    const volunteerCount = participants.filter(p => (p as Registration & { isVolunteer?: boolean }).isVolunteer).length;
+    const residentCount = participants.filter(p => p.isResident === true).length;
+    const nonResidentCount = participants.filter(p => p.isResident === false).length;
+
+    // Daily registration timeline
+    const dateMap = new Map<string, number>();
+    participants.forEach(p => {
+      const d = new Date(p.registeredAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      dateMap.set(d, (dateMap.get(d) ?? 0) + 1);
+    });
+    const timeline = Array.from(dateMap.entries());
+
+    return { categories, gender, level, totalRevenue, paidCount: paid.length, pendingPayment, volunteerCount, residentCount, nonResidentCount, timeline };
+  }, [participants]);
 
   const filteredParticipants = useMemo(() => {
     let filtered = participants;
@@ -138,7 +219,7 @@ export default function TournamentDetailsPage() {
   // Handle URL parameters for tab selection
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'participants', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
+    if (tab && ['overview', 'analytics', 'participants', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -363,8 +444,9 @@ export default function TournamentDetailsPage() {
         {/* Detailed Tabs - horizontal scroll on mobile */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
-            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-7 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
+            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-8 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
               <TabsTrigger value="overview" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Overview</TabsTrigger>
+              <TabsTrigger value="analytics" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Analytics</TabsTrigger>
               <TabsTrigger value="participants" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Registrations</TabsTrigger>
               <TabsTrigger value="teams" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Teams</TabsTrigger>
               <TabsTrigger value="pools" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Pools</TabsTrigger>
@@ -495,6 +577,239 @@ export default function TournamentDetailsPage() {
                 </CardContent>
               </Card>
             </div>
+            {/* Manage Tournament Admins — visible to admin/super-admin only */}
+            {isFullAdmin && (
+              <Card>
+                <CardHeader className="p-4 sm:p-6 pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Users2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                      Tournament Admins
+                    </CardTitle>
+                    {unassignedAdmins.length > 0 && (
+                      <Button size="sm" variant="outline" onClick={() => setAdminDialogOpen(true)}>
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Add Admin
+                      </Button>
+                    )}
+                  </div>
+                  <CardDescription>Users who can manage this tournament</CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                  {assignedAdmins.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-muted-foreground">
+                      No admins assigned yet.{' '}
+                      {unassignedAdmins.length > 0 && (
+                        <button className="underline text-primary" onClick={() => setAdminDialogOpen(true)}>Add one</button>
+                      )}
+                      {unassignedAdmins.length === 0 && 'Create tournament-admin users first.'}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {assignedAdmins.map(u => (
+                        <div key={u.id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 text-sm">
+                          <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center text-blue-800 font-semibold text-xs flex-shrink-0">
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-blue-900 leading-tight truncate max-w-[120px]">{u.name}</p>
+                            <p className="text-[10px] text-blue-600 truncate max-w-[120px]">{u.email}</p>
+                          </div>
+                          <button
+                            onClick={() => removeAdminFromTournament(u.id)}
+                            className="ml-1 text-blue-400 hover:text-red-500 transition-colors flex-shrink-0"
+                            title="Remove"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-4 sm:space-y-6">
+            {!analytics ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No data yet</h3>
+                  <p className="text-muted-foreground text-sm">Analytics will appear once registrations come in.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* KPI row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-green-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Total Revenue</p>
+                          <p className="text-base sm:text-xl font-bold">₹{analytics.totalRevenue.toLocaleString('en-IN')}</p>
+                          <p className="text-[10px] text-muted-foreground">{analytics.paidCount} paid</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Pending Payment</p>
+                          <p className="text-base sm:text-xl font-bold">{analytics.pendingPayment}</p>
+                          <p className="text-[10px] text-muted-foreground">awaiting payment</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-2">
+                        <HandHeart className="h-5 w-5 text-pink-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Volunteers</p>
+                          <p className="text-base sm:text-xl font-bold">{analytics.volunteerCount}</p>
+                          <p className="text-[10px] text-muted-foreground">nominated</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center gap-2">
+                        <Home className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Residents</p>
+                          <p className="text-base sm:text-xl font-bold">{analytics.residentCount}</p>
+                          <p className="text-[10px] text-muted-foreground">{analytics.nonResidentCount} non-resident</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Category breakdown */}
+                <Card>
+                  <CardHeader className="p-4 sm:p-6 pb-3">
+                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                      <Trophy className="h-4 w-4" />
+                      Registrations by Category
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-3">
+                    {analytics.categories.map(([cat, counts]) => {
+                      const pct = Math.round((counts.approved / counts.total) * 100);
+                      return (
+                        <div key={cat} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="capitalize font-medium text-gray-700">{cat.replace(/-/g, ' ')}</span>
+                            <span className="text-gray-500 text-xs tabular-nums">
+                              {counts.approved} approved · {counts.pending} pending · {counts.rejected} rejected
+                            </span>
+                          </div>
+                          <div className="w-full h-5 bg-gray-100 rounded-full overflow-hidden flex">
+                            <div className="h-full bg-green-500 transition-all" style={{ width: `${(counts.approved / participants.length) * 100}%` }} title={`Approved: ${counts.approved}`} />
+                            <div className="h-full bg-amber-400 transition-all" style={{ width: `${(counts.pending / participants.length) * 100}%` }} title={`Pending: ${counts.pending}`} />
+                            <div className="h-full bg-red-400 transition-all" style={{ width: `${(counts.rejected / participants.length) * 100}%` }} title={`Rejected: ${counts.rejected}`} />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground text-right">{counts.total} total · {pct}% approved</p>
+                        </div>
+                      );
+                    })}
+                    <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" />Approved</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" />Pending</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />Rejected</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Gender & Level side-by-side */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="p-4 sm:p-6 pb-3">
+                      <CardTitle className="text-base flex items-center gap-2"><PieChart className="h-4 w-4" />Gender Split</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-2">
+                      {(['male', 'female', 'other'] as const).map(g => {
+                        const count = analytics.gender[g];
+                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
+                        const colors = { male: 'bg-blue-500', female: 'bg-pink-500', other: 'bg-purple-400' };
+                        return (
+                          <div key={g} className="flex items-center gap-3">
+                            <span className="text-sm capitalize w-14 flex-shrink-0 text-gray-600">{g}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                              <div className={`h-full ${colors[g]} transition-all`} style={{ width: `${pct}%` }} />
+                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700">{count}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="p-4 sm:p-6 pb-3">
+                      <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />Expertise Level</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-2">
+                      {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map(l => {
+                        const count = analytics.level[l];
+                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
+                        const colors = { beginner: 'bg-emerald-400', intermediate: 'bg-blue-400', advanced: 'bg-violet-500', expert: 'bg-orange-500' };
+                        return (
+                          <div key={l} className="flex items-center gap-3">
+                            <span className="text-sm capitalize w-24 flex-shrink-0 text-gray-600">{l}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                              <div className={`h-full ${colors[l]} transition-all`} style={{ width: `${pct}%` }} />
+                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700">{count}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Daily registration timeline */}
+                {analytics.timeline.length > 1 && (
+                  <Card>
+                    <CardHeader className="p-4 sm:p-6 pb-3">
+                      <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" />Daily Registrations</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                      <div className="overflow-x-auto">
+                        <div className="flex items-end gap-2 min-w-max h-28 px-1">
+                          {(() => {
+                            const maxDay = Math.max(...analytics.timeline.map(([, c]) => c));
+                            return analytics.timeline.map(([date, count]) => (
+                              <div key={date} className="flex flex-col items-center gap-1 w-10">
+                                <span className="text-xs font-semibold text-gray-700">{count}</span>
+                                <div
+                                  className="w-8 bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+                                  style={{ height: `${maxDay ? (count / maxDay) * 72 : 4}px`, minHeight: '4px' }}
+                                  title={`${date}: ${count} registrations`}
+                                />
+                                <span className="text-[9px] text-muted-foreground text-center leading-tight">{date}</span>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
           </TabsContent>
 
           {/* Registrations Tab */}
@@ -603,6 +918,7 @@ export default function TournamentDetailsPage() {
                         <TableHead className="text-xs sm:text-sm">Category</TableHead>
                         <TableHead className="text-xs sm:text-sm">Level</TableHead>
                         <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                        <TableHead className="text-xs sm:text-sm">Paid To</TableHead>
                         <TableHead className="text-xs sm:text-sm w-12">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -632,6 +948,26 @@ export default function TournamentDetailsPage() {
                             <Badge className={`text-[10px] sm:text-xs ${getRegistrationStatusColor(participant.registrationStatus)}`}>
                               {participant.registrationStatus}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs sm:text-sm py-2 max-w-[140px]">
+                            {(() => {
+                              const recipient = parsePaymentRecipient(participant.selectedPaymentAccount);
+                              if (!recipient?.name) {
+                                return <span className="text-muted-foreground">—</span>;
+                              }
+                              return (
+                                <span
+                                  className="block truncate font-medium"
+                                  title={
+                                    recipient.number
+                                      ? `${recipient.name} (${recipient.number})`
+                                      : recipient.name
+                                  }
+                                >
+                                  {recipient.name}
+                                </span>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell className="py-2">
                             <Button
@@ -922,6 +1258,40 @@ export default function TournamentDetailsPage() {
             <PoolAssignment tournament={tournament} user={user!} />
           </TabsContent>
         </Tabs>
+
+        {/* Add Admin Dialog */}
+        {isFullAdmin && (
+          <Dialog open={adminDialogOpen} onOpenChange={setAdminDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add Tournament Admin</DialogTitle>
+                <DialogDescription>Select a user to give access to this tournament.</DialogDescription>
+              </DialogHeader>
+              {unassignedAdmins.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">All tournament-admin users are already assigned.</p>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto py-2">
+                  {unassignedAdmins.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={async () => { await addAdminToTournament(u.id); setAdminDialogOpen(false); }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-blue-50 hover:border-blue-300 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold text-sm flex-shrink-0">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{u.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      </div>
+                      <UserPlus className="h-4 w-4 text-muted-foreground ml-auto flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Edit Registration Drawer */}
         <Drawer open={editDrawerOpen} onOpenChange={setEditDrawerOpen}>

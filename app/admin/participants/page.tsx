@@ -10,14 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Filter, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { parsePaymentRecipient } from '@/lib/utils';
+
+const STICKY_HEAD = 'sticky z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL = 'sticky z-20 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
 
 export default function ManageRegistrationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -581,140 +585,100 @@ export default function ManageRegistrationsPage() {
   return (
     <AdminLayout moduleName="Registrations">
       <div className="p-4">
-        <div className="mb-8">
-          <p className="text-gray-600">Manage tournament registrations and approvals</p>
-        </div>
-
-        {/* Filters and Search */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filters & Search
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="tournament">Tournament</Label>
-                <Select value={selectedTournament} onValueChange={setSelectedTournament}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Tournaments</SelectItem>
-                    {tournaments.map(tournament => (
-                      <SelectItem key={tournament.id} value={tournament.id}>
-                        {tournament.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="search">Search</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Search by name, email, or phone..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <div className="flex items-end gap-2">
-                <Button onClick={exportParticipants} className="flex-1">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-                <Button onClick={() => setShowImportModal(true)} className="flex-1">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import CSV/Excel
-                </Button>
-              </div>
+        <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+            <Users className="h-4 w-4 shrink-0 text-blue-600" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-blue-700">Total</p>
+              <p className="text-lg font-semibold leading-tight text-blue-900">{registrations.length}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Statistics */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Registrations</p>
-                  <p className="text-2xl font-bold">{registrations.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-yellow-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'pending').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-green-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'approved').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <XCircle className="h-8 w-8 text-red-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold">{registrations.filter(p => p.registrationStatus === 'rejected').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+            <Clock className="h-4 w-4 shrink-0 text-amber-600" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-amber-700">Pending</p>
+              <p className="text-lg font-semibold leading-tight text-amber-900">
+                {registrations.filter(p => p.registrationStatus === 'pending').length}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-green-100 bg-green-50 px-3 py-2">
+            <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-green-700">Approved</p>
+              <p className="text-lg font-semibold leading-tight text-green-900">
+                {registrations.filter(p => p.registrationStatus === 'approved').length}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2">
+            <XCircle className="h-4 w-4 shrink-0 text-red-600" />
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-red-700">Rejected</p>
+              <p className="text-lg font-semibold leading-tight text-red-900">
+                {registrations.filter(p => p.registrationStatus === 'rejected').length}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Registrations Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-3 pb-0">
             <CardTitle>Registrations ({filteredParticipants.length})</CardTitle>
-            <CardDescription>
-              Manage registration approvals and tournament access permissions
-            </CardDescription>
+            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+              <Select value={selectedTournament} onValueChange={setSelectedTournament}>
+                <SelectTrigger className="h-9 w-[min(200px,28vw)] shrink-0" aria-label="Filter by tournament">
+                  <SelectValue placeholder="Tournament" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tournaments</SelectItem>
+                  {tournaments.map(tournament => (
+                    <SelectItem key={tournament.id} value={tournament.id}>
+                      {tournament.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-[130px] shrink-0" aria-label="Filter by status">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search name, email, phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9 pl-9"
+                  aria-label="Search registrations"
+                />
+              </div>
+              <Button onClick={exportParticipants} variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
+                <Download className="h-4 w-4 mr-1.5" />
+                Export
+              </Button>
+              <Button onClick={() => setShowImportModal(true)} variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
+                <Upload className="h-4 w-4 mr-1.5" />
+                Import
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
+          <CardContent className="pt-4">
+            <div className="overflow-x-auto rounded-md border">
+              <Table className="min-w-max [&_[data-slot=table-container]]:overflow-visible">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-14">Photo</TableHead>
-                    <TableHead>Name</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className={`${STICKY_HEAD} left-0 w-14`}>Photo</TableHead>
+                    <TableHead className={`${STICKY_HEAD} left-14 min-w-[140px]`}>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Age</TableHead>
@@ -722,19 +686,24 @@ export default function ManageRegistrationsPage() {
                     <TableHead>Tower/Flat</TableHead>
                     <TableHead>Level</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Tournament</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Payment</TableHead>
+                    <TableHead className="min-w-[120px]">Paid To</TableHead>
                     <TableHead>Registration Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredParticipants.map((participant) => {
-                    const tournament = tournaments.find(t => t.id === participant.tournamentId);
+                    const paymentRecipient = parsePaymentRecipient(participant.selectedPaymentAccount);
+                    const paymentMeta = [
+                      participant.paymentReference && `Ref: ${participant.paymentReference}`,
+                      participant.paymentAmount != null && `₹${participant.paymentAmount}`,
+                    ].filter(Boolean).join(' · ');
+
                     return (
-                      <TableRow key={participant.id}>
-                        <TableCell>
+                      <TableRow key={participant.id} className="group">
+                        <TableCell className={`${STICKY_CELL} left-0 w-14`}>
                           {participant.profilePhotoUrl ? (
                             <div className="relative h-10 w-10 overflow-hidden rounded-full bg-gray-100">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -750,44 +719,38 @@ export default function ManageRegistrationsPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{participant.name}</TableCell>
-                        <TableCell>{participant.email}</TableCell>
+                        <TableCell className={`${STICKY_CELL} left-14 min-w-[140px] max-w-[180px] font-medium`}>
+                          <span className="block truncate" title={participant.name}>{participant.name}</span>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={participant.email}>{participant.email}</TableCell>
                         <TableCell>{participant.phone}</TableCell>
                         <TableCell>{participant.age}</TableCell>
                         <TableCell className="capitalize">{participant.gender}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {participant.tower || participant.flatNumber ? (
-                              <>
-                                {participant.tower && <p><strong>Tower {participant.tower}</strong></p>}
-                                {participant.flatNumber && <p className="text-gray-500">Flat {participant.flatNumber}</p>}
-                              </>
-                            ) : (
-                              <p className="text-gray-400">N/A</p>
-                            )}
-                          </div>
+                        <TableCell className="text-muted-foreground">
+                          {participant.tower || participant.flatNumber
+                            ? [participant.tower && `T${participant.tower}`, participant.flatNumber && `Flat ${participant.flatNumber}`].filter(Boolean).join(' / ')
+                            : '—'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize">
+                          <Badge variant="outline" className="capitalize shrink-0">
                             {participant.expertiseLevel}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize">
+                          <Badge variant="secondary" className="capitalize shrink-0">
                             {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
                           </Badge>
                         </TableCell>
-                        <TableCell>{tournament?.name || 'Unknown'}</TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(participant.registrationStatus)}>
-                            <span className="flex items-center gap-1">
+                          <Badge className={`${getStatusColor(participant.registrationStatus)} shrink-0 capitalize`}>
+                            <span className="inline-flex items-center gap-1">
                               {getStatusIcon(participant.registrationStatus)}
                               {participant.registrationStatus}
                             </span>
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="space-y-2 min-w-[150px]">
+                        <TableCell className="max-w-[280px]">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
                             <Select
                               value={participant.paymentStatus || 'pending'}
                               onValueChange={(value) =>
@@ -798,8 +761,8 @@ export default function ManageRegistrationsPage() {
                               }
                               disabled={updatingPaymentId === participant.id}
                             >
-                              <SelectTrigger className="h-8 w-full capitalize">
-                                <SelectValue placeholder="Payment status" />
+                              <SelectTrigger className="h-8 w-[88px] shrink-0 capitalize">
+                                <SelectValue placeholder="Status" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
@@ -807,50 +770,51 @@ export default function ManageRegistrationsPage() {
                                 <SelectItem value="refunded">Refunded</SelectItem>
                               </SelectContent>
                             </Select>
-                            {participant.paymentVerifiedAt && participant.paymentStatus === 'paid' && (
-                              <p className="text-xs text-gray-500">
-                                Verified {new Date(participant.paymentVerifiedAt).toLocaleDateString()}
-                              </p>
-                            )}
-                            {participant.paymentReference && (
-                              <div className="text-xs text-gray-500">
-                                Ref: {participant.paymentReference}
-                              </div>
-                            )}
-                            {participant.paymentMethod && (
-                              <div className="text-xs text-gray-500">
-                                {participant.paymentMethod.replace('_', ' ')}
-                              </div>
-                            )}
-                            {participant.paymentAmount && (
-                              <div className="text-xs text-gray-500">
-                                ₹{participant.paymentAmount}
-                              </div>
-                            )}
+                            {paymentMeta ? (
+                              <span className="truncate text-xs text-muted-foreground" title={paymentMeta}>
+                                {paymentMeta}
+                              </span>
+                            ) : null}
                           </div>
+                        </TableCell>
+                        <TableCell className="min-w-[120px] max-w-[160px]">
+                          {paymentRecipient?.name ? (
+                            <span
+                              className="block truncate font-medium"
+                              title={
+                                paymentRecipient.number
+                                  ? `${paymentRecipient.name} (${paymentRecipient.number})`
+                                  : paymentRecipient.name
+                              }
+                            >
+                              {paymentRecipient.name}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex flex-nowrap items-center gap-1">
                             {participant.registrationStatus === 'pending' && (
                               <>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleStatusChange(participant.id, 'approved')}
-                                  className="text-green-600 hover:text-green-700"
+                                  className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                  title="Approve"
                                 >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
+                                  <CheckCircle className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                  className="text-red-600 hover:text-red-700"
+                                  className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                  title="Reject"
                                 >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Reject
+                                  <XCircle className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
@@ -859,10 +823,10 @@ export default function ManageRegistrationsPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                className="text-red-600 hover:text-red-700"
+                                className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                title="Reject"
                               >
-                                <XCircle className="h-4 w-4 mr-1" />
-                                Reject
+                                <XCircle className="h-4 w-4" />
                               </Button>
                             )}
                             {participant.registrationStatus === 'rejected' && (
@@ -870,10 +834,10 @@ export default function ManageRegistrationsPage() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleStatusChange(participant.id, 'approved')}
-                                className="text-green-600 hover:text-green-700"
+                                className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                title="Approve"
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
+                                <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
                           </div>

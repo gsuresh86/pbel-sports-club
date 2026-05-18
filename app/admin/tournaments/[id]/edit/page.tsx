@@ -68,6 +68,7 @@ export default function EditTournamentPage() {
     showTowerAndFlat: true,
     showEmergencyContact: true,
     showIsResident: true,
+    paymentQrCode: '',
   });
   const [formPopulated, setFormPopulated] = useState(false);
 
@@ -118,6 +119,7 @@ export default function EditTournamentPage() {
         showTowerAndFlat: tournament.showTowerAndFlat ?? true,
         showEmergencyContact: tournament.showEmergencyContact ?? true,
         showIsResident: tournament.showIsResident ?? true,
+        paymentQrCode: tournament.paymentQrCode || '',
       });
       setFormPopulated(true);
     }
@@ -160,6 +162,11 @@ export default function EditTournamentPage() {
       }
       if (formData.banner && formData.banner.trim() !== '') {
         tournamentUpdateData.banner = formData.banner;
+      }
+      if (formData.paymentQrCode && formData.paymentQrCode.trim() !== '') {
+        tournamentUpdateData.paymentQrCode = formData.paymentQrCode;
+      } else {
+        tournamentUpdateData.paymentQrCode = null as unknown as string;
       }
 
       await updateTournamentMutation.mutateAsync({
@@ -439,6 +446,25 @@ export default function EditTournamentPage() {
                 aspectRatio="16/9"
                 maxSize={5}
               />
+            </CardContent>
+          </Card>
+
+          {/* Payment QR (optional) */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base sm:text-lg">Payment QR Code (optional)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <ImageUpload
+                label="Payment QR Code"
+                value={formData.paymentQrCode}
+                onChange={(url) => setFormData({ ...formData, paymentQrCode: url || '' })}
+                aspectRatio="1/1"
+                maxSize={2}
+              />
+              <p className="text-xs text-gray-500">
+                Optional. Leave empty if participants should pay via phone/UPI only.
+              </p>
             </CardContent>
           </Card>
 

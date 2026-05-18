@@ -14,7 +14,6 @@ import { createPlayersFromRegistration } from '@/lib/utils';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
 import { Calendar, MapPin, Trophy, Clock, CheckCircle, AlertCircle, ScrollText, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 
 // --------------- validation ---------------
 type FormErrors = Partial<Record<string, string>>;
@@ -41,6 +40,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const TSHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+const DEFAULT_PAYMENT_METHOD = 'phone_number' as const;
 function isDoublesCategory(category: string): boolean {
   return DOUBLES_CATEGORIES.includes(category as CategoryType);
 }
@@ -116,6 +116,9 @@ function validateForm(
   const hasDoublesOrFee = isDoublesCategory(formData.selectedCategory) || (tournament?.entryFee ?? 0) > 0;
   if (hasDoublesOrFee) {
     if (!formData.paymentReference.trim()) errors.paymentReference = 'Payment reference is required';
+    if ((tournament?.paymentAccounts?.length ?? 0) > 0 && !formData.selectedPaymentAccount.trim()) {
+      errors.selectedPaymentAccount = 'Please select who you paid';
+    }
   }
 
   return errors;
@@ -141,7 +144,6 @@ function getInitialFormData() {
     partnerTower: '',
     partnerFlatNumber: '',
     paymentReference: '',
-    paymentMethod: 'qr_code',
     profilePhotoUrl: null as string | null,
     partnerProfilePhotoUrl: null as string | null,
     isVolunteer: false,
@@ -396,7 +398,7 @@ export default function TournamentRegistrationPage() {
           if (existingCount > 0) return rFee;
           return tournament?.entryFee || 0;
         })(),
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: DEFAULT_PAYMENT_METHOD,
         registrationStatus: 'pending',
         paymentStatus: 'pending',
         registrationCode: generateRegistrationCode(),
@@ -528,6 +530,7 @@ export default function TournamentRegistrationPage() {
 
   const effectiveFee = primaryFee + partnerFee;
   const hasPayment = effectiveFee > 0;
+  const hasPaymentAccounts = (tournament?.paymentAccounts?.length ?? 0) > 0;
 
   const err = (field: string) => (touched.has(field) ? errors[field] : undefined);
 
@@ -1017,7 +1020,7 @@ export default function TournamentRegistrationPage() {
                       )}
                     </div>
                     <div className="space-y-4">
-                      {(tournament?.paymentAccounts?.length ?? 0) > 0 && (
+                      {hasPaymentAccounts && (
                         <div className="flex flex-col gap-1">
                           <Label htmlFor="selectedPaymentAccount">Pay To *</Label>
                           <Select
@@ -1035,6 +1038,7 @@ export default function TournamentRegistrationPage() {
                               ))}
                             </SelectContent>
                           </Select>
+                          <FieldError message={err('selectedPaymentAccount')} />
                           {formData.selectedPaymentAccount && (() => {
                             const [, num] = formData.selectedPaymentAccount.split('||');
                             return (
@@ -1045,57 +1049,22 @@ export default function TournamentRegistrationPage() {
                           })()}
                         </div>
                       )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="paymentMethod">Payment Method *</Label>
-                          <Select value={formData.paymentMethod} onValueChange={(v) => updateField('paymentMethod', v)}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select payment method" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="qr_code">QR Code</SelectItem>
-                              <SelectItem value="phone_number">Phone Number</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Label htmlFor="paymentReference">Reference Number *</Label>
-                          <Input
-                            id="paymentReference"
-                            value={formData.paymentReference}
-                            onChange={(e) => updateField('paymentReference', e.target.value)}
-                            onBlur={() => touch('paymentReference')}
-                            placeholder="Transaction / UPI reference"
-                            className={err('paymentReference') ? 'border-red-500' : ''}
-                          />
-                          <FieldError message={err('paymentReference')} />
-                        </div>
+                      <div className="flex flex-col gap-1">
+                        <Label htmlFor="paymentReference">Reference Number *</Label>
+                        <Input
+                          id="paymentReference"
+                          value={formData.paymentReference}
+                          onChange={(e) => updateField('paymentReference', e.target.value)}
+                          onBlur={() => touch('paymentReference')}
+                          placeholder="Transaction / UPI reference"
+                          className={err('paymentReference') ? 'border-red-500' : ''}
+                        />
+                        <FieldError message={err('paymentReference')} />
                       </div>
 
-                      {formData.paymentMethod === 'qr_code' && (
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-blue-900 mb-3">Scan & Pay ₹{effectiveFee}</h4>
-                          <div className="flex flex-col items-center">
-                            {tournament?.paymentQrCode ? (
-                              <div className="relative w-40 h-40 mb-2 rounded-lg overflow-hidden border-2 border-blue-200">
-                                <Image src={tournament.paymentQrCode} alt="Payment QR Code" fill className="object-contain" />
-                              </div>
-                            ) : (
-                              <div className="w-40 h-40 bg-white border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center text-center text-xs text-blue-500 mb-2 p-2">
-                                QR code will be provided by organizers
-                              </div>
-                            )}
-                            <p className="text-sm text-blue-700 text-center">
-                              Scan the QR code and pay ₹{effectiveFee}, then enter the reference number above.
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.paymentMethod === 'phone_number' && (
-                        <div className="bg-green-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-green-900 mb-3">Pay via Phone Number ₹{effectiveFee}</h4>
-                          {formData.selectedPaymentAccount ? (() => {
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h4 className="font-medium text-green-900 mb-3">Pay via Phone / UPI — ₹{effectiveFee}</h4>
+                        {formData.selectedPaymentAccount ? (() => {
                             const [accName, accNumber] = formData.selectedPaymentAccount.split('||');
                             return (
                               <div className="flex flex-col gap-1">
@@ -1107,11 +1076,12 @@ export default function TournamentRegistrationPage() {
                                 <p className="text-xs text-green-600 mt-1">After payment, enter the UPI transaction reference number above.</p>
                               </div>
                             );
-                          })() : (
+                          })() : hasPaymentAccounts ? (
                             <p className="text-sm text-green-700">Select a payment recipient above, then send ₹{effectiveFee} via UPI/phone number and enter the reference number above.</p>
+                          ) : (
+                            <p className="text-sm text-green-700">Complete payment via UPI/phone number, then enter the transaction reference number above.</p>
                           )}
                         </div>
-                      )}
                     </div>
                   </div>
                 )}

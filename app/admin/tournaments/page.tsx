@@ -1214,13 +1214,15 @@ export default function ManageTournamentsPage() {
 
             <div className="space-y-2">
               <ImageUpload
-                label="Payment QR Code"
+                label="Payment QR Code (optional)"
                 value={formData.paymentQrCode}
                 onChange={(url) => setFormData({ ...formData, paymentQrCode: url || '' })}
                 aspectRatio="1/1"
                 maxSize={2}
               />
-              <p className="text-xs text-gray-500">Upload a QR code image for participants to scan during payment</p>
+              <p className="text-xs text-gray-500">
+                Optional. If omitted, participants pay via phone/UPI accounts only.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
