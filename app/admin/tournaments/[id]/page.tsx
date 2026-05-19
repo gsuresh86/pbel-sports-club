@@ -175,6 +175,30 @@ export default function TournamentDetailsPage() {
     return { categories, gender, level, totalRevenue, paidCount: paid.length, pendingPayment, volunteerCount, residentCount, nonResidentCount, timeline };
   }, [participants]);
 
+  const revenueByReceiver = useMemo(() => {
+    const map = new Map<string, { name: string; number: string; amount: number; count: number }>();
+
+    (tournament?.paymentAccounts ?? []).forEach((account) => {
+      const key = `${account.name}||${account.number}`;
+      map.set(key, { name: account.name, number: account.number, amount: 0, count: 0 });
+    });
+
+    participants
+      .filter((p) => p.paymentStatus === 'paid')
+      .forEach((p) => {
+        const recipient = parsePaymentRecipient(p.selectedPaymentAccount);
+        const key = p.selectedPaymentAccount?.trim() || '__unassigned__';
+        const name = recipient?.name || 'Unassigned';
+        const number = recipient?.number || '';
+        const entry = map.get(key) ?? { name, number, amount: 0, count: 0 };
+        entry.amount += p.paymentAmount ?? 0;
+        entry.count += 1;
+        map.set(key, entry);
+      });
+
+    return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+  }, [participants, tournament?.paymentAccounts]);
+
   const filteredParticipants = useMemo(() => {
     let filtered = participants;
     if (categoryFilter !== 'all') {
@@ -502,21 +526,15 @@ export default function TournamentDetailsPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Rules</p>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                      {tournament.rules || 'No specific rules mentioned.'}
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
 
-              {/* Registration Statistics */}
+              {/* Registration Status */}
               <Card>
                 <CardHeader className="p-4 sm:p-6">
                   <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                     <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Registration Statistics
+                    Registration Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
@@ -574,6 +592,35 @@ export default function TournamentDetailsPage() {
                       ></div>
                     </div>
                   </div>
+                  {revenueByReceiver.length > 0 && (
+                    <div className="pt-4 border-t space-y-3">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        Amount received by recipient
+                      </p>
+                      <div className="space-y-2">
+                        {revenueByReceiver.map((receiver) => (
+                          <div
+                            key={`${receiver.name}-${receiver.number}`}
+                            className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{receiver.name}</p>
+                              {receiver.number ? (
+                                <p className="text-xs text-muted-foreground truncate">{receiver.number}</p>
+                              ) : null}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-semibold tabular-nums">
+                                ₹{receiver.amount.toLocaleString('en-IN')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{receiver.count} paid</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

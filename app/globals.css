@@ -206,6 +206,16 @@ html {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Registrations table: both axes scroll inside the panel; horizontal bar stays visible */
+.registrations-table-scroll {
+  scrollbar-gutter: stable;
+}
+
+.registrations-table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
 /* Professional focus styles */
 button:focus-visible,
 a:focus-visible {

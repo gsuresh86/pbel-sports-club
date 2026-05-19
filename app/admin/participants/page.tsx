@@ -15,12 +15,14 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
+import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parsePaymentRecipient } from '@/lib/utils';
 
-const STICKY_HEAD = 'sticky z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_HEAD = 'sticky top-0 z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_CELL = 'sticky z-20 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
 
 export default function ManageRegistrationsPage() {
@@ -34,6 +36,9 @@ export default function ManageRegistrationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
+  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
+  const [reviewParticipantId, setReviewParticipantId] = useState<string | null>(null);
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
   
   // Import functionality state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -204,6 +209,41 @@ export default function ManageRegistrationsPage() {
     }
   };
 
+  const openReviewDrawer = (participantId: string) => {
+    setReviewParticipantId(participantId);
+    setReviewDrawerOpen(true);
+  };
+
+  const reviewParticipant = reviewParticipantId
+    ? registrations.find((p) => p.id === reviewParticipantId) ?? null
+    : null;
+
+  const handleReviewApprove = async (participantId: string) => {
+    setStatusActionLoading(true);
+    try {
+      const ok = await handleStatusChange(participantId, 'approved');
+      if (ok) {
+        setReviewDrawerOpen(false);
+        setReviewParticipantId(null);
+      }
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleReviewReject = async (participantId: string) => {
+    setStatusActionLoading(true);
+    try {
+      const ok = await handleStatusChange(participantId, 'rejected');
+      if (ok) {
+        setReviewDrawerOpen(false);
+        setReviewParticipantId(null);
+      }
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
   const handleStatusChange = async (participantId: string, newStatus: 'approved' | 'rejected') => {
     try {
       const updateData: Partial<Registration> = {
@@ -246,7 +286,9 @@ export default function ManageRegistrationsPage() {
         description: 'Failed to update participant status. Please try again.',
         variant: 'error'
       });
+      return false;
     }
+    return true;
   };
 
   const filteredParticipants = registrations.filter(participant => {
@@ -584,7 +626,7 @@ export default function ManageRegistrationsPage() {
 
   return (
     <AdminLayout moduleName="Registrations">
-      <div className="p-4">
+      <div className="min-w-0 max-w-full overflow-x-hidden p-4">
         <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
           <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
             <Users className="h-4 w-4 shrink-0 text-blue-600" />
@@ -673,24 +715,24 @@ export default function ManageRegistrationsPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="overflow-x-auto rounded-md border">
-              <Table className="min-w-max [&_[data-slot=table-container]]:overflow-visible">
+            <div className="registrations-table-scroll max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-scroll rounded-md border">
+              <table className="w-max min-w-full caption-bottom text-sm">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className={`${STICKY_HEAD} left-0 w-14`}>Photo</TableHead>
-                    <TableHead className={`${STICKY_HEAD} left-14 min-w-[140px]`}>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Age</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead>Tower/Flat</TableHead>
-                    <TableHead>Level</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead className="min-w-[120px]">Paid To</TableHead>
-                    <TableHead>Registration Date</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
+                    <TableHead className={`${STICKY_HEAD_CORNER} left-14 min-w-[140px]`}>Name</TableHead>
+                    <TableHead className={STICKY_HEAD}>Email</TableHead>
+                    <TableHead className={STICKY_HEAD}>Phone</TableHead>
+                    <TableHead className={STICKY_HEAD}>Age</TableHead>
+                    <TableHead className={STICKY_HEAD}>Gender</TableHead>
+                    <TableHead className={STICKY_HEAD}>Tower/Flat</TableHead>
+                    <TableHead className={STICKY_HEAD}>Level</TableHead>
+                    <TableHead className={STICKY_HEAD}>Category</TableHead>
+                    <TableHead className={STICKY_HEAD}>Status</TableHead>
+                    <TableHead className={STICKY_HEAD}>Payment</TableHead>
+                    <TableHead className={`${STICKY_HEAD} min-w-[120px]`}>Paid To</TableHead>
+                    <TableHead className={STICKY_HEAD}>Registration Date</TableHead>
+                    <TableHead className={STICKY_HEAD}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -796,6 +838,15 @@ export default function ManageRegistrationsPage() {
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <div className="flex flex-nowrap items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openReviewDrawer(participant.id)}
+                              className="h-8 shrink-0 px-2"
+                              title="View registration"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
                             {participant.registrationStatus === 'pending' && (
                               <>
                                 <Button
@@ -846,7 +897,7 @@ export default function ManageRegistrationsPage() {
                     );
                   })}
                 </TableBody>
-              </Table>
+              </table>
             </div>
 
             {filteredParticipants.length === 0 && (
@@ -1102,7 +1153,19 @@ export default function ManageRegistrationsPage() {
           </div>
         )}
       </div>
-      
+
+      <RegistrationReviewDrawer
+        open={reviewDrawerOpen}
+        onOpenChange={(open) => {
+          setReviewDrawerOpen(open);
+          if (!open) setReviewParticipantId(null);
+        }}
+        participant={reviewParticipant}
+        onApprove={handleReviewApprove}
+        onReject={handleReviewReject}
+        actionLoading={statusActionLoading}
+      />
+
       {AlertDialogComponent}
     </AdminLayout>
   );
