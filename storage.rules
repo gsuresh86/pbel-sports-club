@@ -33,7 +33,7 @@ service firebase.storage {
     // Player profile photos from public registration (optional)
     match /participant-profiles/{tournamentId}/{fileName} {
       allow read: if true;
-      allow create: if request.resource.size < 2 * 1024 * 1024
+      allow create: if request.resource.size < 5 * 1024 * 1024
                     && request.resource.contentType.matches('image/.*');
       allow delete: if request.auth != null;
     }

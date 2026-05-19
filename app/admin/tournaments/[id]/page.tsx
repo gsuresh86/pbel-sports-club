@@ -57,14 +57,34 @@ import {
   HandHeart,
   Home,
   TrendingDown,
+  Shirt,
 } from 'lucide-react';
+
+const TSHIRT_SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
 import Link from 'next/link';
 import TeamManagement from '@/components/TeamManagement';
 import SpinWheel from '@/components/SpinWheel';
 import PoolAssignment from '@/components/PoolAssignment';
+import VolunteersListDrawer from '@/components/admin/VolunteersListDrawer';
+import { cn } from '@/lib/utils';
 
 const isAdminRole = (role: string) =>
   role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+
+function normalizePlayerName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function formatCategoryLabel(category: string) {
+  return category.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type UniquePlayerRow = {
+  name: string;
+  phone: string;
+  tshirtSize: string;
+  categories: CategoryType[];
+};
 
 export default function TournamentDetailsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -160,7 +180,10 @@ export default function TournamentDetailsPage() {
     const pendingPayment = participants.filter(p => p.paymentStatus === 'pending').length;
 
     // Misc
-    const volunteerCount = participants.filter(p => (p as Registration & { isVolunteer?: boolean }).isVolunteer).length;
+    const volunteers = participants
+      .filter((p) => p.isVolunteer === true)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const volunteerCount = volunteers.length;
     const residentCount = participants.filter(p => p.isResident === true).length;
     const nonResidentCount = participants.filter(p => p.isResident === false).length;
 
@@ -172,7 +195,43 @@ export default function TournamentDetailsPage() {
     });
     const timeline = Array.from(dateMap.entries());
 
-    return { categories, gender, level, totalRevenue, paidCount: paid.length, pendingPayment, volunteerCount, residentCount, nonResidentCount, timeline };
+    // T-shirt sizes (player + partner)
+    const tshirtMap = new Map<string, number>();
+    const addTshirtSize = (size?: string) => {
+      const key = size?.trim() || 'Not specified';
+      tshirtMap.set(key, (tshirtMap.get(key) ?? 0) + 1);
+    };
+    participants.forEach((p) => {
+      addTshirtSize(p.tshirtSize);
+      if (p.partnerTshirtSize?.trim()) addTshirtSize(p.partnerTshirtSize);
+    });
+    const tshirtSizes = Array.from(tshirtMap.entries()).sort(([a], [b]) => {
+      if (a === 'Not specified') return 1;
+      if (b === 'Not specified') return -1;
+      const orderA = TSHIRT_SIZE_ORDER.indexOf(a as (typeof TSHIRT_SIZE_ORDER)[number]);
+      const orderB = TSHIRT_SIZE_ORDER.indexOf(b as (typeof TSHIRT_SIZE_ORDER)[number]);
+      if (orderA === -1 && orderB === -1) return a.localeCompare(b);
+      if (orderA === -1) return 1;
+      if (orderB === -1) return -1;
+      return orderA - orderB;
+    });
+    const totalTshirts = tshirtSizes.reduce((sum, [, count]) => sum + count, 0);
+
+    return {
+      categories,
+      gender,
+      level,
+      totalRevenue,
+      paidCount: paid.length,
+      pendingPayment,
+      volunteerCount,
+      volunteers,
+      residentCount,
+      nonResidentCount,
+      timeline,
+      tshirtSizes,
+      totalTshirts,
+    };
   }, [participants]);
 
   const revenueByReceiver = useMemo(() => {
@@ -199,6 +258,14 @@ export default function TournamentDetailsPage() {
     return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
   }, [participants, tournament?.paymentAccounts]);
 
+  const volunteersList = useMemo(
+    () =>
+      participants
+        .filter((p) => p.isVolunteer === true)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [participants]
+  );
+
   const filteredParticipants = useMemo(() => {
     let filtered = participants;
     if (categoryFilter !== 'all') {
@@ -212,10 +279,48 @@ export default function TournamentDetailsPage() {
     }
     return filtered;
   }, [participants, categoryFilter, levelFilter, genderFilter]);
+
+  const uniquePlayers = useMemo(() => {
+    const map = new Map<string, UniquePlayerRow>();
+
+    const upsert = (
+      rawName: string,
+      phone: string | undefined,
+      tshirtSize: string | undefined,
+      category: CategoryType
+    ) => {
+      const name = rawName.trim();
+      if (!name) return;
+      const key = normalizePlayerName(name);
+      const existing = map.get(key);
+      if (existing) {
+        if (phone?.trim() && !existing.phone) existing.phone = phone.trim();
+        if (tshirtSize?.trim() && !existing.tshirtSize) existing.tshirtSize = tshirtSize.trim();
+        if (!existing.categories.includes(category)) existing.categories.push(category);
+      } else {
+        map.set(key, {
+          name,
+          phone: phone?.trim() ?? '',
+          tshirtSize: tshirtSize?.trim() ?? '',
+          categories: [category],
+        });
+      }
+    };
+
+    participants.forEach((p) => {
+      upsert(p.name, p.phone, p.tshirtSize, p.selectedCategory);
+      if (p.partnerName?.trim()) {
+        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, p.selectedCategory);
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [participants]);
   
   // Edit drawer states
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
+  const [volunteersDrawerOpen, setVolunteersDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(user.role))) {
@@ -243,7 +348,7 @@ export default function TournamentDetailsPage() {
   // Handle URL parameters for tab selection
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'analytics', 'participants', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
+    if (tab && ['overview', 'analytics', 'participants', 'players', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -409,69 +514,72 @@ export default function TournamentDetailsPage() {
           </div>
         </div>
 
-        {/* Key Statistics - compact 4-up */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-5">
-          <Card>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Users className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Participants</p>
-                  <p className="text-base sm:text-lg font-bold leading-tight">{totalParticipants}/{tournament.maxParticipants || '∞'}</p>
-                  <p className="text-[10px] text-gray-500 truncate">
-                    {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Approved</p>
-                  <p className="text-base sm:text-lg font-bold leading-tight">{approvedParticipants}</p>
-                  <p className="text-[10px] text-gray-500 truncate">
-                    {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Matches</p>
-                  <p className="text-base sm:text-lg font-bold leading-tight">{totalMatches}</p>
-                  <p className="text-[10px] text-gray-500 truncate">{completedMatches} done, {liveMatches} live</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-2.5 sm:p-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">Revenue</p>
-                  <p className="text-base sm:text-lg font-bold leading-tight">₹{paidParticipants * (tournament.entryFee || 0)}</p>
-                  <p className="text-[10px] text-gray-500 truncate">{paidParticipants} paid</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Key Statistics */}
+        <div className="mb-3 grid grid-cols-2 gap-1.5 sm:mb-4 sm:grid-cols-4 sm:gap-2">
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
+            <Users className="h-3.5 w-3.5 shrink-0 text-blue-500 sm:h-4 sm:w-4" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] leading-none text-muted-foreground">Participants</p>
+              <p className="truncate text-sm font-semibold leading-tight tabular-nums">
+                {totalParticipants}/{tournament.maxParticipants || '∞'}
+              </p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
+                {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
+              </p>
+            </div>
+            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
+              {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
+            <UserCheck className="h-3.5 w-3.5 shrink-0 text-green-500 sm:h-4 sm:w-4" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] leading-none text-muted-foreground">Approved</p>
+              <p className="truncate text-sm font-semibold leading-tight tabular-nums">{approvedParticipants}</p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
+                {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
+              </p>
+            </div>
+            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
+              {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
+            <Activity className="h-3.5 w-3.5 shrink-0 text-purple-500 sm:h-4 sm:w-4" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] leading-none text-muted-foreground">Matches</p>
+              <p className="truncate text-sm font-semibold leading-tight tabular-nums">{totalMatches}</p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
+                {completedMatches} done · {liveMatches} live
+              </p>
+            </div>
+            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
+              {completedMatches} done · {liveMatches} live
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
+            <DollarSign className="h-3.5 w-3.5 shrink-0 text-green-500 sm:h-4 sm:w-4" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] leading-none text-muted-foreground">Revenue</p>
+              <p className="truncate text-sm font-semibold leading-tight tabular-nums">
+                ₹{paidParticipants * (tournament.entryFee || 0)}
+              </p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">{paidParticipants} paid</p>
+            </div>
+            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
+              {paidParticipants} paid
+            </p>
+          </div>
         </div>
 
         {/* Detailed Tabs - horizontal scroll on mobile */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
-            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-8 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
+            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-9 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
               <TabsTrigger value="overview" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Overview</TabsTrigger>
               <TabsTrigger value="analytics" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Analytics</TabsTrigger>
               <TabsTrigger value="participants" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Registrations</TabsTrigger>
+              <TabsTrigger value="players" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Players</TabsTrigger>
               <TabsTrigger value="teams" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Teams</TabsTrigger>
               <TabsTrigger value="pools" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Pools</TabsTrigger>
               <TabsTrigger value="spin-wheel" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Spin Wheel</TabsTrigger>
@@ -679,10 +787,10 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-4 sm:space-y-6">
+          <TabsContent value="analytics" className="space-y-3">
             {!analytics ? (
               <Card>
-                <CardContent className="py-12 text-center">
+                <CardContent className="py-8 text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">No data yet</h3>
                   <p className="text-muted-foreground text-sm">Analytics will appear once registrations come in.</p>
@@ -691,9 +799,9 @@ export default function TournamentDetailsPage() {
             ) : (
               <>
                 {/* KPI row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Card>
-                    <CardContent className="p-3 sm:p-4">
+                    <CardContent className="p-2.5 sm:p-3">
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-5 w-5 text-green-500 flex-shrink-0" />
                         <div className="min-w-0">
@@ -705,7 +813,7 @@ export default function TournamentDetailsPage() {
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="p-3 sm:p-4">
+                    <CardContent className="p-2.5 sm:p-3">
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
                         <div className="min-w-0">
@@ -716,20 +824,43 @@ export default function TournamentDetailsPage() {
                       </div>
                     </CardContent>
                   </Card>
-                  <Card>
-                    <CardContent className="p-3 sm:p-4">
+                  <Card
+                    className={cn(
+                      analytics.volunteerCount > 0 &&
+                        'cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-pink-200'
+                    )}
+                    onClick={() => {
+                      if (analytics.volunteerCount > 0) setVolunteersDrawerOpen(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (analytics.volunteerCount > 0 && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        setVolunteersDrawerOpen(true);
+                      }
+                    }}
+                    role={analytics.volunteerCount > 0 ? 'button' : undefined}
+                    tabIndex={analytics.volunteerCount > 0 ? 0 : undefined}
+                    aria-label={
+                      analytics.volunteerCount > 0
+                        ? `View ${analytics.volunteerCount} volunteers`
+                        : 'No volunteers'
+                    }
+                  >
+                    <CardContent className="p-2.5 sm:p-3">
                       <div className="flex items-center gap-2">
                         <HandHeart className="h-5 w-5 text-pink-500 flex-shrink-0" />
                         <div className="min-w-0">
                           <p className="text-[10px] sm:text-xs text-muted-foreground">Volunteers</p>
                           <p className="text-base sm:text-xl font-bold">{analytics.volunteerCount}</p>
-                          <p className="text-[10px] text-muted-foreground">nominated</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {analytics.volunteerCount > 0 ? 'tap to view list' : 'nominated'}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                   <Card>
-                    <CardContent className="p-3 sm:p-4">
+                    <CardContent className="p-2.5 sm:p-3">
                       <div className="flex items-center gap-2">
                         <Home className="h-5 w-5 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0">
@@ -744,13 +875,13 @@ export default function TournamentDetailsPage() {
 
                 {/* Category breakdown */}
                 <Card>
-                  <CardHeader className="p-4 sm:p-6 pb-3">
+                  <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
                     <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                       <Trophy className="h-4 w-4" />
                       Registrations by Category
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-3">
+                  <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-2">
                     {analytics.categories.map(([cat, counts]) => {
                       const pct = Math.round((counts.approved / counts.total) * 100);
                       return (
@@ -770,7 +901,7 @@ export default function TournamentDetailsPage() {
                         </div>
                       );
                     })}
-                    <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" />Approved</span>
                       <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" />Pending</span>
                       <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />Rejected</span>
@@ -778,13 +909,13 @@ export default function TournamentDetailsPage() {
                   </CardContent>
                 </Card>
 
-                {/* Gender & Level side-by-side */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Gender, Level & T-shirt sizes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Card>
-                    <CardHeader className="p-4 sm:p-6 pb-3">
+                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
                       <CardTitle className="text-base flex items-center gap-2"><PieChart className="h-4 w-4" />Gender Split</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-2">
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5">
                       {(['male', 'female', 'other'] as const).map(g => {
                         const count = analytics.gender[g];
                         const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
@@ -804,10 +935,10 @@ export default function TournamentDetailsPage() {
                   </Card>
 
                   <Card>
-                    <CardHeader className="p-4 sm:p-6 pb-3">
+                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
                       <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />Expertise Level</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-2">
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5">
                       {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map(l => {
                         const count = analytics.level[l];
                         const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
@@ -825,17 +956,69 @@ export default function TournamentDetailsPage() {
                       })}
                     </CardContent>
                   </Card>
+
+                  <Card>
+                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Shirt className="h-4 w-4" />
+                        T-Shirt Sizes
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-0.5">
+                        {analytics.totalTshirts} shirts total (players + partners)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5">
+                      {analytics.tshirtSizes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No t-shirt size data yet.</p>
+                      ) : (
+                        analytics.tshirtSizes.map(([size, count]) => {
+                          const pct = analytics.totalTshirts
+                            ? Math.round((count / analytics.totalTshirts) * 100)
+                            : 0;
+                          const barColors: Record<string, string> = {
+                            XS: 'bg-slate-400',
+                            S: 'bg-sky-400',
+                            M: 'bg-teal-500',
+                            L: 'bg-indigo-500',
+                            XL: 'bg-violet-500',
+                            XXL: 'bg-fuchsia-500',
+                            XXXL: 'bg-rose-500',
+                          };
+                          const barColor =
+                            barColors[size] ??
+                            (size === 'Not specified' ? 'bg-gray-400' : 'bg-amber-500');
+                          return (
+                            <div key={size} className="flex items-center gap-3">
+                              <span className="text-sm w-24 flex-shrink-0 text-gray-600 truncate" title={size}>
+                                {size}
+                              </span>
+                              <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
+                                <div
+                                  className={`h-full ${barColor} transition-all`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700">
+                                  {count}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Daily registration timeline */}
                 {analytics.timeline.length > 1 && (
                   <Card>
-                    <CardHeader className="p-4 sm:p-6 pb-3">
+                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
                       <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" />Daily Registrations</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4">
                       <div className="overflow-x-auto">
-                        <div className="flex items-end gap-2 min-w-max h-28 px-1">
+                        <div className="flex items-end gap-2 min-w-max h-24 px-0.5">
                           {(() => {
                             const maxDay = Math.max(...analytics.timeline.map(([, c]) => c));
                             return analytics.timeline.map(([date, count]) => (
@@ -860,8 +1043,8 @@ export default function TournamentDetailsPage() {
           </TabsContent>
 
           {/* Registrations Tab */}
-          <TabsContent value="participants" className="space-y-4 sm:space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          <TabsContent value="participants" className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
+            <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-base font-semibold sm:text-lg">Registrations ({filteredParticipants.length})</h3>
                 <p className="text-xs text-gray-600 sm:text-sm">Manage tournament registrations</p>
@@ -873,7 +1056,7 @@ export default function TournamentDetailsPage() {
             </div>
 
             {/* Filter Controls - compact single row */}
-            <Card>
+            <Card className="shrink-0">
               <CardContent className="p-3">
                 <div className="flex flex-wrap items-end gap-2 sm:gap-3">
                   <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px]">
@@ -949,10 +1132,25 @@ export default function TournamentDetailsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                  <Table className="min-w-[720px]">
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+                {(filteredParticipants || []).length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center p-8 text-center">
+                    <div>
+                      <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                      <h3 className="mb-2 text-lg font-medium text-gray-900">
+                        {participants.length === 0 ? 'No registrations yet' : 'No registrations match the current filters'}
+                      </h3>
+                      <p className="text-gray-600">
+                        {participants.length === 0
+                          ? 'Registrations will appear here once users register for this tournament.'
+                          : 'Try adjusting your filter criteria to see more results.'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                <div className="registrations-table-scroll min-h-0 flex-1 overflow-auto sm:mx-0">
+                  <Table className="min-w-[720px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs sm:text-sm">Name</TableHead>
@@ -1031,19 +1229,66 @@ export default function TournamentDetailsPage() {
                     </TableBody>
                   </Table>
                 </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                {(filteredParticipants || []).length === 0 && (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      {participants.length === 0 ? 'No registrations yet' : 'No registrations match the current filters'}
-                    </h3>
-                    <p className="text-gray-600">
-                      {participants.length === 0 
-                        ? 'Registrations will appear here once users register for this tournament.'
-                        : 'Try adjusting your filter criteria to see more results.'
-                      }
-                    </p>
+          {/* Players Tab — one row per unique person */}
+          <TabsContent value="players" className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
+            <div className="flex shrink-0 flex-col gap-1">
+              <h3 className="text-base font-semibold sm:text-lg">Players ({uniquePlayers.length})</h3>
+              <p className="text-xs text-gray-600 sm:text-sm">
+                Unique players across all registrations (includes partners listed on doubles/team entries)
+              </p>
+            </div>
+
+            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+                {uniquePlayers.length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center p-8 text-center">
+                    <div>
+                      <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                      <h3 className="mb-2 text-lg font-medium text-gray-900">No players yet</h3>
+                      <p className="text-gray-600">
+                        Players will appear here once registrations are submitted.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="registrations-table-scroll min-h-0 flex-1 overflow-auto sm:mx-0">
+                    <Table className="min-w-[640px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                          <TableHead className="text-xs sm:text-sm">Phone</TableHead>
+                          <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
+                          <TableHead className="text-xs sm:text-sm">Categories Registered</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {uniquePlayers.map((player) => (
+                          <TableRow key={normalizePlayerName(player.name)}>
+                            <TableCell className="py-2 text-xs font-medium sm:text-sm">{player.name}</TableCell>
+                            <TableCell className="py-2 text-xs sm:text-sm">{player.phone || '—'}</TableCell>
+                            <TableCell className="py-2 text-xs sm:text-sm">{player.tshirtSize || '—'}</TableCell>
+                            <TableCell className="py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {player.categories.map((cat) => (
+                                  <Badge
+                                    key={cat}
+                                    variant="outline"
+                                    className="text-[10px] capitalize sm:text-xs"
+                                  >
+                                    {formatCategoryLabel(cat)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </CardContent>
@@ -1600,6 +1845,13 @@ export default function TournamentDetailsPage() {
             )}
           </DrawerContent>
         </Drawer>
+
+        <VolunteersListDrawer
+          open={volunteersDrawerOpen}
+          onOpenChange={setVolunteersDrawerOpen}
+          volunteers={volunteersList}
+          tournamentName={tournament.name}
+        />
         
         {AlertDialogComponent}
       </div>

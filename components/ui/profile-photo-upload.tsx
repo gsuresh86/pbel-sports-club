@@ -31,7 +31,7 @@ export function ProfilePhotoUpload({
   onChange,
   tournamentId,
   uploadKey = 'player',
-  maxSize = 2,
+  maxSize = 5,
   disabled = false,
   className = '',
   onUploadingChange,

@@ -206,9 +206,11 @@ html {
   background: rgba(255, 255, 255, 0.3);
 }
 
-/* Registrations table: both axes scroll inside the panel; horizontal bar stays visible */
+/* Registrations table: scroll inside viewport-sized panel (horizontal bar stays at bottom) */
 .registrations-table-scroll {
   scrollbar-gutter: stable;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .registrations-table-scroll::-webkit-scrollbar {

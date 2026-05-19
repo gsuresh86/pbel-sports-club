@@ -626,8 +626,8 @@ export default function ManageRegistrationsPage() {
 
   return (
     <AdminLayout moduleName="Registrations">
-      <div className="min-w-0 max-w-full overflow-x-hidden p-4">
-        <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+      <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 min-w-0 max-w-full flex-col overflow-hidden p-4">
+        <div className="mb-4 shrink-0 grid grid-cols-2 gap-2 md:grid-cols-4">
           <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
             <Users className="h-4 w-4 shrink-0 text-blue-600" />
             <div className="min-w-0">
@@ -665,8 +665,8 @@ export default function ManageRegistrationsPage() {
         </div>
 
         {/* Registrations Table */}
-        <Card>
-          <CardHeader className="space-y-3 pb-0">
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <CardHeader className="shrink-0 space-y-3 pb-0">
             <CardTitle>Registrations ({filteredParticipants.length})</CardTitle>
             <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
               <Select value={selectedTournament} onValueChange={setSelectedTournament}>
@@ -714,8 +714,17 @@ export default function ManageRegistrationsPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="registrations-table-scroll max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-scroll rounded-md border">
+          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-4 pb-4">
+            {filteredParticipants.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center text-center">
+                <div>
+                  <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                  <h3 className="mb-2 text-lg font-medium text-gray-900">No registrations found</h3>
+                  <p className="text-gray-600">Try adjusting your filters or search terms</p>
+                </div>
+              </div>
+            ) : (
+            <div className="registrations-table-scroll min-h-0 flex-1 rounded-md border">
               <table className="w-max min-w-full caption-bottom text-sm">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -730,6 +739,8 @@ export default function ManageRegistrationsPage() {
                     <TableHead className={STICKY_HEAD}>Category</TableHead>
                     <TableHead className={STICKY_HEAD}>Status</TableHead>
                     <TableHead className={STICKY_HEAD}>Payment</TableHead>
+                    <TableHead className={`${STICKY_HEAD} min-w-[100px]`}>Ref No</TableHead>
+                    <TableHead className={`${STICKY_HEAD} min-w-[90px]`}>Paid Amount</TableHead>
                     <TableHead className={`${STICKY_HEAD} min-w-[120px]`}>Paid To</TableHead>
                     <TableHead className={STICKY_HEAD}>Registration Date</TableHead>
                     <TableHead className={STICKY_HEAD}>Actions</TableHead>
@@ -738,10 +749,6 @@ export default function ManageRegistrationsPage() {
                 <TableBody>
                   {filteredParticipants.map((participant) => {
                     const paymentRecipient = parsePaymentRecipient(participant.selectedPaymentAccount);
-                    const paymentMeta = [
-                      participant.paymentReference && `Ref: ${participant.paymentReference}`,
-                      participant.paymentAmount != null && `₹${participant.paymentAmount}`,
-                    ].filter(Boolean).join(' · ');
 
                     return (
                       <TableRow key={participant.id} className="group">
@@ -791,33 +798,42 @@ export default function ManageRegistrationsPage() {
                             </span>
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-[280px]">
-                          <div className="flex items-center gap-2 whitespace-nowrap">
-                            <Select
-                              value={participant.paymentStatus || 'pending'}
-                              onValueChange={(value) =>
-                                handlePaymentStatusChange(
-                                  participant.id,
-                                  value as Registration['paymentStatus']
-                                )
-                              }
-                              disabled={updatingPaymentId === participant.id}
-                            >
-                              <SelectTrigger className="h-8 w-[88px] shrink-0 capitalize">
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="paid">Paid</SelectItem>
-                                <SelectItem value="refunded">Refunded</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {paymentMeta ? (
-                              <span className="truncate text-xs text-muted-foreground" title={paymentMeta}>
-                                {paymentMeta}
-                              </span>
-                            ) : null}
-                          </div>
+                        <TableCell>
+                          <Select
+                            value={participant.paymentStatus || 'pending'}
+                            onValueChange={(value) =>
+                              handlePaymentStatusChange(
+                                participant.id,
+                                value as Registration['paymentStatus']
+                              )
+                            }
+                            disabled={updatingPaymentId === participant.id}
+                          >
+                            <SelectTrigger className="h-8 w-[88px] shrink-0 capitalize">
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="paid">Paid</SelectItem>
+                              <SelectItem value="refunded">Refunded</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="min-w-[100px] max-w-[140px]">
+                          {participant.paymentReference ? (
+                            <span className="block truncate font-mono text-xs" title={participant.paymentReference}>
+                              {participant.paymentReference}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="min-w-[90px] tabular-nums">
+                          {participant.paymentAmount != null ? (
+                            <span>₹{participant.paymentAmount.toLocaleString('en-IN')}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="min-w-[120px] max-w-[160px]">
                           {paymentRecipient?.name ? (
@@ -899,13 +915,6 @@ export default function ManageRegistrationsPage() {
                 </TableBody>
               </table>
             </div>
-
-            {filteredParticipants.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No registrations found</h3>
-                <p className="text-gray-600">Try adjusting your filters or search terms</p>
-              </div>
             )}
           </CardContent>
         </Card>
