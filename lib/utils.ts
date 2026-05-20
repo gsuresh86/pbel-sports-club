@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { addDoc, collection, doc, setDoc, Firestore, getDocs } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, Firestore, getDocs, query, where } from 'firebase/firestore';
+import type { TournamentContact } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -35,12 +36,181 @@ export function parsePaymentRecipient(selectedPaymentAccount?: string | null): {
   return { name, number };
 }
 
+const MAX_TOURNAMENT_CONTACTS = 2;
+
+/** Read POC list from tournament (supports legacy single contact fields). */
+export function getTournamentContacts(tournament: {
+  contacts?: TournamentContact[];
+  contactName?: string;
+  contactPhone?: string;
+}): TournamentContact[] {
+  if (tournament.contacts?.length) {
+    return tournament.contacts
+      .slice(0, MAX_TOURNAMENT_CONTACTS)
+      .map((c) => ({ name: c.name?.trim() ?? '', phone: c.phone?.trim() ?? '' }))
+      .filter((c) => c.name || c.phone);
+  }
+  if (tournament.contactName?.trim() || tournament.contactPhone?.trim()) {
+    return [
+      {
+        name: tournament.contactName?.trim() ?? '',
+        phone: tournament.contactPhone?.trim() ?? '',
+      },
+    ];
+  }
+  return [];
+}
+
+export function normalizeTournamentContactsForForm(
+  contacts: TournamentContact[] | undefined
+): TournamentContact[] {
+  const filled = contacts ?? [];
+  return [
+    filled[0] ?? { name: '', phone: '' },
+    filled[1] ?? { name: '', phone: '' },
+  ];
+}
+
+export function buildTournamentContactsPayload(
+  contacts: TournamentContact[]
+): TournamentContact[] | null {
+  const saved = contacts
+    .slice(0, MAX_TOURNAMENT_CONTACTS)
+    .map((c) => ({ name: c.name.trim(), phone: c.phone.trim() }))
+    .filter((c) => c.name || c.phone);
+  return saved.length > 0 ? saved : null;
+}
+
+export function contactPhoneTelHref(phone: string): string {
+  return `tel:${phone.trim().replace(/[^\d+]/g, '')}`;
+}
+
 /** Format "name||number" from registration Pay To selection */
 export function formatPaymentRecipient(selectedPaymentAccount?: string | null): string | null {
   const parsed = parsePaymentRecipient(selectedPaymentAccount);
   if (!parsed) return null;
   if (parsed.name && parsed.number) return `${parsed.name} — ${parsed.number}`;
   return parsed.name || parsed.number || null;
+}
+
+/** Normalize name for participant identity (name + phone). */
+export function normalizeParticipantName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Normalize phone for participant identity (ignores spaces and dashes). */
+export function normalizeParticipantPhone(phone: string): string {
+  return phone.replace(/[\s\-]/g, '').trim();
+}
+
+export type RegistrationParticipantFields = {
+  name?: string;
+  phone?: string;
+  partnerName?: string | null;
+  partnerPhone?: string | null;
+  profilePhotoUrl?: string | null;
+  partnerProfilePhotoUrl?: string | null;
+};
+
+/** True when the person appears as primary or partner on a registration. */
+export function registrationIncludesParticipant(
+  data: RegistrationParticipantFields,
+  name: string,
+  phone: string
+): boolean {
+  const normalizedName = normalizeParticipantName(name);
+  const normalizedPhone = normalizeParticipantPhone(phone);
+  if (!normalizedName || !normalizedPhone) return false;
+
+  const asPrimary =
+    normalizeParticipantName(data.name || '') === normalizedName &&
+    normalizeParticipantPhone(data.phone || '') === normalizedPhone;
+  const asPartner =
+    normalizeParticipantName(data.partnerName || '') === normalizedName &&
+    normalizeParticipantPhone(data.partnerPhone || '') === normalizedPhone;
+  return asPrimary || asPartner;
+}
+
+/**
+ * Count prior registrations for a participant (name + phone) in a tournament.
+ * Includes categories where they registered as primary or as a doubles partner.
+ */
+export async function getParticipantRegistrationStats(
+  db: Firestore,
+  tournamentId: string,
+  name: string,
+  phone: string
+): Promise<{ count: number; profilePhotoUrl: string | null }> {
+  if (!tournamentId || !name.trim() || !phone.trim()) {
+    return { count: 0, profilePhotoUrl: null };
+  }
+
+  const phoneTrim = phone.trim();
+  const regRef = collection(db, 'tournaments', tournamentId, 'registrations');
+  const docMap = new Map<string, RegistrationParticipantFields>();
+
+  const [primarySnap, partnerSnap] = await Promise.all([
+    getDocs(query(regRef, where('phone', '==', phoneTrim))),
+    getDocs(query(regRef, where('partnerPhone', '==', phoneTrim))),
+  ]);
+
+  primarySnap.docs.forEach((d) => docMap.set(d.id, d.data() as RegistrationParticipantFields));
+  partnerSnap.docs.forEach((d) => docMap.set(d.id, d.data() as RegistrationParticipantFields));
+
+  const matching = Array.from(docMap.values()).filter((data) =>
+    registrationIncludesParticipant(data, name, phone)
+  );
+
+  let profilePhotoUrl: string | null = null;
+  for (const data of matching) {
+    const normalizedName = normalizeParticipantName(name);
+    const normalizedPhone = normalizeParticipantPhone(phone);
+    const isPrimary =
+      normalizeParticipantName(data.name || '') === normalizedName &&
+      normalizeParticipantPhone(data.phone || '') === normalizedPhone;
+    const url = isPrimary ? data.profilePhotoUrl : data.partnerProfilePhotoUrl;
+    if (url) {
+      profilePhotoUrl = url;
+      break;
+    }
+  }
+
+  return { count: matching.length, profilePhotoUrl };
+}
+
+const DOUBLES_CATEGORIES_FOR_FEE = [
+  'mens-doubles',
+  'womens-doubles',
+  'mixed-doubles',
+  'family-doubles',
+] as const;
+
+export function isDoublesCategoryForFee(category: string): boolean {
+  return (DOUBLES_CATEGORIES_FOR_FEE as readonly string[]).includes(category);
+}
+
+/** Compute payment amount from prior registration counts and tournament fees. */
+export function calculateRegistrationPaymentAmount(
+  tournament: {
+    entryFee?: number;
+    doublesFee?: number;
+    repeatFee?: number;
+  },
+  category: string,
+  primaryRegistrationCount: number,
+  partnerRegistrationCount: number
+): number {
+  const doublesFee = tournament.doublesFee ?? 700;
+  const repeatFee = tournament.repeatFee ?? 300;
+
+  if (isDoublesCategoryForFee(category)) {
+    const primaryFee = primaryRegistrationCount > 0 ? repeatFee : doublesFee;
+    const partnerFee = partnerRegistrationCount > 0 ? repeatFee : doublesFee;
+    return primaryFee + partnerFee;
+  }
+
+  if (primaryRegistrationCount > 0) return repeatFee;
+  return tournament.entryFee || 0;
 }
 
 /**

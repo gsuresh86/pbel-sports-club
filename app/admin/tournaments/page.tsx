@@ -16,11 +16,16 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tournament, SportType, TournamentType, CategoryType, PaymentAccount } from '@/types';
+import { Tournament, SportType, TournamentType, CategoryType, PaymentAccount, TournamentContact } from '@/types';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { generateRegistrationLink } from '@/lib/utils';
+import {
+  buildTournamentContactsPayload,
+  generateRegistrationLink,
+  getTournamentContacts,
+  normalizeTournamentContactsForForm,
+} from '@/lib/utils';
 import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -185,6 +190,10 @@ export default function ManageTournamentsPage() {
     showVolunteerNomination: false,
     paymentQrCode: '',
     whatsappGroupLink: '',
+    contacts: [
+      { name: '', phone: '' },
+      { name: '', phone: '' },
+    ] as TournamentContact[],
     doublesFee: '700',
     repeatFee: '300',
     paymentAccounts: [] as PaymentAccount[],
@@ -332,6 +341,14 @@ export default function ManageTournamentsPage() {
       } else {
         tournamentData.whatsappGroupLink = null as unknown as string;
       }
+      const contactsPayload = buildTournamentContactsPayload(formData.contacts);
+      if (contactsPayload) {
+        tournamentData.contacts = contactsPayload;
+      } else {
+        tournamentData.contacts = null as unknown as TournamentContact[];
+      }
+      tournamentData.contactName = null as unknown as string;
+      tournamentData.contactPhone = null as unknown as string;
       if (formData.doublesFee && formData.doublesFee.trim() !== '') {
         tournamentData.doublesFee = parseFloat(formData.doublesFee);
       }
@@ -400,6 +417,7 @@ export default function ManageTournamentsPage() {
       showVolunteerNomination: tournament.showVolunteerNomination ?? false,
       paymentQrCode: tournament.paymentQrCode || '',
       whatsappGroupLink: tournament.whatsappGroupLink || '',
+      contacts: normalizeTournamentContactsForForm(getTournamentContacts(tournament)),
       doublesFee: tournament.doublesFee?.toString() || '700',
       repeatFee: tournament.repeatFee?.toString() || '300',
       paymentAccounts: tournament.paymentAccounts || [],
@@ -443,6 +461,10 @@ export default function ManageTournamentsPage() {
       showVolunteerNomination: false,
       paymentQrCode: '',
       whatsappGroupLink: '',
+      contacts: [
+        { name: '', phone: '' },
+        { name: '', phone: '' },
+      ],
       doublesFee: '700',
       repeatFee: '300',
       paymentAccounts: [],
@@ -1299,6 +1321,49 @@ export default function ManageTournamentsPage() {
                   >
                     <X className="h-4 w-4" />
                   </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              <div>
+                <Label className="text-sm font-semibold">Point of Contact</Label>
+                <p className="text-xs text-gray-500 mt-0.5">Up to two contacts shown on the public registration form</p>
+              </div>
+              {formData.contacts.map((contact, idx) => (
+                <div key={idx} className="space-y-2 rounded-md border border-gray-100 bg-gray-50/50 p-3">
+                  <p className="text-xs font-medium text-gray-700">Contact {idx + 1}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`contactName-${idx}`}>Name</Label>
+                      <Input
+                        id={`contactName-${idx}`}
+                        placeholder="e.g. Tournament Coordinator"
+                        value={contact.name}
+                        onChange={(e) => {
+                          const updated = formData.contacts.map((c, i) =>
+                            i === idx ? { ...c, name: e.target.value } : c
+                          );
+                          setFormData({ ...formData, contacts: updated });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`contactPhone-${idx}`}>Phone Number</Label>
+                      <Input
+                        id={`contactPhone-${idx}`}
+                        type="tel"
+                        placeholder="e.g. +91 98765 43210"
+                        value={contact.phone}
+                        onChange={(e) => {
+                          const updated = formData.contacts.map((c, i) =>
+                            i === idx ? { ...c, phone: e.target.value } : c
+                          );
+                          setFormData({ ...formData, contacts: updated });
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

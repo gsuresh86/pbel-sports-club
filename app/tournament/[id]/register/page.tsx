@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,9 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tournament, CategoryType } from '@/types';
-import { createPlayersFromRegistration } from '@/lib/utils';
+import {
+  calculateRegistrationPaymentAmount,
+  contactPhoneTelHref,
+  createPlayersFromRegistration,
+  getParticipantRegistrationStats,
+  getTournamentContacts,
+} from '@/lib/utils';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
-import { Calendar, MapPin, Trophy, Clock, CheckCircle, AlertCircle, ScrollText, MessageCircle } from 'lucide-react';
+import { Calendar, MapPin, Trophy, Clock, CheckCircle, AlertCircle, ScrollText, MessageCircle, User, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 // --------------- validation ---------------
@@ -191,94 +197,70 @@ export default function TournamentRegistrationPage() {
     );
   }, []);
 
-  const checkParticipantLimit = async (
-    email: string,
-    phone: string
-  ): Promise<{ count: number; profilePhotoUrl: string | null }> => {
-    if (!tournamentId || (!email && !phone)) return { count: 0, profilePhotoUrl: null };
-    const regRef = collection(db, 'tournaments', tournamentId, 'registrations');
-    const docMap = new Map<string, { profilePhotoUrl?: string }>();
-    const fetches: Promise<void>[] = [];
-    if (email) {
-      fetches.push(
-        getDocs(query(regRef, where('email', '==', email.trim().toLowerCase())))
-          .then(s => s.docs.forEach(d => docMap.set(d.id, d.data() as { profilePhotoUrl?: string })))
-      );
-    }
-    if (phone) {
-      fetches.push(
-        getDocs(query(regRef, where('phone', '==', phone.trim())))
-          .then(s => s.docs.forEach(d => docMap.set(d.id, d.data() as { profilePhotoUrl?: string })))
-      );
-    }
-    await Promise.all(fetches);
-    const docs = Array.from(docMap.values());
-    const profilePhotoUrl = docs.find(d => d.profilePhotoUrl)?.profilePhotoUrl ?? null;
-    return { count: docMap.size, profilePhotoUrl };
-  };
-
-  const handleEmailBlur = async () => {
-    touch('email');
-    const emailVal = formData.email.trim().toLowerCase();
-    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) return;
+  const refreshPrimaryParticipantCheck = async () => {
+    const nameVal = formData.name.trim();
+    const phoneVal = formData.phone.trim();
+    if (!nameVal || !phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
     try {
-      const { count, profilePhotoUrl } = await checkParticipantLimit(emailVal, formData.phone.trim());
+      const { count, profilePhotoUrl } = await getParticipantRegistrationStats(
+        db,
+        tournamentId,
+        nameVal,
+        phoneVal
+      );
       setRegistrationCount(count);
       if (profilePhotoUrl && !formData.profilePhotoUrl) {
         setFormData(prev => ({ ...prev, profilePhotoUrl }));
         profilePhotoPrefilledRef.current = true;
       }
     } catch {
-      // silently ignore — submit will catch it
+      // silently ignore — submit will re-check
     }
+  };
+
+  const refreshPartnerParticipantCheck = async () => {
+    const nameVal = formData.partnerName.trim();
+    const phoneVal = formData.partnerPhone.trim();
+    if (!nameVal || !phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
+    try {
+      const { count, profilePhotoUrl } = await getParticipantRegistrationStats(
+        db,
+        tournamentId,
+        nameVal,
+        phoneVal
+      );
+      setPartnerRegistrationCount(count);
+      if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
+        setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
+        partnerPhotoPrefilledRef.current = true;
+      }
+    } catch {
+      // silently ignore
+    }
+  };
+
+  const handleNameBlur = async () => {
+    touch('name');
+    await refreshPrimaryParticipantCheck();
   };
 
   const handlePhoneBlur = async () => {
     touch('phone');
     const phoneVal = formData.phone.trim();
     if (!phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
-    try {
-      const { count, profilePhotoUrl } = await checkParticipantLimit(formData.email.trim().toLowerCase(), phoneVal);
-      setRegistrationCount(count);
-      if (profilePhotoUrl && !formData.profilePhotoUrl) {
-        setFormData(prev => ({ ...prev, profilePhotoUrl }));
-        profilePhotoPrefilledRef.current = true;
-      }
-    } catch {
-      // silently ignore
-    }
+    await refreshPrimaryParticipantCheck();
   };
 
-  const handlePartnerEmailBlur = async () => {
-    touch('partnerEmail');
-    const emailVal = formData.partnerEmail.trim().toLowerCase();
-    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) return;
-    try {
-      const { count, profilePhotoUrl } = await checkParticipantLimit(emailVal, formData.partnerPhone.trim());
-      setPartnerRegistrationCount(count);
-      if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
-        setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
-        partnerPhotoPrefilledRef.current = true;
-      }
-    } catch {
-      // silently ignore
-    }
+  const handlePartnerNameBlur = async () => {
+    touch('partnerName');
+    await refreshPartnerParticipantCheck();
   };
 
   const handlePartnerPhoneBlur = async () => {
     touch('partnerPhone');
     const phoneVal = formData.partnerPhone.trim();
     if (!phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
-    try {
-      const { count, profilePhotoUrl } = await checkParticipantLimit(formData.partnerEmail.trim().toLowerCase(), phoneVal);
-      setPartnerRegistrationCount(count);
-      if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
-        setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
-        partnerPhotoPrefilledRef.current = true;
-      }
-    } catch {
-      // silently ignore
-    }
+    await refreshPartnerParticipantCheck();
   };
 
   useEffect(() => {
@@ -347,13 +329,30 @@ export default function TournamentRegistrationPage() {
       if (new Date() > tournament!.registrationDeadline) throw new Error('Registration deadline has passed');
       if (tournament!.currentParticipants >= tournament!.maxParticipants) throw new Error('Tournament is full');
 
-      const { count: existingCount } = await checkParticipantLimit(
-        formData.email.trim().toLowerCase(),
+      const { count: existingCount } = await getParticipantRegistrationStats(
+        db,
+        tournamentId,
+        formData.name.trim(),
         formData.phone.trim()
       );
       setRegistrationCount(existingCount);
       if (existingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT) {
         throw new Error(`You have already registered for ${existingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
+      }
+
+      let partnerExistingCount = 0;
+      if (isDoublesCategory(formData.selectedCategory)) {
+        const partnerStats = await getParticipantRegistrationStats(
+          db,
+          tournamentId,
+          formData.partnerName.trim(),
+          formData.partnerPhone.trim()
+        );
+        partnerExistingCount = partnerStats.count;
+        setPartnerRegistrationCount(partnerExistingCount);
+        if (partnerExistingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT) {
+          throw new Error(`Your partner has already registered for ${partnerExistingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
+        }
       }
 
       const showTowerAndFlat = tournament?.showTowerAndFlat ?? true;
@@ -386,18 +385,12 @@ export default function TournamentRegistrationPage() {
         ...(formData.partnerProfilePhotoUrl ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl } : {}),
         paymentReference: formData.paymentReference || null,
         selectedPaymentAccount: formData.selectedPaymentAccount || null,
-        paymentAmount: (() => {
-          const dFee = tournament?.doublesFee ?? 700;
-          const rFee = tournament?.repeatFee ?? 300;
-          const cat = formData.selectedCategory;
-          if (isDoublesCategory(cat)) {
-            const myFee = existingCount > 0 ? rFee : dFee;
-            const partnerFeeAmt = (partnerRegistrationCount ?? 0) > 0 ? rFee : dFee;
-            return myFee + partnerFeeAmt;
-          }
-          if (existingCount > 0) return rFee;
-          return tournament?.entryFee || 0;
-        })(),
+        paymentAmount: calculateRegistrationPaymentAmount(
+          tournament!,
+          formData.selectedCategory,
+          existingCount,
+          partnerExistingCount
+        ),
         paymentMethod: DEFAULT_PAYMENT_METHOD,
         registrationStatus: 'pending',
         paymentStatus: 'pending',
@@ -528,11 +521,22 @@ export default function TournamentRegistrationPage() {
     ? (isPartnerReturning ? REPEAT_FEE : DOUBLES_FEE)
     : 0;
 
-  const effectiveFee = primaryFee + partnerFee;
+  const effectiveFee =
+    registrationCount !== null && (isDoubles ? partnerRegistrationCount !== null : true)
+      ? calculateRegistrationPaymentAmount(
+          tournament!,
+          formData.selectedCategory,
+          registrationCount,
+          partnerRegistrationCount ?? 0
+        )
+      : primaryFee + partnerFee;
   const hasPayment = effectiveFee > 0;
   const hasPaymentAccounts = (tournament?.paymentAccounts?.length ?? 0) > 0;
 
   const err = (field: string) => (touched.has(field) ? errors[field] : undefined);
+
+  const tournamentContacts = tournament ? getTournamentContacts(tournament) : [];
+  const hasContact = tournamentContacts.length > 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -602,6 +606,40 @@ export default function TournamentRegistrationPage() {
               <p><strong>Registration Deadline:</strong> {new Date(tournament!.registrationDeadline).toLocaleDateString()}</p>
             </div>
 
+            {hasContact && (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-2">
+                  <User className="h-4 w-4 text-emerald-700 flex-shrink-0" />
+                  Point of Contact
+                </h3>
+                <div className="flex flex-col gap-2 text-sm text-gray-700">
+                  {tournamentContacts.map((contact, idx) => (
+                    <p key={idx} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <User className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                      {contact.name && (
+                        <span className="font-medium text-gray-900">{contact.name}</span>
+                      )}
+                      {contact.name && contact.phone && (
+                        <span className="text-gray-400" aria-hidden="true">·</span>
+                      )}
+                      {contact.phone && (
+                        <a
+                          href={contactPhoneTelHref(contact.phone)}
+                          className="inline-flex items-center gap-1 text-emerald-800 hover:text-emerald-950 hover:underline font-medium"
+                        >
+                          <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                          {contact.phone}
+                        </a>
+                      )}
+                    </p>
+                  ))}
+                </div>
+                <p className="text-xs text-emerald-800/80 mt-2">
+                  Questions about registration or payment? Reach out to {tournamentContacts.length > 1 ? 'either contact' : 'the contact'} above.
+                </p>
+              </div>
+            )}
+
             {tournament?.rules && (
               <Link
                 href={`/tournament/${tournamentId}/rules`}
@@ -632,7 +670,7 @@ export default function TournamentRegistrationPage() {
 
               <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
-                <span>Each participant may register for up to <strong>{MAX_REGISTRATIONS_PER_PARTICIPANT} categories</strong> per tournament.</span>
+                <span>Each participant may register for up to <strong>{MAX_REGISTRATIONS_PER_PARTICIPANT} categories</strong> per tournament. Repeat category fees apply after the first registration.</span>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -681,8 +719,8 @@ export default function TournamentRegistrationPage() {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => updateField('name', e.target.value)}
-                      onBlur={() => touch('name')}
+                      onChange={(e) => { updateField('name', e.target.value); setRegistrationCount(null); if (profilePhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, profilePhotoUrl: null })); profilePhotoPrefilledRef.current = false; } }}
+                      onBlur={handleNameBlur}
                       className={err('name') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('name')} />
@@ -693,19 +731,11 @@ export default function TournamentRegistrationPage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => { updateField('email', e.target.value); setRegistrationCount(null); if (profilePhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, profilePhotoUrl: null })); profilePhotoPrefilledRef.current = false; } }}
-                      onBlur={handleEmailBlur}
+                      onChange={(e) => updateField('email', e.target.value)}
+                      onBlur={() => touch('email')}
                       className={err('email') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('email')} />
-                    {registrationCount !== null && registrationCount > 0 && (
-                      <p className={`text-xs mt-0.5 flex items-center gap-1 ${registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
-                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                        {registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
-                          ? `Already registered for ${registrationCount} categories — limit reached.`
-                          : `Already registered for ${registrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} allowed categories.`}
-                      </p>
-                    )}
                   </div>
                 </div>
 
@@ -722,6 +752,14 @@ export default function TournamentRegistrationPage() {
                       className={err('phone') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('phone')} />
+                    {registrationCount !== null && registrationCount > 0 && (
+                      <p className={`text-xs mt-0.5 flex items-center gap-1 ${registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
+                        <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                        {registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+                          ? `Already registered for ${registrationCount} categories — limit reached.`
+                          : `Already registered for ${registrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} allowed categories.`}
+                      </p>
+                    )}
                   </div>
                   {showEmergencyContact && (
                     <div className="flex flex-col gap-1">
@@ -897,8 +935,8 @@ export default function TournamentRegistrationPage() {
                           <Input
                             id="partnerName"
                             value={formData.partnerName}
-                            onChange={(e) => updateField('partnerName', e.target.value)}
-                            onBlur={() => touch('partnerName')}
+                            onChange={(e) => { updateField('partnerName', e.target.value); setPartnerRegistrationCount(null); if (partnerPhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: null })); partnerPhotoPrefilledRef.current = false; } }}
+                            onBlur={handlePartnerNameBlur}
                             placeholder="Partner's full name"
                             className={err('partnerName') ? 'border-red-500' : ''}
                           />
@@ -916,6 +954,14 @@ export default function TournamentRegistrationPage() {
                             className={err('partnerPhone') ? 'border-red-500' : ''}
                           />
                           <FieldError message={err('partnerPhone')} />
+                          {partnerRegistrationCount !== null && partnerRegistrationCount > 0 && (
+                            <p className={`text-xs mt-0.5 flex items-center gap-1 ${partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
+                              <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                              {partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+                                ? `Partner already registered for ${partnerRegistrationCount} categories — limit reached.`
+                                : `Partner already registered for ${partnerRegistrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
@@ -924,20 +970,12 @@ export default function TournamentRegistrationPage() {
                           id="partnerEmail"
                           type="email"
                           value={formData.partnerEmail}
-                          onChange={(e) => { updateField('partnerEmail', e.target.value); setPartnerRegistrationCount(null); if (partnerPhotoPrefilledRef.current) { setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: null })); partnerPhotoPrefilledRef.current = false; } }}
-                          onBlur={handlePartnerEmailBlur}
+                          onChange={(e) => updateField('partnerEmail', e.target.value)}
+                          onBlur={() => touch('partnerEmail')}
                           placeholder="Partner's email address"
                           className={err('partnerEmail') ? 'border-red-500' : ''}
                         />
                         <FieldError message={err('partnerEmail')} />
-                        {partnerRegistrationCount !== null && partnerRegistrationCount > 0 && (
-                          <p className={`text-xs mt-0.5 flex items-center gap-1 ${partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
-                            <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                            {partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
-                              ? `Partner already registered for ${partnerRegistrationCount} categories — limit reached.`
-                              : `Partner already registered for ${partnerRegistrationCount} of ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`}
-                          </p>
-                        )}
                       </div>
                       <ProfilePhotoUpload
                         label="Partner profile photo (optional)"

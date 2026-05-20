@@ -35,6 +35,11 @@ export interface PaymentAccount {
   number: string; // UPI ID, phone, or account number
 }
 
+export interface TournamentContact {
+  name: string;
+  phone: string;
+}
+
 export type SportType = 'badminton' | 'table-tennis' | 'volleyball' | 'throw-ball';
 export type TournamentType = 'individual' | 'team' | 'mixed';
 export type CategoryType = 'girls-under-13' | 'boys-under-13' | 'girls-under-18' | 'boys-under-18' | 'mens-single' | 'womens-single' | 'mens-doubles' | 'womens-doubles' | 'mixed-doubles' | 'family-doubles' | 'mens-team' | 'womens-team' | 'kids-team-u13' | 'kids-team-u18' | 'open-team';
@@ -68,6 +73,12 @@ export interface Tournament {
   showTshirtSize?: boolean;
   paymentQrCode?: string;
   whatsappGroupLink?: string;
+  /** Up to 2 points of contact shown on the public registration form */
+  contacts?: TournamentContact[];
+  /** @deprecated Use contacts[0] — kept for legacy tournament documents */
+  contactName?: string;
+  /** @deprecated Use contacts[0] — kept for legacy tournament documents */
+  contactPhone?: string;
   showVolunteerNomination?: boolean;
   /** Fee for doubles category registrations (per person). Default 700. */
   doublesFee?: number;

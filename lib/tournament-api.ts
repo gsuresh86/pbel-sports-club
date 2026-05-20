@@ -141,6 +141,14 @@ export type TournamentUpdatePayload = Partial<
     | 'showTowerAndFlat'
     | 'showEmergencyContact'
     | 'showIsResident'
+    | 'contacts'
+    | 'paymentQrCode'
+    | 'whatsappGroupLink'
+    | 'doublesFee'
+    | 'repeatFee'
+    | 'paymentAccounts'
+    | 'showTshirtSize'
+    | 'showVolunteerNomination'
   >
 > & { updatedAt: Date };
 

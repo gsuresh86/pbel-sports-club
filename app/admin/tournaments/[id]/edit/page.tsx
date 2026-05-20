@@ -17,8 +17,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Tournament, SportType, TournamentType, CategoryType } from '@/types';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Tournament, SportType, TournamentType, CategoryType, TournamentContact } from '@/types';
+import {
+  buildTournamentContactsPayload,
+  getTournamentContacts,
+  normalizeTournamentContactsForForm,
+} from '@/lib/utils';
+import { ArrowLeft, Save, User } from 'lucide-react';
 import Link from 'next/link';
 
 const isAdminRole = (role: string) =>
@@ -69,6 +74,10 @@ export default function EditTournamentPage() {
     showEmergencyContact: true,
     showIsResident: true,
     paymentQrCode: '',
+    contacts: [
+      { name: '', phone: '' },
+      { name: '', phone: '' },
+    ] as TournamentContact[],
   });
   const [formPopulated, setFormPopulated] = useState(false);
 
@@ -120,6 +129,7 @@ export default function EditTournamentPage() {
         showEmergencyContact: tournament.showEmergencyContact ?? true,
         showIsResident: tournament.showIsResident ?? true,
         paymentQrCode: tournament.paymentQrCode || '',
+        contacts: normalizeTournamentContactsForForm(getTournamentContacts(tournament)),
       });
       setFormPopulated(true);
     }
@@ -168,6 +178,14 @@ export default function EditTournamentPage() {
       } else {
         tournamentUpdateData.paymentQrCode = null as unknown as string;
       }
+      const contactsPayload = buildTournamentContactsPayload(formData.contacts);
+      if (contactsPayload) {
+        tournamentUpdateData.contacts = contactsPayload;
+      } else {
+        tournamentUpdateData.contacts = null as unknown as TournamentContact[];
+      }
+      tournamentUpdateData.contactName = null as unknown as string;
+      tournamentUpdateData.contactPhone = null as unknown as string;
 
       await updateTournamentMutation.mutateAsync({
         tournamentId: tournament.id,
@@ -446,6 +464,59 @@ export default function EditTournamentPage() {
                 aspectRatio="16/9"
                 maxSize={5}
               />
+            </CardContent>
+          </Card>
+
+          {/* Point of contact */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <User className="h-5 w-5 text-gray-600" />
+                Point of Contact
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-gray-500 mb-4">
+                Up to two contacts are shown on the public registration form. Leave a row empty if not needed.
+              </p>
+              <div className="space-y-4">
+                {formData.contacts.map((contact, idx) => (
+                  <div key={idx} className="rounded-lg border border-gray-200 p-4 space-y-3">
+                    <p className="text-sm font-medium text-gray-800">Contact {idx + 1}</p>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor={`contactName-${idx}`}>Name</Label>
+                        <Input
+                          id={`contactName-${idx}`}
+                          placeholder="e.g. Tournament Coordinator"
+                          value={contact.name}
+                          onChange={(e) => {
+                            const updated = formData.contacts.map((c, i) =>
+                              i === idx ? { ...c, name: e.target.value } : c
+                            );
+                            setFormData({ ...formData, contacts: updated });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`contactPhone-${idx}`}>Phone Number</Label>
+                        <Input
+                          id={`contactPhone-${idx}`}
+                          type="tel"
+                          placeholder="e.g. +91 98765 43210"
+                          value={contact.phone}
+                          onChange={(e) => {
+                            const updated = formData.contacts.map((c, i) =>
+                              i === idx ? { ...c, phone: e.target.value } : c
+                            );
+                            setFormData({ ...formData, contacts: updated });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
