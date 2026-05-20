@@ -152,10 +152,8 @@ export default function TournamentDetailsPage() {
   const assignedAdmins = tournamentAdmins.filter(u => u.assignedTournaments?.includes(tournamentId));
   const unassignedAdmins = tournamentAdmins.filter(u => !u.assignedTournaments?.includes(tournamentId));
 
-  // Analytics computation
+  // Overview & analytics computation
   const analytics = useMemo(() => {
-    if (!participants.length) return null;
-
     // Category breakdown
     const catMap = new Map<string, { total: number; approved: number; pending: number; rejected: number }>();
     participants.forEach(p => {
@@ -178,6 +176,12 @@ export default function TournamentDetailsPage() {
     const paid = participants.filter(p => p.paymentStatus === 'paid');
     const totalRevenue = paid.reduce((sum, p) => sum + (p.paymentAmount ?? 0), 0);
     const pendingPayment = participants.filter(p => p.paymentStatus === 'pending').length;
+    const pendingRegistrations = participants.filter(p => p.registrationStatus === 'pending');
+    const pendingRegistrationCount = pendingRegistrations.length;
+    const expectedFromPendingRegistrations = pendingRegistrations.reduce(
+      (sum, p) => sum + (p.paymentAmount ?? 0),
+      0
+    );
 
     // Misc
     const volunteers = participants
@@ -224,6 +228,8 @@ export default function TournamentDetailsPage() {
       totalRevenue,
       paidCount: paid.length,
       pendingPayment,
+      pendingRegistrationCount,
+      expectedFromPendingRegistrations,
       volunteerCount,
       volunteers,
       residentCount,
@@ -348,7 +354,11 @@ export default function TournamentDetailsPage() {
   // Handle URL parameters for tab selection
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'analytics', 'participants', 'players', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
+    if (tab === 'analytics') {
+      setActiveTab('overview');
+      return;
+    }
+    if (tab && ['overview', 'participants', 'players', 'matches', 'teams', 'spin-wheel', 'pools', 'results'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -464,7 +474,6 @@ export default function TournamentDetailsPage() {
   const approvedParticipants = participants?.filter(p => p.registrationStatus === 'approved').length || 0;
   const pendingParticipants = participants?.filter(p => p.registrationStatus === 'pending').length || 0;
   const rejectedParticipants = participants?.filter(p => p.registrationStatus === 'rejected').length || 0;
-  const paidParticipants = participants?.filter(p => p.paymentStatus === 'paid').length || 0;
   const totalMatches = matches?.length || 0;
   const completedMatches = matches?.filter(m => m.status === 'completed').length || 0;
   const liveMatches = matches?.filter(m => m.status === 'live').length || 0;
@@ -514,70 +523,11 @@ export default function TournamentDetailsPage() {
           </div>
         </div>
 
-        {/* Key Statistics */}
-        <div className="mb-3 grid grid-cols-2 gap-1.5 sm:mb-4 sm:grid-cols-4 sm:gap-2">
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
-            <Users className="h-3.5 w-3.5 shrink-0 text-blue-500 sm:h-4 sm:w-4" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] leading-none text-muted-foreground">Participants</p>
-              <p className="truncate text-sm font-semibold leading-tight tabular-nums">
-                {totalParticipants}/{tournament.maxParticipants || '∞'}
-              </p>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
-                {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
-              </p>
-            </div>
-            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
-              {tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}%` : 'Unlimited'}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
-            <UserCheck className="h-3.5 w-3.5 shrink-0 text-green-500 sm:h-4 sm:w-4" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] leading-none text-muted-foreground">Approved</p>
-              <p className="truncate text-sm font-semibold leading-tight tabular-nums">{approvedParticipants}</p>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
-                {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
-              </p>
-            </div>
-            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
-              {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
-            <Activity className="h-3.5 w-3.5 shrink-0 text-purple-500 sm:h-4 sm:w-4" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] leading-none text-muted-foreground">Matches</p>
-              <p className="truncate text-sm font-semibold leading-tight tabular-nums">{totalMatches}</p>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">
-                {completedMatches} done · {liveMatches} live
-              </p>
-            </div>
-            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
-              {completedMatches} done · {liveMatches} live
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 sm:gap-2 sm:px-2.5 sm:py-2">
-            <DollarSign className="h-3.5 w-3.5 shrink-0 text-green-500 sm:h-4 sm:w-4" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] leading-none text-muted-foreground">Revenue</p>
-              <p className="truncate text-sm font-semibold leading-tight tabular-nums">
-                ₹{paidParticipants * (tournament.entryFee || 0)}
-              </p>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground sm:hidden">{paidParticipants} paid</p>
-            </div>
-            <p className="hidden max-w-[5rem] truncate text-right text-[10px] text-muted-foreground sm:block">
-              {paidParticipants} paid
-            </p>
-          </div>
-        </div>
-
         {/* Detailed Tabs - horizontal scroll on mobile */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
-            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-9 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
+            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-8 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
               <TabsTrigger value="overview" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Overview</TabsTrigger>
-              <TabsTrigger value="analytics" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Analytics</TabsTrigger>
               <TabsTrigger value="participants" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Registrations</TabsTrigger>
               <TabsTrigger value="players" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Players</TabsTrigger>
               <TabsTrigger value="teams" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Teams</TabsTrigger>
@@ -589,149 +539,111 @@ export default function TournamentDetailsPage() {
           </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4 sm:space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-              {/* Tournament Information */}
-              <Card>
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Tournament Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Sport</p>
-                      <p className="text-lg font-semibold capitalize">{tournament.sport.replace('-', ' ')}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Type</p>
-                      <p className="text-lg font-semibold capitalize">{tournament.tournamentType}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Entry Fee</p>
-                      <p className="text-lg font-semibold">
-                        {tournament.entryFee ? `₹${tournament.entryFee}` : 'Free'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Prize Pool</p>
-                      <p className="text-lg font-semibold">
-                        {tournament.prizePool ? `₹${tournament.prizePool}` : 'Not specified'}
-                      </p>
-                    </div>
+          <TabsContent value="overview" className="space-y-3">
+            {/* KPI row */}
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-8 sm:gap-2">
+              {[
+                { label: 'Participants', value: `${totalParticipants}/${tournament.maxParticipants || '∞'}`, icon: Users, color: 'text-blue-500', sub: tournament.maxParticipants ? `${Math.round((totalParticipants / tournament.maxParticipants) * 100)}% cap` : 'Unlimited' },
+                { label: 'Approved', value: String(approvedParticipants), icon: UserCheck, color: 'text-green-500', sub: totalParticipants > 0 ? `${Math.round((approvedParticipants / totalParticipants) * 100)}%` : '0%' },
+                { label: 'Pending', value: String(pendingParticipants), icon: Clock, color: 'text-amber-500', sub: 'registration' },
+                { label: 'Rejected', value: String(rejectedParticipants), icon: UserX, color: 'text-red-500', sub: 'registration' },
+                { label: 'Revenue', value: `₹${analytics.totalRevenue.toLocaleString('en-IN')}`, icon: DollarSign, color: 'text-green-600', sub: `${analytics.paidCount} paid` },
+                { label: 'Expected', value: `₹${analytics.expectedFromPendingRegistrations.toLocaleString('en-IN')}`, icon: TrendingUp, color: 'text-amber-600', sub: `${analytics.pendingRegistrationCount} pending`, highlight: true },
+                { label: 'Pay pending', value: String(analytics.pendingPayment), icon: Clock, color: 'text-orange-500', sub: 'payment' },
+                { label: 'Matches', value: String(totalMatches), icon: Activity, color: 'text-purple-500', sub: `${completedMatches} done · ${liveMatches} live` },
+              ].map((kpi) => (
+                <div
+                  key={kpi.label}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2 py-1.5 sm:px-2.5 sm:py-2',
+                    kpi.highlight ? 'border-amber-200 bg-amber-50/80' : 'bg-card'
+                  )}
+                >
+                  <kpi.icon className={cn('h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4', kpi.color)} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] leading-none text-muted-foreground truncate">{kpi.label}</p>
+                    <p className="truncate text-xs sm:text-sm font-semibold leading-tight tabular-nums">{kpi.value}</p>
+                    <p className="truncate text-[10px] leading-tight text-muted-foreground">{kpi.sub}</p>
                   </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Categories</p>
-                    <div className="flex flex-wrap gap-2">
+                </div>
+              ))}
+            </div>
+
+            {/* Compact tournament + registration summary */}
+            <Card>
+              <CardContent className="p-3 sm:p-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-4">
+                  <div className="lg:col-span-5 space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      <Trophy className="h-3 w-3" /> Tournament
+                    </p>
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-sm">
+                      <div><dt className="text-muted-foreground">Sport</dt><dd className="font-medium capitalize">{tournament.sport.replace('-', ' ')}</dd></div>
+                      <div><dt className="text-muted-foreground">Type</dt><dd className="font-medium capitalize">{tournament.tournamentType}</dd></div>
+                      <div><dt className="text-muted-foreground">Entry</dt><dd className="font-medium">{tournament.entryFee ? `₹${tournament.entryFee}` : 'Free'}</dd></div>
+                      <div><dt className="text-muted-foreground">Prize</dt><dd className="font-medium">{tournament.prizePool ? `₹${tournament.prizePool}` : '—'}</dd></div>
+                    </dl>
+                    <div className="flex flex-wrap gap-1">
                       {(tournament.categories || []).map((category) => (
-                        <Badge key={category} variant="outline" className="capitalize">
-                          {category.replace('-', ' ')}
+                        <Badge key={category} variant="outline" className="capitalize text-[10px] px-1.5 py-0 h-5">
+                          {category.replace(/-/g, ' ')}
                         </Badge>
                       ))}
                     </div>
                   </div>
-
-                </CardContent>
-              </Card>
-
-              {/* Registration Status */}
-              <Card>
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-                    Registration Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">Approved</span>
-                      </div>
-                      <span className="font-semibold">{approvedParticipants}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        {/* Replace UserClock with a valid icon, e.g., Clock */}
-                        <Clock className="h-4 w-4 text-yellow-500" />
-                        <span className="text-sm">Pending</span>
-                      </div>
-                      <span className="font-semibold">{pendingParticipants}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <UserX className="h-4 w-4 text-red-500" />
-                        <span className="text-sm">Rejected</span>
-                      </div>
-                      <span className="font-semibold">{rejectedParticipants}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Registration Progress</span>
-                      <span className="text-sm text-gray-600">
-                        {totalParticipants}/{tournament.maxParticipants || '∞'}
+                  <div className="lg:col-span-7 space-y-2 lg:border-l lg:pl-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                      <BarChart3 className="h-3 w-3" /> Registration
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-0.5 text-green-800 border border-green-200">
+                        <UserCheck className="h-3 w-3" /> {approvedParticipants} approved
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-amber-800 border border-amber-200">
+                        <Clock className="h-3 w-3" /> {pendingParticipants} pending
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 text-red-800 border border-red-200">
+                        <UserX className="h-3 w-3" /> {rejectedParticipants} rejected
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${tournament.maxParticipants ? Math.min((totalParticipants / tournament.maxParticipants) * 100, 100) : 0}%` }}
-                      ></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
+                          <span>Capacity</span>
+                          <span>{totalParticipants}/{tournament.maxParticipants || '∞'}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${tournament.maxParticipants ? Math.min((totalParticipants / tournament.maxParticipants) * 100, 100) : 0}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
+                          <span>Approval</span>
+                          <span>{totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-600 rounded-full" style={{ width: `${totalParticipants > 0 ? (approvedParticipants / totalParticipants) * 100 : 0}%` }} />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Approval Rate</span>
-                      <span className="text-sm text-gray-600">
-                        {totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${totalParticipants > 0 ? (approvedParticipants / totalParticipants) * 100 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  {revenueByReceiver.length > 0 && (
-                    <div className="pt-4 border-t space-y-3">
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-green-600" />
-                        Amount received by recipient
-                      </p>
-                      <div className="space-y-2">
+                    {revenueByReceiver.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {revenueByReceiver.map((receiver) => (
-                          <div
+                          <span
                             key={`${receiver.name}-${receiver.number}`}
-                            className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2 text-sm"
+                            className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-[10px] sm:text-xs"
+                            title={receiver.number || undefined}
                           >
-                            <div className="min-w-0">
-                              <p className="font-medium truncate">{receiver.name}</p>
-                              {receiver.number ? (
-                                <p className="text-xs text-muted-foreground truncate">{receiver.number}</p>
-                              ) : null}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="font-semibold tabular-nums">
-                                ₹{receiver.amount.toLocaleString('en-IN')}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{receiver.count} paid</p>
-                            </div>
-                          </div>
+                            <span className="font-medium truncate max-w-[8rem]">{receiver.name}</span>
+                            <span className="text-muted-foreground">₹{receiver.amount.toLocaleString('en-IN')}</span>
+                          </span>
                         ))}
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             {/* Manage Tournament Admins — visible to admin/super-admin only */}
             {isFullAdmin && (
               <Card>
@@ -784,133 +696,105 @@ export default function TournamentDetailsPage() {
                 </CardContent>
               </Card>
             )}
-          </TabsContent>
 
-          {/* Analytics Tab */}
-          <TabsContent value="analytics" className="space-y-3">
-            {!analytics ? (
+            {/* Insights (merged analytics) */}
+            {participants.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
                   <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No data yet</h3>
-                  <p className="text-muted-foreground text-sm">Analytics will appear once registrations come in.</p>
+                  <h3 className="text-lg font-medium mb-2">No registration insights yet</h3>
+                  <p className="text-muted-foreground text-sm">Charts and breakdowns will appear once registrations come in.</p>
                 </CardContent>
               </Card>
             ) : (
-              <>
-                {/* KPI row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Card>
-                    <CardContent className="p-2.5 sm:p-3">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-green-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">Total Revenue</p>
-                          <p className="text-base sm:text-xl font-bold">₹{analytics.totalRevenue.toLocaleString('en-IN')}</p>
-                          <p className="text-[10px] text-muted-foreground">{analytics.paidCount} paid</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-2.5 sm:p-3">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">Pending Payment</p>
-                          <p className="text-base sm:text-xl font-bold">{analytics.pendingPayment}</p>
-                          <p className="text-[10px] text-muted-foreground">awaiting payment</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card
+              <div className="space-y-3">
+                {/* Compact secondary KPIs */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => analytics.volunteerCount > 0 && setVolunteersDrawerOpen(true)}
                     className={cn(
-                      analytics.volunteerCount > 0 &&
-                        'cursor-pointer transition-shadow hover:shadow-md focus-within:ring-2 focus-within:ring-pink-200'
-                    )}
-                    onClick={() => {
-                      if (analytics.volunteerCount > 0) setVolunteersDrawerOpen(true);
-                    }}
-                    onKeyDown={(e) => {
-                      if (analytics.volunteerCount > 0 && (e.key === 'Enter' || e.key === ' ')) {
-                        e.preventDefault();
-                        setVolunteersDrawerOpen(true);
-                      }
-                    }}
-                    role={analytics.volunteerCount > 0 ? 'button' : undefined}
-                    tabIndex={analytics.volunteerCount > 0 ? 0 : undefined}
-                    aria-label={
+                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs',
                       analytics.volunteerCount > 0
-                        ? `View ${analytics.volunteerCount} volunteers`
-                        : 'No volunteers'
-                    }
+                        ? 'bg-pink-50 border-pink-200 hover:bg-pink-100 cursor-pointer'
+                        : 'bg-card text-muted-foreground'
+                    )}
                   >
-                    <CardContent className="p-2.5 sm:p-3">
-                      <div className="flex items-center gap-2">
-                        <HandHeart className="h-5 w-5 text-pink-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">Volunteers</p>
-                          <p className="text-base sm:text-xl font-bold">{analytics.volunteerCount}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {analytics.volunteerCount > 0 ? 'tap to view list' : 'nominated'}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-2.5 sm:p-3">
-                      <div className="flex items-center gap-2">
-                        <Home className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">Residents</p>
-                          <p className="text-base sm:text-xl font-bold">{analytics.residentCount}</p>
-                          <p className="text-[10px] text-muted-foreground">{analytics.nonResidentCount} non-resident</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <HandHeart className="h-3.5 w-3.5 text-pink-500" />
+                    <span className="font-medium">{analytics.volunteerCount}</span> volunteers
+                  </button>
+                  <span className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs">
+                    <Home className="h-3.5 w-3.5 text-blue-500" />
+                    <span className="font-medium">{analytics.residentCount}</span> residents
+                    <span className="text-muted-foreground">· {analytics.nonResidentCount} other</span>
+                  </span>
                 </div>
 
-                {/* Category breakdown */}
-                <Card>
-                  <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
-                    <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                      <Trophy className="h-4 w-4" />
-                      Registrations by Category
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-2">
-                    {analytics.categories.map(([cat, counts]) => {
-                      const pct = Math.round((counts.approved / counts.total) * 100);
-                      return (
-                        <div key={cat} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="capitalize font-medium text-gray-700">{cat.replace(/-/g, ' ')}</span>
-                            <span className="text-gray-500 text-xs tabular-nums">
-                              {counts.approved} approved · {counts.pending} pending · {counts.rejected} rejected
-                            </span>
-                          </div>
-                          <div className="w-full h-5 bg-gray-100 rounded-full overflow-hidden flex">
-                            <div className="h-full bg-green-500 transition-all" style={{ width: `${(counts.approved / participants.length) * 100}%` }} title={`Approved: ${counts.approved}`} />
-                            <div className="h-full bg-amber-400 transition-all" style={{ width: `${(counts.pending / participants.length) * 100}%` }} title={`Pending: ${counts.pending}`} />
-                            <div className="h-full bg-red-400 transition-all" style={{ width: `${(counts.rejected / participants.length) * 100}%` }} title={`Rejected: ${counts.rejected}`} />
-                          </div>
-                          <p className="text-[10px] text-muted-foreground text-right">{counts.total} total · {pct}% approved</p>
-                        </div>
-                      );
-                    })}
-                    <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-500 inline-block" />Approved</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-400 inline-block" />Pending</span>
-                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />Rejected</span>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Gender, Level, Category & T-shirt sizes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Card>
+                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Trophy className="h-4 w-4" />
+                        By Category
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-0.5">
+                        {participants.length} registrations ·{' '}
+                        <span className="text-green-700">{approvedParticipants} approved</span>
+                        {' · '}
+                        <span className="inline-flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-sm bg-green-500 inline-block" />A
+                          <span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />P
+                          <span className="w-2 h-2 rounded-sm bg-red-400 inline-block" />R
+                        </span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5 max-h-64 overflow-y-auto">
+                      {analytics.categories.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No category data yet.</p>
+                      ) : (
+                        analytics.categories.map(([cat, counts]) => {
+                          const barTotal = counts.total || 1;
+                          const pct = participants.length
+                            ? Math.round((counts.total / participants.length) * 100)
+                            : 0;
+                          const label = cat.replace(/-/g, ' ');
+                          return (
+                            <div key={cat} className="flex items-center gap-3">
+                              <span
+                                className="text-sm capitalize w-24 flex-shrink-0 text-gray-600 truncate"
+                                title={label}
+                              >
+                                {label}
+                              </span>
+                              <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden flex">
+                                <div
+                                  className="h-full bg-green-500 transition-all"
+                                  style={{ width: `${(counts.approved / barTotal) * 100}%` }}
+                                  title={`Approved: ${counts.approved}`}
+                                />
+                                <div
+                                  className="h-full bg-amber-400 transition-all"
+                                  style={{ width: `${(counts.pending / barTotal) * 100}%` }}
+                                  title={`Pending: ${counts.pending}`}
+                                />
+                                <div
+                                  className="h-full bg-red-400 transition-all"
+                                  style={{ width: `${(counts.rejected / barTotal) * 100}%` }}
+                                  title={`Rejected: ${counts.rejected}`}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700 tabular-nums">
+                                  {counts.total}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground w-8 text-right tabular-nums">{pct}%</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </CardContent>
+                  </Card>
 
-                {/* Gender, Level & T-shirt sizes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <Card>
                     <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
                       <CardTitle className="text-base flex items-center gap-2"><PieChart className="h-4 w-4" />Gender Split</CardTitle>
@@ -1038,7 +922,7 @@ export default function TournamentDetailsPage() {
                     </CardContent>
                   </Card>
                 )}
-              </>
+              </div>
             )}
           </TabsContent>
 

@@ -110,7 +110,15 @@ export type RegistrationParticipantFields = {
   partnerPhone?: string | null;
   profilePhotoUrl?: string | null;
   partnerProfilePhotoUrl?: string | null;
+  registrationStatus?: 'pending' | 'approved' | 'rejected';
 };
+
+/** Rejected registrations do not count toward category limits or repeat fees. */
+export function registrationCountsTowardLimit(
+  data: RegistrationParticipantFields
+): boolean {
+  return data.registrationStatus !== 'rejected';
+}
 
 /** True when the person appears as primary or partner on a registration. */
 export function registrationIncludesParticipant(
@@ -134,6 +142,7 @@ export function registrationIncludesParticipant(
 /**
  * Count prior registrations for a participant (name + phone) in a tournament.
  * Includes categories where they registered as primary or as a doubles partner.
+ * Rejected registrations are excluded so the person can register again.
  */
 export async function getParticipantRegistrationStats(
   db: Firestore,
@@ -157,12 +166,13 @@ export async function getParticipantRegistrationStats(
   primarySnap.docs.forEach((d) => docMap.set(d.id, d.data() as RegistrationParticipantFields));
   partnerSnap.docs.forEach((d) => docMap.set(d.id, d.data() as RegistrationParticipantFields));
 
-  const matching = Array.from(docMap.values()).filter((data) =>
+  const allMatching = Array.from(docMap.values()).filter((data) =>
     registrationIncludesParticipant(data, name, phone)
   );
+  const matchingForLimit = allMatching.filter(registrationCountsTowardLimit);
 
   let profilePhotoUrl: string | null = null;
-  for (const data of matching) {
+  for (const data of allMatching) {
     const normalizedName = normalizeParticipantName(name);
     const normalizedPhone = normalizeParticipantPhone(phone);
     const isPrimary =
@@ -175,7 +185,7 @@ export async function getParticipantRegistrationStats(
     }
   }
 
-  return { count: matching.length, profilePhotoUrl };
+  return { count: matchingForLimit.length, profilePhotoUrl };
 }
 
 const DOUBLES_CATEGORIES_FOR_FEE = [
