@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { collection, getDocs, updateDoc, doc, query, where, addDoc, deleteField } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, where, addDoc, deleteField, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,10 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye } from 'lucide-react';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2 } from 'lucide-react';
 import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawer';
+import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parsePaymentRecipient } from '@/lib/utils';
@@ -24,21 +26,29 @@ import { parsePaymentRecipient } from '@/lib/utils';
 const STICKY_HEAD = 'sticky top-0 z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_CELL = 'sticky z-20 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
+const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-white shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-white shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
 
 export default function ManageRegistrationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { alert, AlertDialogComponent } = useAlertDialog();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [registrations, setRegistrations] = useState<(Registration & { tournamentId: string; tournamentName: string })[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTournament, setSelectedTournament] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(null);
   const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
   const [reviewParticipantId, setReviewParticipantId] = useState<string | null>(null);
   const [statusActionLoading, setStatusActionLoading] = useState(false);
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [editParticipantId, setEditParticipantId] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   // Import functionality state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -218,6 +228,186 @@ export default function ManageRegistrationsPage() {
     ? registrations.find((p) => p.id === reviewParticipantId) ?? null
     : null;
 
+  const openEditDrawer = (participantId: string) => {
+    setEditParticipantId(participantId);
+    setEditDrawerOpen(true);
+  };
+
+  const editParticipant = editParticipantId
+    ? registrations.find((p) => p.id === editParticipantId) ?? null
+    : null;
+
+  const editTournamentCategories = editParticipant
+    ? tournaments.find((t) => t.id === editParticipant.tournamentId)?.categories ?? []
+    : [];
+
+  // Update the registration and keep linked player records in sync.
+  const handleSaveEdit = async (participantId: string, values: RegistrationEditValues): Promise<boolean> => {
+    const participant = registrations.find((p) => p.id === participantId);
+    if (!participant?.tournamentId) {
+      alert({ title: 'Error', description: 'Registration or tournament not found.', variant: 'error' });
+      return false;
+    }
+
+    setEditSaving(true);
+    try {
+      // Cleaned values: optional fields become `undefined` when cleared.
+      const opt = (value: string) => (value.trim() === '' ? undefined : value.trim());
+      const cleaned: Record<string, unknown> = {
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        age: Number(values.age),
+        gender: values.gender,
+        tower: opt(values.tower),
+        flatNumber: opt(values.flatNumber),
+        emergencyContact: opt(values.emergencyContact),
+        isResident: values.isResident,
+        selectedCategory: values.selectedCategory,
+        expertiseLevel: values.expertiseLevel,
+        previousExperience: opt(values.previousExperience),
+        tshirtSize: opt(values.tshirtSize),
+        isVolunteer: values.isVolunteer,
+        partnerName: opt(values.partnerName),
+        partnerPhone: opt(values.partnerPhone),
+        partnerEmail: opt(values.partnerEmail),
+        partnerTower: opt(values.partnerTower),
+        partnerFlatNumber: opt(values.partnerFlatNumber),
+        partnerTshirtSize: opt(values.partnerTshirtSize),
+        paymentReference: opt(values.paymentReference),
+        paymentAmount: values.paymentAmount.trim() === '' ? undefined : Number(values.paymentAmount),
+        paymentMethod: values.paymentMethod === '' ? undefined : values.paymentMethod,
+      };
+
+      // Fields also stored on linked player records.
+      const playerKeys = [
+        'name', 'email', 'phone', 'age', 'gender', 'tower', 'flatNumber', 'emergencyContact',
+        'isResident', 'selectedCategory', 'expertiseLevel', 'previousExperience', 'partnerName',
+        'paymentReference', 'paymentAmount', 'paymentMethod',
+      ];
+
+      // Firestore writes: `undefined` becomes deleteField() to remove the field.
+      const toFirestore = (source: Record<string, unknown>) =>
+        Object.fromEntries(
+          Object.entries(source).map(([k, v]) => [k, v === undefined ? deleteField() : v]),
+        );
+
+      const registrationUpdate = toFirestore(cleaned);
+      await updateDoc(
+        doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId),
+        registrationUpdate,
+      );
+
+      const playerUpdate = toFirestore(
+        Object.fromEntries(playerKeys.map((k) => [k, cleaned[k]])),
+      );
+      playerUpdate.updatedAt = new Date();
+
+      const playersSnapshot = await getDocs(
+        query(
+          collection(db, 'tournaments', participant.tournamentId, 'players'),
+          where('registrationId', '==', participantId),
+        ),
+      );
+      await Promise.all(playersSnapshot.docs.map((playerDoc) => updateDoc(playerDoc.ref, playerUpdate)));
+
+      // Update local state: apply set values, drop cleared (undefined) fields.
+      setRegistrations((prev) =>
+        prev.map((p) => {
+          if (p.id !== participantId) return p;
+          const next = { ...p } as Record<string, unknown>;
+          for (const [key, value] of Object.entries(cleaned)) {
+            if (value === undefined) delete next[key];
+            else next[key] = value;
+          }
+          return next as unknown as typeof p;
+        }),
+      );
+
+      alert({ title: 'Registration updated', description: 'Changes saved successfully.', variant: 'success' });
+      return true;
+    } catch (error) {
+      console.error('Error updating registration:', error);
+      alert({ title: 'Error', description: 'Failed to update registration. Please try again.', variant: 'error' });
+      return false;
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const requestDelete = (participantId: string) => {
+    const participant = registrations.find((p) => p.id === participantId);
+    if (!participant) return;
+    confirm({
+      title: 'Delete registration?',
+      description: `This will permanently delete ${participant.name}'s registration for ${participant.tournamentName}. This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+      onConfirm: () => {
+        void handleDeleteRegistration(participantId);
+      },
+    });
+  };
+
+  const handleDeleteRegistration = async (participantId: string) => {
+    const participant = registrations.find((p) => p.id === participantId);
+    if (!participant?.tournamentId) {
+      alert({ title: 'Error', description: 'Registration or tournament not found.', variant: 'error' });
+      return;
+    }
+
+    setDeletingId(participantId);
+    try {
+      // Delete linked player records first, then the registration document.
+      const playersSnapshot = await getDocs(
+        query(
+          collection(db, 'tournaments', participant.tournamentId, 'players'),
+          where('registrationId', '==', participantId),
+        ),
+      );
+      await Promise.all(playersSnapshot.docs.map((playerDoc) => deleteDoc(playerDoc.ref)));
+
+      await deleteDoc(doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId));
+
+      // Keep the tournament participant count accurate for approved registrations.
+      if (participant.registrationStatus === 'approved') {
+        const tournament = tournaments.find((t) => t.id === participant.tournamentId);
+        if (tournament && typeof tournament.currentParticipants === 'number') {
+          await updateDoc(doc(db, 'tournaments', tournament.id), {
+            currentParticipants: Math.max(0, tournament.currentParticipants - 1),
+          });
+          setTournaments((prev) =>
+            prev.map((t) =>
+              t.id === tournament.id
+                ? { ...t, currentParticipants: Math.max(0, t.currentParticipants - 1) }
+                : t,
+            ),
+          );
+        }
+      }
+
+      setRegistrations((prev) => prev.filter((p) => p.id !== participantId));
+
+      // Close drawers if they were showing the deleted registration.
+      if (reviewParticipantId === participantId) {
+        setReviewDrawerOpen(false);
+        setReviewParticipantId(null);
+      }
+      if (editParticipantId === participantId) {
+        setEditDrawerOpen(false);
+        setEditParticipantId(null);
+      }
+
+      alert({ title: 'Registration deleted', description: 'The registration was removed.', variant: 'success' });
+    } catch (error) {
+      console.error('Error deleting registration:', error);
+      alert({ title: 'Error', description: 'Failed to delete registration. Please try again.', variant: 'error' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleReviewApprove = async (participantId: string) => {
     setStatusActionLoading(true);
     try {
@@ -291,16 +481,26 @@ export default function ManageRegistrationsPage() {
     return true;
   };
 
+  // Categories available for the category filter, scoped to the selected tournament.
+  const availableCategories = Array.from(
+    new Set(
+      registrations
+        .filter(p => selectedTournament === 'all' || p.tournamentId === selectedTournament)
+        .map(p => p.selectedCategory)
+        .filter(Boolean),
+    ),
+  ).sort();
+
   const filteredParticipants = registrations.filter(participant => {
-    const tournament = tournaments.find(t => t.id === participant.tournamentId);
     const matchesTournament = selectedTournament === 'all' || participant.tournamentId === selectedTournament;
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       participant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       participant.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || participant.registrationStatus === statusFilter;
-    
-    return matchesTournament && matchesSearch && matchesStatus;
+    const matchesCategory = categoryFilter === 'all' || participant.selectedCategory === categoryFilter;
+
+    return matchesTournament && matchesSearch && matchesStatus && matchesCategory;
   });
 
   const getStatusColor = (status: string) => {
@@ -665,10 +865,12 @@ export default function ManageRegistrationsPage() {
         </div>
 
         {/* Registrations Table */}
-        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <CardHeader className="shrink-0 space-y-3 pb-0">
-            <CardTitle>Registrations ({filteredParticipants.length})</CardTitle>
+        <Card className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden py-3">
+          <CardHeader className="shrink-0 pb-0">
             <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
+              <CardTitle className="shrink-0 whitespace-nowrap text-base">
+                Registrations ({filteredParticipants.length})
+              </CardTitle>
               <Select value={selectedTournament} onValueChange={setSelectedTournament}>
                 <SelectTrigger className="h-9 w-[min(200px,28vw)] shrink-0" aria-label="Filter by tournament">
                   <SelectValue placeholder="Tournament" />
@@ -693,6 +895,19 @@ export default function ManageRegistrationsPage() {
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-9 w-[min(180px,28vw)] shrink-0 capitalize" aria-label="Filter by category">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {availableCategories.map(category => (
+                    <SelectItem key={category} value={category} className="capitalize">
+                      {category.replace(/-/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative min-w-[200px] flex-1">
                 <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -714,7 +929,7 @@ export default function ManageRegistrationsPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-4 pb-4">
+          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1 pb-4">
             {filteredParticipants.length === 0 ? (
               <div className="flex flex-1 items-center justify-center text-center">
                 <div>
@@ -725,7 +940,7 @@ export default function ManageRegistrationsPage() {
               </div>
             ) : (
             <div className="registrations-table-scroll min-h-0 flex-1 rounded-md border">
-              <table className="w-max min-w-full caption-bottom text-sm">
+              <table className="w-max min-w-full caption-bottom text-sm [&_td]:py-1 [&_th]:h-9">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
@@ -743,7 +958,7 @@ export default function ManageRegistrationsPage() {
                     <TableHead className={`${STICKY_HEAD} min-w-[90px]`}>Paid Amount</TableHead>
                     <TableHead className={`${STICKY_HEAD} min-w-[120px]`}>Paid To</TableHead>
                     <TableHead className={STICKY_HEAD}>Registration Date</TableHead>
-                    <TableHead className={STICKY_HEAD}>Actions</TableHead>
+                    <TableHead className={`${STICKY_HEAD_RIGHT} min-w-[150px]`}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -754,7 +969,7 @@ export default function ManageRegistrationsPage() {
                       <TableRow key={participant.id} className="group">
                         <TableCell className={`${STICKY_CELL} left-0 w-14`}>
                           {participant.profilePhotoUrl ? (
-                            <div className="relative h-10 w-10 overflow-hidden rounded-full bg-gray-100">
+                            <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-100">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={participant.profilePhotoUrl}
@@ -763,8 +978,8 @@ export default function ManageRegistrationsPage() {
                               />
                             </div>
                           ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-400">
-                              —
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-muted-foreground">
+                              {participant.name?.charAt(0).toUpperCase() || '—'}
                             </div>
                           )}
                         </TableCell>
@@ -777,7 +992,7 @@ export default function ManageRegistrationsPage() {
                         <TableCell className="capitalize">{participant.gender}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {participant.tower || participant.flatNumber
-                            ? [participant.tower && `T${participant.tower}`, participant.flatNumber && `Flat ${participant.flatNumber}`].filter(Boolean).join(' / ')
+                            ? [participant.tower, participant.flatNumber].filter(Boolean).join(' ')
                             : '—'}
                         </TableCell>
                         <TableCell>
@@ -852,7 +1067,7 @@ export default function ManageRegistrationsPage() {
                           )}
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
+                        <TableCell className={`${STICKY_CELL_RIGHT} min-w-[150px]`}>
                           <div className="flex flex-nowrap items-center gap-1">
                             <Button
                               size="sm"
@@ -862,6 +1077,15 @@ export default function ManageRegistrationsPage() {
                               title="View registration"
                             >
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEditDrawer(participant.id)}
+                              className="h-8 shrink-0 px-2"
+                              title="Edit registration"
+                            >
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             {participant.registrationStatus === 'pending' && (
                               <>
@@ -907,6 +1131,16 @@ export default function ManageRegistrationsPage() {
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
                             )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => requestDelete(participant.id)}
+                              disabled={deletingId === participant.id}
+                              className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                              title="Delete registration"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1172,10 +1406,29 @@ export default function ManageRegistrationsPage() {
         participant={reviewParticipant}
         onApprove={handleReviewApprove}
         onReject={handleReviewReject}
+        onEdit={(id) => {
+          setReviewDrawerOpen(false);
+          setReviewParticipantId(null);
+          openEditDrawer(id);
+        }}
+        onDelete={requestDelete}
         actionLoading={statusActionLoading}
       />
 
+      <RegistrationEditDrawer
+        open={editDrawerOpen}
+        onOpenChange={(open) => {
+          setEditDrawerOpen(open);
+          if (!open) setEditParticipantId(null);
+        }}
+        participant={editParticipant}
+        availableCategories={editTournamentCategories}
+        onSave={handleSaveEdit}
+        saving={editSaving}
+      />
+
       {AlertDialogComponent}
+      {ConfirmDialogComponent}
     </AdminLayout>
   );
 }

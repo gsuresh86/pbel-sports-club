@@ -14,7 +14,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { CheckCircle, X, XCircle } from 'lucide-react';
+import { CheckCircle, Pencil, Trash2, X, XCircle } from 'lucide-react';
 
 type RegistrationWithTournament = Registration & {
   tournamentId: string;
@@ -72,6 +72,8 @@ interface RegistrationReviewDrawerProps {
   participant: RegistrationWithTournament | null;
   onApprove?: (participantId: string) => void | Promise<void>;
   onReject?: (participantId: string) => void | Promise<void>;
+  onEdit?: (participantId: string) => void;
+  onDelete?: (participantId: string) => void;
   actionLoading?: boolean;
 }
 
@@ -81,6 +83,8 @@ export default function RegistrationReviewDrawer({
   participant,
   onApprove,
   onReject,
+  onEdit,
+  onDelete,
   actionLoading = false,
 }: RegistrationReviewDrawerProps) {
   if (!participant) {
@@ -243,7 +247,27 @@ export default function RegistrationReviewDrawer({
         </div>
 
         <DrawerFooter className="flex-shrink-0 border-t">
-          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              {onEdit && (
+                <Button variant="outline" disabled={actionLoading} onClick={() => onEdit(participant.id)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700"
+                  disabled={actionLoading}
+                  onClick={() => onDelete(participant.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <DrawerClose asChild>
               <Button variant="outline" disabled={actionLoading}>
                 Close
@@ -291,6 +315,7 @@ export default function RegistrationReviewDrawer({
                 Approve
               </Button>
             )}
+            </div>
           </div>
         </DrawerFooter>
       </DrawerContent>
