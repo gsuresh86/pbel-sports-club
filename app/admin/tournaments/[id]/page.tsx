@@ -24,7 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tournament, Registration, Match, CategoryType, User } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { generateRegistrationLink, parsePaymentRecipient } from '@/lib/utils';
+import { generateRegistrationLink, parsePaymentRecipient, dedupeByNamePhone } from '@/lib/utils';
 import { 
   ArrowLeft,
   Calendar,
@@ -58,6 +58,8 @@ import {
   Home,
   TrendingDown,
   Shirt,
+  IndianRupee,
+  ChevronDown,
 } from 'lucide-react';
 
 const TSHIRT_SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
@@ -183,9 +185,8 @@ export default function TournamentDetailsPage() {
       0
     );
 
-    // Misc
-    const volunteers = participants
-      .filter((p) => p.isVolunteer === true)
+    // Misc — dedupe volunteers by unique name + phone (a person may register in multiple categories)
+    const volunteers = dedupeByNamePhone(participants.filter((p) => p.isVolunteer === true))
       .sort((a, b) => a.name.localeCompare(b.name));
     const volunteerCount = volunteers.length;
     const residentCount = participants.filter(p => p.isResident === true).length;
@@ -266,8 +267,7 @@ export default function TournamentDetailsPage() {
 
   const volunteersList = useMemo(
     () =>
-      participants
-        .filter((p) => p.isVolunteer === true)
+      dedupeByNamePhone(participants.filter((p) => p.isVolunteer === true))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [participants]
   );
@@ -327,6 +327,7 @@ export default function TournamentDetailsPage() {
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
   const [volunteersDrawerOpen, setVolunteersDrawerOpen] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(true);
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(user.role))) {
@@ -474,6 +475,7 @@ export default function TournamentDetailsPage() {
   const approvedParticipants = participants?.filter(p => p.registrationStatus === 'approved').length || 0;
   const pendingParticipants = participants?.filter(p => p.registrationStatus === 'pending').length || 0;
   const rejectedParticipants = participants?.filter(p => p.registrationStatus === 'rejected').length || 0;
+  const paidParticipants = participants?.filter(p => p.paymentStatus === 'paid').length || 0;
   const totalMatches = matches?.length || 0;
   const completedMatches = matches?.filter(m => m.status === 'completed').length || 0;
   const liveMatches = matches?.filter(m => m.status === 'live').length || 0;
@@ -569,77 +571,60 @@ export default function TournamentDetailsPage() {
               ))}
             </div>
 
-            {/* Compact tournament + registration summary */}
-            <Card>
-              <CardContent className="p-3 sm:p-4">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-4">
-                  <div className="lg:col-span-5 space-y-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                      <Trophy className="h-3 w-3" /> Tournament
-                    </p>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:text-sm">
-                      <div><dt className="text-muted-foreground">Sport</dt><dd className="font-medium capitalize">{tournament.sport.replace('-', ' ')}</dd></div>
-                      <div><dt className="text-muted-foreground">Type</dt><dd className="font-medium capitalize">{tournament.tournamentType}</dd></div>
-                      <div><dt className="text-muted-foreground">Entry</dt><dd className="font-medium">{tournament.entryFee ? `₹${tournament.entryFee}` : 'Free'}</dd></div>
-                      <div><dt className="text-muted-foreground">Prize</dt><dd className="font-medium">{tournament.prizePool ? `₹${tournament.prizePool}` : '—'}</dd></div>
-                    </dl>
-                    <div className="flex flex-wrap gap-1">
-                      {(tournament.categories || []).map((category) => (
-                        <Badge key={category} variant="outline" className="capitalize text-[10px] px-1.5 py-0 h-5">
-                          {category.replace(/-/g, ' ')}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="lg:col-span-7 space-y-2 lg:border-l lg:pl-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                      <BarChart3 className="h-3 w-3" /> Registration
-                    </p>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-0.5 text-green-800 border border-green-200">
-                        <UserCheck className="h-3 w-3" /> {approvedParticipants} approved
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-amber-800 border border-amber-200">
-                        <Clock className="h-3 w-3" /> {pendingParticipants} pending
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-0.5 text-red-800 border border-red-200">
-                        <UserX className="h-3 w-3" /> {rejectedParticipants} rejected
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
-                          <span>Capacity</span>
-                          <span>{totalParticipants}/{tournament.maxParticipants || '∞'}</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-600 rounded-full" style={{ width: `${tournament.maxParticipants ? Math.min((totalParticipants / tournament.maxParticipants) * 100, 100) : 0}%` }} />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
-                          <span>Approval</span>
-                          <span>{totalParticipants > 0 ? Math.round((approvedParticipants / totalParticipants) * 100) : 0}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-600 rounded-full" style={{ width: `${totalParticipants > 0 ? (approvedParticipants / totalParticipants) * 100 : 0}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                    {revenueByReceiver.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {/* Collections by recipient + community quick stats */}
+            <Card className="py-4">
+              <CardContent className="px-4 sm:px-5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setCollectionsOpen((o) => !o)}
+                    aria-expanded={collectionsOpen}
+                    className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
+                    <IndianRupee className="h-4 w-4" /> Collections by recipient
+                    <ChevronDown className={`h-4 w-4 transition-transform ${collectionsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {collectionsOpen && (
+                    revenueByReceiver.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2">
                         {revenueByReceiver.map((receiver) => (
                           <span
                             key={`${receiver.name}-${receiver.number}`}
-                            className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-[10px] sm:text-xs"
+                            className="inline-flex items-center gap-1.5 rounded-md border bg-muted/30 px-3 py-1.5 text-sm"
                             title={receiver.number || undefined}
                           >
-                            <span className="font-medium truncate max-w-[8rem]">{receiver.name}</span>
-                            <span className="text-muted-foreground">₹{receiver.amount.toLocaleString('en-IN')}</span>
+                            <span className="font-medium">{receiver.name}</span>
+                            <span className="tabular-nums">
+                              <span className="font-semibold">₹{receiver.amount.toLocaleString('en-IN')}</span>
+                              <span className="text-muted-foreground"> · {receiver.count} paid</span>
+                            </span>
                           </span>
                         ))}
                       </div>
-                    )}
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No payments collected yet.</span>
+                    )
+                  )}
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground tabular-nums">{paidParticipants} of {totalParticipants} paid</span>
+                    <button
+                      type="button"
+                      onClick={() => analytics.volunteerCount > 0 && setVolunteersDrawerOpen(true)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm',
+                        analytics.volunteerCount > 0
+                          ? 'bg-pink-50 border-pink-200 hover:bg-pink-100 cursor-pointer'
+                          : 'bg-card text-muted-foreground'
+                      )}
+                    >
+                      <HandHeart className="h-4 w-4 text-pink-500" />
+                      <span className="font-medium">{analytics.volunteerCount}</span> volunteers
+                    </button>
+                    <span className="inline-flex items-center gap-1.5 rounded-md border bg-card px-3 py-1.5 text-sm">
+                      <Home className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium">{analytics.residentCount}</span> residents
+                      <span className="text-muted-foreground">· {analytics.nonResidentCount} other</span>
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -708,28 +693,6 @@ export default function TournamentDetailsPage() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {/* Compact secondary KPIs */}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => analytics.volunteerCount > 0 && setVolunteersDrawerOpen(true)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs',
-                      analytics.volunteerCount > 0
-                        ? 'bg-pink-50 border-pink-200 hover:bg-pink-100 cursor-pointer'
-                        : 'bg-card text-muted-foreground'
-                    )}
-                  >
-                    <HandHeart className="h-3.5 w-3.5 text-pink-500" />
-                    <span className="font-medium">{analytics.volunteerCount}</span> volunteers
-                  </button>
-                  <span className="inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs">
-                    <Home className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="font-medium">{analytics.residentCount}</span> residents
-                    <span className="text-muted-foreground">· {analytics.nonResidentCount} other</span>
-                  </span>
-                </div>
-
                 {/* Gender, Level, Category & T-shirt sizes */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Card>
@@ -739,17 +702,10 @@ export default function TournamentDetailsPage() {
                         By Category
                       </CardTitle>
                       <CardDescription className="text-xs mt-0.5">
-                        {participants.length} registrations ·{' '}
-                        <span className="text-green-700">{approvedParticipants} approved</span>
-                        {' · '}
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-sm bg-green-500 inline-block" />A
-                          <span className="w-2 h-2 rounded-sm bg-amber-400 inline-block" />P
-                          <span className="w-2 h-2 rounded-sm bg-red-400 inline-block" />R
-                        </span>
+                        {participants.length} registrations across {analytics.categories.length} categor{analytics.categories.length === 1 ? 'y' : 'ies'}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5 max-h-64 overflow-y-auto">
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-3 max-h-64 overflow-y-auto">
                       {analytics.categories.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No category data yet.</p>
                       ) : (
@@ -760,84 +716,45 @@ export default function TournamentDetailsPage() {
                             : 0;
                           const label = cat.replace(/-/g, ' ');
                           return (
-                            <div key={cat} className="flex items-center gap-3">
-                              <span
-                                className="text-sm capitalize w-24 flex-shrink-0 text-gray-600 truncate"
-                                title={label}
-                              >
-                                {label}
-                              </span>
-                              <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden flex">
+                            <div key={cat} className="space-y-1.5">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-sm font-medium capitalize truncate" title={label}>
+                                  {label}
+                                </span>
+                                <span className="flex shrink-0 items-baseline gap-1.5">
+                                  <span className="text-sm font-semibold tabular-nums">{counts.total}</span>
+                                  <span className="text-[11px] text-muted-foreground tabular-nums">{pct}%</span>
+                                </span>
+                              </div>
+                              <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-100">
                                 <div
                                   className="h-full bg-green-500 transition-all"
                                   style={{ width: `${(counts.approved / barTotal) * 100}%` }}
-                                  title={`Approved: ${counts.approved}`}
                                 />
                                 <div
                                   className="h-full bg-amber-400 transition-all"
                                   style={{ width: `${(counts.pending / barTotal) * 100}%` }}
-                                  title={`Pending: ${counts.pending}`}
                                 />
                                 <div
                                   className="h-full bg-red-400 transition-all"
                                   style={{ width: `${(counts.rejected / barTotal) * 100}%` }}
-                                  title={`Rejected: ${counts.rejected}`}
                                 />
-                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700 tabular-nums">
-                                  {counts.total}
+                              </div>
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />{counts.approved} approved
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />{counts.pending} pending
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-red-400" />{counts.rejected} rejected
                                 </span>
                               </div>
-                              <span className="text-xs text-muted-foreground w-8 text-right tabular-nums">{pct}%</span>
                             </div>
                           );
                         })
                       )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
-                      <CardTitle className="text-base flex items-center gap-2"><PieChart className="h-4 w-4" />Gender Split</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5">
-                      {(['male', 'female', 'other'] as const).map(g => {
-                        const count = analytics.gender[g];
-                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
-                        const colors = { male: 'bg-blue-500', female: 'bg-pink-500', other: 'bg-purple-400' };
-                        return (
-                          <div key={g} className="flex items-center gap-3">
-                            <span className="text-sm capitalize w-14 flex-shrink-0 text-gray-600">{g}</span>
-                            <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
-                              <div className={`h-full ${colors[g]} transition-all`} style={{ width: `${pct}%` }} />
-                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700">{count}</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="px-3 py-2.5 sm:px-4 sm:py-3">
-                      <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4" />Expertise Level</CardTitle>
-                    </CardHeader>
-                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-1.5">
-                      {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map(l => {
-                        const count = analytics.level[l];
-                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
-                        const colors = { beginner: 'bg-emerald-400', intermediate: 'bg-blue-400', advanced: 'bg-violet-500', expert: 'bg-orange-500' };
-                        return (
-                          <div key={l} className="flex items-center gap-3">
-                            <span className="text-sm capitalize w-24 flex-shrink-0 text-gray-600">{l}</span>
-                            <div className="flex-1 bg-gray-100 rounded-full h-6 relative overflow-hidden">
-                              <div className={`h-full ${colors[l]} transition-all`} style={{ width: `${pct}%` }} />
-                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-gray-700">{count}</span>
-                            </div>
-                            <span className="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
-                          </div>
-                        );
-                      })}
                     </CardContent>
                   </Card>
 
@@ -890,6 +807,55 @@ export default function TournamentDetailsPage() {
                           );
                         })
                       )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Gender split + expertise level — compact, side by side */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Card className="py-0">
+                    <CardHeader className="px-3 py-2.5">
+                      <CardTitle className="text-sm flex items-center gap-1.5"><PieChart className="h-3.5 w-3.5" />Gender Split</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-0 space-y-1">
+                      {(['male', 'female', 'other'] as const).map(g => {
+                        const count = analytics.gender[g];
+                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
+                        const colors = { male: 'bg-blue-500', female: 'bg-pink-500', other: 'bg-purple-400' };
+                        return (
+                          <div key={g} className="flex items-center gap-2">
+                            <span className="text-xs capitalize w-12 flex-shrink-0 text-gray-600">{g}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
+                              <div className={`h-full ${colors[g]} transition-all`} style={{ width: `${pct}%` }} />
+                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-gray-700">{count}</span>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="py-0">
+                    <CardHeader className="px-3 py-2.5">
+                      <CardTitle className="text-sm flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" />Expertise Level</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-0 space-y-1">
+                      {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map(l => {
+                        const count = analytics.level[l];
+                        const pct = participants.length ? Math.round((count / participants.length) * 100) : 0;
+                        const colors = { beginner: 'bg-emerald-400', intermediate: 'bg-blue-400', advanced: 'bg-violet-500', expert: 'bg-orange-500' };
+                        return (
+                          <div key={l} className="flex items-center gap-2">
+                            <span className="text-xs capitalize w-16 flex-shrink-0 text-gray-600 truncate" title={l}>{l}</span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
+                              <div className={`h-full ${colors[l]} transition-all`} style={{ width: `${pct}%` }} />
+                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-gray-700">{count}</span>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">{pct}%</span>
+                          </div>
+                        );
+                      })}
                     </CardContent>
                   </Card>
                 </div>
@@ -1480,7 +1446,7 @@ export default function TournamentDetailsPage() {
             </DrawerHeader>
             
             {selectedParticipant && (
-              <div className="p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Basic Information */}
                   <div className="space-y-4">

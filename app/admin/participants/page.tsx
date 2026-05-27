@@ -21,7 +21,7 @@ import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawe
 import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { parsePaymentRecipient } from '@/lib/utils';
+import { parsePaymentRecipient, getInitials } from '@/lib/utils';
 
 const STICKY_HEAD = 'sticky top-0 z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
@@ -979,7 +979,7 @@ export default function ManageRegistrationsPage() {
                             </div>
                           ) : (
                             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-muted-foreground">
-                              {participant.name?.charAt(0).toUpperCase() || '—'}
+                              {getInitials(participant.name) || '—'}
                             </div>
                           )}
                         </TableCell>

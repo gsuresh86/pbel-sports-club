@@ -93,6 +93,14 @@ export function formatPaymentRecipient(selectedPaymentAccount?: string | null): 
   return parsed.name || parsed.number || null;
 }
 
+/** Two-letter initials from a name (first + last word, or first two letters). */
+export function getInitials(name?: string | null): string {
+  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
 /** Normalize name for participant identity (name + phone). */
 export function normalizeParticipantName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -101,6 +109,19 @@ export function normalizeParticipantName(name: string): string {
 /** Normalize phone for participant identity (ignores spaces and dashes). */
 export function normalizeParticipantPhone(phone: string): string {
   return phone.replace(/[\s\-]/g, '').trim();
+}
+
+/** Keep the first entry for each unique (normalized name + phone), preserving order. */
+export function dedupeByNamePhone<T extends { name: string; phone: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    const key = `${normalizeParticipantName(item.name)}|${normalizeParticipantPhone(item.phone)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
 }
 
 export type RegistrationParticipantFields = {

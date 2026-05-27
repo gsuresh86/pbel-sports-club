@@ -6,11 +6,13 @@ import { Drawer as DrawerPrimitive } from "vaul"
 import { cn } from "@/lib/utils"
 
 const Drawer = ({
-  shouldScaleBackground = true,
+  shouldScaleBackground = false,
+  direction = 'right',
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
   <DrawerPrimitive.Root
     shouldScaleBackground={shouldScaleBackground}
+    direction={direction}
     {...props}
   />
 )
@@ -41,12 +43,12 @@ const DrawerContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     side?: 'top' | 'bottom' | 'left' | 'right'
   }
->(({ className, children, side = 'bottom', ...props }, ref) => {
+>(({ className, children, side = 'right', ...props }, ref) => {
   const sideClasses = {
-    top: "inset-x-0 top-0 border-b rounded-b-[10px]",
-    bottom: "inset-x-0 bottom-0 border-t rounded-t-[10px]",
-    left: "inset-y-0 left-0 border-r rounded-r-[10px]",
-    right: "inset-y-0 right-0 border-l rounded-l-[10px]"
+    top: "inset-x-0 top-0 border-b",
+    bottom: "inset-x-0 bottom-0 border-t",
+    left: "inset-y-0 left-0 border-r",
+    right: "inset-y-0 right-0 border-l"
   };
 
   if (side === 'left' || side === 'right') {
@@ -75,7 +77,7 @@ const DrawerContent = React.forwardRef<
       <DrawerPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed inset-x-0 bottom-0 mt-24 flex h-auto flex-col overflow-hidden rounded-t-[10px] border bg-background",
+          "fixed inset-x-0 bottom-0 mt-24 flex h-auto flex-col overflow-hidden border bg-background",
           DRAWER_CONTENT_Z,
           className
         )}

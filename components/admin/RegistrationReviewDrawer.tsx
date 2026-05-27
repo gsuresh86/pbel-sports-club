@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Registration } from '@/types';
-import { parsePaymentRecipient } from '@/lib/utils';
+import { parsePaymentRecipient, getInitials } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -121,7 +121,7 @@ export default function RegistrationReviewDrawer({
                 </div>
               ) : (
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm text-muted-foreground">
-                  {participant.name.charAt(0).toUpperCase()}
+                  {getInitials(participant.name)}
                 </div>
               )}
               <div className="min-w-0">
