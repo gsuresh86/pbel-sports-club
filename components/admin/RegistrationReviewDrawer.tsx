@@ -100,6 +100,7 @@ export default function RegistrationReviewDrawer({
     participant.partnerName ||
     participant.partnerPhone ||
     participant.partnerEmail ||
+    participant.partnerAge ||
     participant.partnerTower ||
     participant.partnerFlatNumber ||
     participant.partnerProfilePhotoUrl;
@@ -190,6 +191,7 @@ export default function RegistrationReviewDrawer({
               <DetailItem label="Partner name" value={participant.partnerName} />
               <DetailItem label="Partner email" value={participant.partnerEmail} />
               <DetailItem label="Partner phone" value={participant.partnerPhone} />
+              <DetailItem label="Partner age" value={participant.partnerAge} />
               <DetailItem
                 label="Partner tower / flat"
                 value={

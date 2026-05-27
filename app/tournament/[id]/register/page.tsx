@@ -112,6 +112,8 @@ function validateForm(
     else if (!/^\+?[\d\s\-]{7,15}$/.test(formData.partnerPhone)) errors.partnerPhone = 'Enter a valid phone number';
     if (!formData.partnerEmail.trim()) errors.partnerEmail = 'Partner email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.partnerEmail)) errors.partnerEmail = 'Enter a valid email address';
+    if (!formData.partnerAge) errors.partnerAge = 'Partner age is required';
+    else if (parseInt(formData.partnerAge) < 1 || parseInt(formData.partnerAge) > 100) errors.partnerAge = 'Enter a valid age (1–100)';
 
     if (showTowerAndFlat) {
       if (!formData.partnerTower) errors.partnerTower = 'Partner tower is required';
@@ -147,6 +149,7 @@ function getInitialFormData() {
     partnerName: '',
     partnerPhone: '',
     partnerEmail: '',
+    partnerAge: '',
     partnerTower: '',
     partnerFlatNumber: '',
     paymentReference: '',
@@ -380,6 +383,7 @@ export default function TournamentRegistrationPage() {
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
         partnerEmail: formData.partnerEmail || null,
+        partnerAge: formData.partnerAge ? parseInt(formData.partnerAge) : null,
         ...(showTowerAndFlat ? { partnerTower: formData.partnerTower || null, partnerFlatNumber: formData.partnerFlatNumber || null } : {}),
         ...(formData.profilePhotoUrl ? { profilePhotoUrl: formData.profilePhotoUrl } : {}),
         ...(formData.partnerProfilePhotoUrl ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl } : {}),
@@ -964,18 +968,35 @@ export default function TournamentRegistrationPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <Label htmlFor="partnerEmail">Partner Email *</Label>
-                        <Input
-                          id="partnerEmail"
-                          type="email"
-                          value={formData.partnerEmail}
-                          onChange={(e) => updateField('partnerEmail', e.target.value)}
-                          onBlur={() => touch('partnerEmail')}
-                          placeholder="Partner's email address"
-                          className={err('partnerEmail') ? 'border-red-500' : ''}
-                        />
-                        <FieldError message={err('partnerEmail')} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="partnerEmail">Partner Email *</Label>
+                          <Input
+                            id="partnerEmail"
+                            type="email"
+                            value={formData.partnerEmail}
+                            onChange={(e) => updateField('partnerEmail', e.target.value)}
+                            onBlur={() => touch('partnerEmail')}
+                            placeholder="Partner's email address"
+                            className={err('partnerEmail') ? 'border-red-500' : ''}
+                          />
+                          <FieldError message={err('partnerEmail')} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label htmlFor="partnerAge">Partner Age *</Label>
+                          <Input
+                            id="partnerAge"
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={formData.partnerAge}
+                            onChange={(e) => updateField('partnerAge', e.target.value)}
+                            onBlur={() => touch('partnerAge')}
+                            placeholder="Partner's age"
+                            className={err('partnerAge') ? 'border-red-500' : ''}
+                          />
+                          <FieldError message={err('partnerAge')} />
+                        </div>
                       </div>
                       <ProfilePhotoUpload
                         label="Partner profile photo (optional)"

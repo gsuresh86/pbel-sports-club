@@ -271,6 +271,7 @@ export default function ManageRegistrationsPage() {
         partnerName: opt(values.partnerName),
         partnerPhone: opt(values.partnerPhone),
         partnerEmail: opt(values.partnerEmail),
+        partnerAge: values.partnerAge.trim() === '' ? undefined : Number(values.partnerAge),
         partnerTower: opt(values.partnerTower),
         partnerFlatNumber: opt(values.partnerFlatNumber),
         partnerTshirtSize: opt(values.partnerTshirtSize),

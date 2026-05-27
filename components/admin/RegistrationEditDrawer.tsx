@@ -45,6 +45,7 @@ export interface RegistrationEditValues {
   partnerName: string;
   partnerPhone: string;
   partnerEmail: string;
+  partnerAge: string;
   partnerTower: string;
   partnerFlatNumber: string;
   partnerTshirtSize: string;
@@ -72,6 +73,7 @@ function toFormValues(p: RegistrationWithTournament): RegistrationEditValues {
     partnerName: p.partnerName ?? '',
     partnerPhone: p.partnerPhone ?? '',
     partnerEmail: p.partnerEmail ?? '',
+    partnerAge: p.partnerAge != null ? String(p.partnerAge) : '',
     partnerTower: p.partnerTower ?? '',
     partnerFlatNumber: p.partnerFlatNumber ?? '',
     partnerTshirtSize: p.partnerTshirtSize ?? '',
@@ -315,6 +317,9 @@ export default function RegistrationEditDrawer({
               </Field>
               <Field label="Partner phone">
                 <Input value={values.partnerPhone} onChange={(e) => setField('partnerPhone', e.target.value)} />
+              </Field>
+              <Field label="Partner age">
+                <Input type="number" value={values.partnerAge} onChange={(e) => setField('partnerAge', e.target.value)} />
               </Field>
               <Field label="Partner tower">
                 <Select value={values.partnerTower} onValueChange={(v) => setField('partnerTower', v)}>

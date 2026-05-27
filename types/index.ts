@@ -107,6 +107,7 @@ export interface Registration {
   partnerName?: string;
   partnerPhone?: string;
   partnerEmail?: string;
+  partnerAge?: number;
   partnerTower?: string;
   partnerFlatNumber?: string;
   profilePhotoUrl?: string;
