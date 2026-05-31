@@ -15,12 +15,16 @@ function fmtCategory(cat: string) {
 }
 
 function isTeamCategory(cat: string) {
-  const kids = cat.includes('kids-team-u13') || cat.includes('kids-team-u18');
-  return (cat.includes('team') || cat.includes('doubles')) && !kids;
+  // Doubles are pair registrations (primary + partner), not team assignments
+  if (cat.includes('doubles')) return false;
+  // Kids and under-age categories are individual
+  if (cat.includes('kids-team-u13') || cat.includes('kids-team-u18')) return false;
+  if (cat.includes('under-')) return false;
+  return cat.includes('team');
 }
 
 function isDoublesCategory(cat: string) {
-  return cat.includes('doubles') || cat.includes('family-doubles');
+  return cat.includes('doubles');
 }
 
 const LEVEL_COLOR: Record<string, string> = {
@@ -320,14 +324,27 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* ── Category hero ──────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 pt-12">
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-7xl mx-auto px-6 py-8">
+      {/* ── Category hero — uses tournament banner ──────────────── */}
+      <div className="relative overflow-hidden pt-12" style={{ minHeight: 220 }}>
+        {/* Banner image */}
+        {tournament?.banner && (
+          <>
+            <Image src={tournament.banner} alt={tournament.name} fill className="object-cover object-center scale-105" />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/60 to-slate-950" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/50" />
+          </>
+        )}
+        {/* Fallback gradient when no banner */}
+        {!tournament?.banner && (
+          <>
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950" />
+            <div className="absolute -top-32 -right-32 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+          </>
+        )}
+        <div className="relative z-10 max-w-7xl mx-auto px-6 py-10">
           <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">Category</p>
-          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">{label}</h1>
-          <div className="flex flex-wrap gap-4 mt-4 text-sm text-slate-400">
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight drop-shadow-xl">{label}</h1>
+          <div className="flex flex-wrap gap-4 mt-4 text-sm text-slate-300">
             {isCatTeam && <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-purple-400" />{catTeams.length} Teams</span>}
             <span className="flex items-center gap-1.5">
               <Users className="h-4 w-4 text-blue-400" />

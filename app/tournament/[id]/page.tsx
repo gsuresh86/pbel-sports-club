@@ -336,7 +336,7 @@ export default function TournamentDetailPage() {
                     {tournament.categories?.map(cat => {
                       const catTeamCount = teams.filter(t => t.category === cat).length;
                       const catPlayerCount = participants.filter(p => p.selectedCategory === cat).length;
-                      const isTCat = (cat.includes('team') || cat.includes('doubles')) && !cat.includes('kids-team-u13') && !cat.includes('kids-team-u18');
+                      const isTCat = cat.includes('team') && !cat.includes('doubles') && !cat.includes('kids-team-u13') && !cat.includes('kids-team-u18') && !cat.includes('under-');
                       return (
                         <Link key={cat} href={`/tournament/${tournamentId}/category/${cat}`}
                           className="group flex flex-col gap-1 bg-white/5 hover:bg-yellow-400/10 border border-white/10 hover:border-yellow-400/40 rounded-xl px-4 py-3 transition-all">
@@ -523,8 +523,8 @@ export default function TournamentDetailPage() {
                 </div>
               ) : (
                 pools.map(pool => {
-                  const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18');
-                  const isTeamCategory = (pool.category.includes('team') || pool.category.includes('doubles')) && !isKidsCategory;
+                  const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18') || pool.category.includes('under-');
+                  const isTeamCategory = pool.category.includes('team') && !pool.category.includes('doubles') && !isKidsCategory;
                   return (
                     <div key={pool.id} className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden">
                       <div className="bg-gradient-to-r from-purple-500/20 to-indigo-500/10 px-6 py-4 border-b border-white/5 flex items-center justify-between">
