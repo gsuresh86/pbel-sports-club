@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
 import { doc, updateDoc, setDoc, collection, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import Image from 'next/image';
 import {
   useTournament,
   useTournamentRegistrations,
@@ -60,6 +62,9 @@ import {
   Shirt,
   IndianRupee,
   ChevronDown,
+  Camera,
+  Loader2,
+  Check,
 } from 'lucide-react';
 
 const TSHIRT_SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
@@ -85,7 +90,10 @@ type UniquePlayerRow = {
   name: string;
   phone: string;
   tshirtSize: string;
+  expertiseLevel: string;
+  profilePhotoUrl: string;
   categories: CategoryType[];
+  registrationRefs: Array<{ id: string; role: 'primary' | 'partner' }>;
 };
 
 export default function TournamentDetailsPage() {
@@ -117,11 +125,14 @@ export default function TournamentDetailsPage() {
     (queriesEnabled && (tournamentLoading || registrationsLoading || matchesLoading));
 
   const [activeTab, setActiveTab] = useState('overview');
-  
+
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+
+  // Players tab search
+  const [playerSearch, setPlayerSearch] = useState('');
 
   // Tournament admin management
   const [tournamentAdmins, setTournamentAdmins] = useState<User[]>([]);
@@ -200,15 +211,19 @@ export default function TournamentDetailsPage() {
     });
     const timeline = Array.from(dateMap.entries());
 
-    // T-shirt sizes (player + partner)
+    // T-shirt sizes — deduplicated by player name so multi-category registrants are counted once
     const tshirtMap = new Map<string, number>();
-    const addTshirtSize = (size?: string) => {
+    const seenTshirtNames = new Set<string>();
+    const addTshirtSize = (name: string, size?: string) => {
+      const nameKey = name.trim().toLowerCase();
+      if (!nameKey || seenTshirtNames.has(nameKey)) return;
+      seenTshirtNames.add(nameKey);
       const key = size?.trim() || 'Not specified';
       tshirtMap.set(key, (tshirtMap.get(key) ?? 0) + 1);
     };
     participants.forEach((p) => {
-      addTshirtSize(p.tshirtSize);
-      if (p.partnerTshirtSize?.trim()) addTshirtSize(p.partnerTshirtSize);
+      addTshirtSize(p.name, p.tshirtSize);
+      if (p.partnerName?.trim()) addTshirtSize(p.partnerName, p.partnerTshirtSize);
     });
     const tshirtSizes = Array.from(tshirtMap.entries()).sort(([a], [b]) => {
       if (a === 'Not specified') return 1;
@@ -293,7 +308,10 @@ export default function TournamentDetailsPage() {
       rawName: string,
       phone: string | undefined,
       tshirtSize: string | undefined,
-      category: CategoryType
+      expertiseLevel: string | undefined,
+      profilePhotoUrl: string | undefined,
+      category: CategoryType,
+      registrationRef: { id: string; role: 'primary' | 'partner' }
     ) => {
       const name = rawName.trim();
       if (!name) return;
@@ -302,21 +320,27 @@ export default function TournamentDetailsPage() {
       if (existing) {
         if (phone?.trim() && !existing.phone) existing.phone = phone.trim();
         if (tshirtSize?.trim() && !existing.tshirtSize) existing.tshirtSize = tshirtSize.trim();
+        if (expertiseLevel?.trim() && !existing.expertiseLevel) existing.expertiseLevel = expertiseLevel.trim();
+        if (profilePhotoUrl?.trim() && !existing.profilePhotoUrl) existing.profilePhotoUrl = profilePhotoUrl.trim();
         if (!existing.categories.includes(category)) existing.categories.push(category);
+        existing.registrationRefs.push(registrationRef);
       } else {
         map.set(key, {
           name,
           phone: phone?.trim() ?? '',
           tshirtSize: tshirtSize?.trim() ?? '',
+          expertiseLevel: expertiseLevel?.trim() ?? '',
+          profilePhotoUrl: profilePhotoUrl?.trim() ?? '',
           categories: [category],
+          registrationRefs: [registrationRef],
         });
       }
     };
 
     participants.forEach((p) => {
-      upsert(p.name, p.phone, p.tshirtSize, p.selectedCategory);
+      upsert(p.name, p.phone, p.tshirtSize, p.expertiseLevel, p.profilePhotoUrl, p.selectedCategory, { id: p.id, role: 'primary' });
       if (p.partnerName?.trim()) {
-        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, p.selectedCategory);
+        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, undefined, p.partnerProfilePhotoUrl, p.selectedCategory, { id: p.id, role: 'partner' });
       }
     });
 
@@ -328,6 +352,67 @@ export default function TournamentDetailsPage() {
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
   const [volunteersDrawerOpen, setVolunteersDrawerOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
+
+  // Players tab inline edit
+  const [editingPlayerKey, setEditingPlayerKey] = useState<string | null>(null);
+  const [playerEdits, setPlayerEdits] = useState<{ tshirtSize: string; expertiseLevel: string; profilePhotoUrl: string | null }>({ tshirtSize: '', expertiseLevel: '', profilePhotoUrl: null });
+  const [savingPlayer, setSavingPlayer] = useState(false);
+  const [uploadingPlayerPhoto, setUploadingPlayerPhoto] = useState(false);
+  const playerPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditPlayer = (player: UniquePlayerRow) => {
+    setEditingPlayerKey(normalizePlayerName(player.name));
+    setPlayerEdits({ tshirtSize: player.tshirtSize, expertiseLevel: player.expertiseLevel, profilePhotoUrl: player.profilePhotoUrl || null });
+  };
+
+  const cancelEditPlayer = () => {
+    setEditingPlayerKey(null);
+    setSavingPlayer(false);
+  };
+
+  const handlePlayerPhotoUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    setUploadingPlayerPhoto(true);
+    try {
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+      const path = `participant-profiles/${tournamentId}/inline-${timestamp}-${safeName}`;
+      const snap = await uploadBytes(storageRef(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      setPlayerEdits(prev => ({ ...prev, profilePhotoUrl: url }));
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+    } finally {
+      setUploadingPlayerPhoto(false);
+      if (playerPhotoInputRef.current) playerPhotoInputRef.current.value = '';
+    }
+  };
+
+  const savePlayerEdits = async (player: UniquePlayerRow) => {
+    setSavingPlayer(true);
+    try {
+      await Promise.all(
+        player.registrationRefs.map(({ id, role }) => {
+          const fields: Record<string, unknown> = { updatedAt: new Date() };
+          if (role === 'primary') {
+            fields.expertiseLevel = playerEdits.expertiseLevel;
+            if (playerEdits.tshirtSize) fields.tshirtSize = playerEdits.tshirtSize;
+            if (playerEdits.profilePhotoUrl !== null) fields.profilePhotoUrl = playerEdits.profilePhotoUrl;
+          } else {
+            if (playerEdits.tshirtSize) fields.partnerTshirtSize = playerEdits.tshirtSize;
+            if (playerEdits.profilePhotoUrl !== null) fields.partnerProfilePhotoUrl = playerEdits.profilePhotoUrl;
+          }
+          return updateDoc(doc(db, 'tournaments', tournamentId, 'registrations', id), fields);
+        })
+      );
+      invalidateTournament(tournamentId);
+      setEditingPlayerKey(null);
+    } catch (err) {
+      console.error('Error saving player edits:', err);
+    } finally {
+      setSavingPlayer(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && (!user || !isAdminRole(user.role))) {
@@ -705,56 +790,50 @@ export default function TournamentDetailsPage() {
                         {participants.length} registrations across {analytics.categories.length} categor{analytics.categories.length === 1 ? 'y' : 'ies'}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4 space-y-3 max-h-64 overflow-y-auto">
+                    <CardContent className="px-3 pb-3 pt-0 sm:px-4 sm:pb-4">
                       {analytics.categories.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No category data yet.</p>
-                      ) : (
-                        analytics.categories.map(([cat, counts]) => {
-                          const barTotal = counts.total || 1;
-                          const pct = participants.length
-                            ? Math.round((counts.total / participants.length) * 100)
-                            : 0;
-                          const label = cat.replace(/-/g, ' ');
+                      ) : (() => {
+                          const maxTotal = Math.max(...analytics.categories.map(([, c]) => c.total));
+                          const CHART_H = 140;
+                          const abbrev = (cat: string) =>
+                            cat.replace('girls-under', 'G-U').replace('boys-under', 'B-U')
+                               .replace('womens-', 'W-').replace('mens-', 'M-')
+                               .replace('mixed-doubles', 'Mixed').replace('open-team', 'Open')
+                               .replace('kids-team-u', 'Kids-U').replace('-', ' ');
                           return (
-                            <div key={cat} className="space-y-1.5">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <span className="text-sm font-medium capitalize truncate" title={label}>
-                                  {label}
-                                </span>
-                                <span className="flex shrink-0 items-baseline gap-1.5">
-                                  <span className="text-sm font-semibold tabular-nums">{counts.total}</span>
-                                  <span className="text-[11px] text-muted-foreground tabular-nums">{pct}%</span>
-                                </span>
+                            <>
+                              <div className="overflow-x-auto">
+                                <div className="flex items-end gap-2 min-w-max pb-1" style={{ height: CHART_H + 32 }}>
+                                  {analytics.categories.map(([cat, counts]) => {
+                                    const colH = maxTotal ? Math.round((counts.total / maxTotal) * CHART_H) : 4;
+                                    const approvedH = counts.total ? Math.round((counts.approved / counts.total) * colH) : 0;
+                                    const pendingH = counts.total ? Math.round((counts.pending / counts.total) * colH) : 0;
+                                    const rejectedH = colH - approvedH - pendingH;
+                                    const label = cat.replace(/-/g, ' ');
+                                    return (
+                                      <div key={cat} className="flex flex-col items-center gap-1 w-14 flex-shrink-0" title={label}>
+                                        <span className="text-[11px] font-semibold text-gray-700 tabular-nums">{counts.total}</span>
+                                        <div className="w-10 flex flex-col-reverse overflow-hidden rounded-t" style={{ height: colH, minHeight: 4 }}>
+                                          <div className="w-full bg-green-500 transition-all" style={{ height: approvedH }} />
+                                          <div className="w-full bg-amber-400 transition-all" style={{ height: pendingH }} />
+                                          <div className="w-full bg-red-400 transition-all" style={{ height: rejectedH }} />
+                                        </div>
+                                        <span className="text-[9px] text-muted-foreground text-center leading-tight capitalize w-full truncate">{abbrev(cat)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              <div className="flex h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                                <div
-                                  className="h-full bg-green-500 transition-all"
-                                  style={{ width: `${(counts.approved / barTotal) * 100}%` }}
-                                />
-                                <div
-                                  className="h-full bg-amber-400 transition-all"
-                                  style={{ width: `${(counts.pending / barTotal) * 100}%` }}
-                                />
-                                <div
-                                  className="h-full bg-red-400 transition-all"
-                                  style={{ width: `${(counts.rejected / barTotal) * 100}%` }}
-                                />
+                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground mt-1">
+                                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-green-500" />approved</span>
+                                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-amber-400" />pending</span>
+                                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-red-400" />rejected</span>
                               </div>
-                              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />{counts.approved} approved
-                                </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />{counts.pending} pending
-                                </span>
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-red-400" />{counts.rejected} rejected
-                                </span>
-                              </div>
-                            </div>
+                            </>
                           );
-                        })
-                      )}
+                        })()
+                      }
                     </CardContent>
                   </Card>
 
@@ -1086,12 +1165,42 @@ export default function TournamentDetailsPage() {
 
           {/* Players Tab — one row per unique person */}
           <TabsContent value="players" className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
-            <div className="flex shrink-0 flex-col gap-1">
-              <h3 className="text-base font-semibold sm:text-lg">Players ({uniquePlayers.length})</h3>
-              <p className="text-xs text-gray-600 sm:text-sm">
-                Unique players across all registrations (includes partners listed on doubles/team entries)
-              </p>
+            <div className="flex shrink-0 items-start justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h3 className="text-base font-semibold sm:text-lg">
+                  Players ({playerSearch ? `${uniquePlayers.filter(p => p.name.toLowerCase().includes(playerSearch.toLowerCase()) || p.phone.includes(playerSearch)).length} of ${uniquePlayers.length}` : uniquePlayers.length})
+                </h3>
+                <p className="text-xs text-gray-600 sm:text-sm">
+                  Unique players — click <Edit className="inline h-3 w-3" /> to edit level, T-shirt size or photo
+                </p>
+              </div>
+              <div className="relative flex-shrink-0 w-48 sm:w-56">
+                <Input
+                  placeholder="Search players…"
+                  value={playerSearch}
+                  onChange={(e) => setPlayerSearch(e.target.value)}
+                  className="h-8 pr-8 text-xs"
+                />
+                {playerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPlayerSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* hidden file input for inline photo upload */}
+            <input
+              ref={playerPhotoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePlayerPhotoUpload(f); }}
+            />
 
             <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
@@ -1107,36 +1216,125 @@ export default function TournamentDetailsPage() {
                   </div>
                 ) : (
                   <div className="registrations-table-scroll min-h-0 flex-1 overflow-auto sm:mx-0">
-                    <Table className="min-w-[640px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
+                    <Table className="min-w-[700px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-10 text-xs sm:text-sm"></TableHead>
                           <TableHead className="text-xs sm:text-sm">Name</TableHead>
                           <TableHead className="text-xs sm:text-sm">Phone</TableHead>
                           <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Categories Registered</TableHead>
+                          <TableHead className="text-xs sm:text-sm">Level</TableHead>
+                          <TableHead className="text-xs sm:text-sm">Categories</TableHead>
+                          <TableHead className="w-20 text-xs sm:text-sm">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {uniquePlayers.map((player) => (
-                          <TableRow key={normalizePlayerName(player.name)}>
-                            <TableCell className="py-2 text-xs font-medium sm:text-sm">{player.name}</TableCell>
-                            <TableCell className="py-2 text-xs sm:text-sm">{player.phone || '—'}</TableCell>
-                            <TableCell className="py-2 text-xs sm:text-sm">{player.tshirtSize || '—'}</TableCell>
-                            <TableCell className="py-2">
-                              <div className="flex flex-wrap gap-1">
-                                {player.categories.map((cat) => (
-                                  <Badge
-                                    key={cat}
-                                    variant="outline"
-                                    className="text-[10px] capitalize sm:text-xs"
+                        {uniquePlayers.filter(p => {
+                          if (!playerSearch) return true;
+                          const q = playerSearch.toLowerCase();
+                          return p.name.toLowerCase().includes(q) || p.phone.includes(playerSearch);
+                        }).map((player) => {
+                          const key = normalizePlayerName(player.name);
+                          const isEditing = editingPlayerKey === key;
+                          const initials = player.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                          const photoUrl = isEditing ? playerEdits.profilePhotoUrl : player.profilePhotoUrl;
+                          return (
+                            <TableRow key={key} className={isEditing ? 'bg-blue-50' : undefined}>
+                              {/* Avatar cell */}
+                              <TableCell className="py-1.5 pr-0">
+                                {isEditing ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => playerPhotoInputRef.current?.click()}
+                                    disabled={uploadingPlayerPhoto}
+                                    className="relative h-9 w-9 flex-shrink-0 overflow-hidden rounded-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    title="Upload profile photo"
                                   >
-                                    {formatCategoryLabel(cat)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                    {photoUrl ? (
+                                      <Image src={photoUrl} alt={player.name} width={36} height={36} className="h-full w-full object-cover rounded-full" />
+                                    ) : (
+                                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-white text-xs font-bold">{initials}</div>
+                                    )}
+                                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                                      {uploadingPlayerPhoto ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white" /> : <Camera className="h-3.5 w-3.5 text-white" />}
+                                    </div>
+                                  </button>
+                                ) : photoUrl ? (
+                                  <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full">
+                                    <Image src={photoUrl} alt={player.name} width={36} height={36} className="h-full w-full object-cover rounded-full" />
+                                  </div>
+                                ) : (
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-white text-xs font-bold flex-shrink-0">{initials}</div>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="py-1.5 text-xs font-medium sm:text-sm">{player.name}</TableCell>
+                              <TableCell className="py-1.5 text-xs sm:text-sm">{player.phone || '—'}</TableCell>
+
+                              {/* T-shirt size — inline edit */}
+                              <TableCell className="py-1.5">
+                                {isEditing ? (
+                                  <Select value={playerEdits.tshirtSize} onValueChange={(v) => setPlayerEdits(prev => ({ ...prev, tshirtSize: v }))}>
+                                    <SelectTrigger className="h-7 w-24 text-xs">
+                                      <SelectValue placeholder="Size" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {['XS','S','M','L','XL','XXL','XXXL'].map(s => (
+                                        <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <span className="text-xs sm:text-sm">{player.tshirtSize || '—'}</span>
+                                )}
+                              </TableCell>
+
+                              {/* Level — inline edit */}
+                              <TableCell className="py-1.5">
+                                {isEditing ? (
+                                  <Select value={playerEdits.expertiseLevel} onValueChange={(v) => setPlayerEdits(prev => ({ ...prev, expertiseLevel: v }))}>
+                                    <SelectTrigger className="h-7 w-28 text-xs">
+                                      <SelectValue placeholder="Level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {['beginner','intermediate','advanced','expert'].map(l => (
+                                        <SelectItem key={l} value={l} className="text-xs capitalize">{l}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">{player.expertiseLevel || '—'}</Badge>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="py-1.5">
+                                <div className="flex flex-wrap gap-1">
+                                  {player.categories.map((cat) => (
+                                    <Badge key={cat} variant="outline" className="text-[10px] capitalize sm:text-xs">{formatCategoryLabel(cat)}</Badge>
+                                  ))}
+                                </div>
+                              </TableCell>
+
+                              {/* Actions */}
+                              <TableCell className="py-1.5">
+                                {isEditing ? (
+                                  <div className="flex items-center gap-1">
+                                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => savePlayerEdits(player)} disabled={savingPlayer || uploadingPlayerPhoto} title="Save">
+                                      {savingPlayer ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                    </Button>
+                                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={cancelEditPlayer} disabled={savingPlayer} title="Cancel">
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button variant="ghost" size="sm" onClick={() => startEditPlayer(player)} className="h-7 w-7 p-0 touch-manipulation" title="Edit">
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

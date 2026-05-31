@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Team, Registration, Tournament, CategoryType } from '@/types';
 import { Shuffle, Users, Target, Crown, Zap, RotateCcw, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 
@@ -422,6 +423,25 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     };
   };
 
+  const PlayerAvatar = ({ registration, size = 'md' }: { registration: Registration; size?: 'sm' | 'md' | 'lg' }) => {
+    const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    const sizeClasses = {
+      sm: 'w-10 h-10 text-sm',
+      md: 'w-16 h-16 text-lg',
+      lg: 'w-24 h-24 text-2xl',
+    };
+    const px = { sm: 40, md: 64, lg: 96 }[size];
+    return registration.profilePhotoUrl ? (
+      <div className={`${sizeClasses[size]} rounded-full overflow-hidden flex-shrink-0`}>
+        <Image src={registration.profilePhotoUrl} alt={registration.name} width={px} height={px} className="object-cover w-full h-full" />
+      </div>
+    ) : (
+      <div className={`${sizeClasses[size]} rounded-full bg-gray-800 text-white flex items-center justify-center font-bold flex-shrink-0`}>
+        {initials}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -571,20 +591,29 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   </div>
                 )}
                 
-                <Button 
-                  onClick={spinWheel} 
-                  disabled={unassignedRegistrations.length === 0 || isSpinning}
-                  size="lg"
-                  className="w-32 h-32 rounded-full text-lg font-bold"
-                >
-                  {isSpinning ? 'SPINNING...' : roundMode ? 'ROUND!' : 'SPIN!'}
-                </Button>
+                <div className="flex flex-col items-center gap-3">
+                  {/* Profile photo flicker during spin */}
+                  {isSpinning && spinResult && !roundMode && (
+                    <div className={`transition-opacity duration-75 ${isSpinning ? 'opacity-100' : 'opacity-0'}`}>
+                      <PlayerAvatar registration={spinResult} size="lg" />
+                    </div>
+                  )}
+                  <Button
+                    onClick={spinWheel}
+                    disabled={unassignedRegistrations.length === 0 || isSpinning}
+                    size="lg"
+                    className="w-32 h-32 rounded-full text-lg font-bold"
+                  >
+                    {isSpinning ? 'SPINNING...' : roundMode ? 'ROUND!' : 'SPIN!'}
+                  </Button>
+                </div>
 
                 {/* Single Player Result */}
                 {spinResult && !roundMode && (
                   <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
                     <h3 className="text-lg font-semibold mb-2 text-green-800">Player Selected & Assigned!</h3>
                     <div className="flex items-center justify-center gap-4 mb-4">
+                      <PlayerAvatar registration={spinResult} size="md" />
                       <div className="text-center">
                         <div className="font-medium text-lg">{spinResult.name}</div>
                         <div className="text-sm text-gray-600">Age: {spinResult.age} | Gender: {spinResult.gender}</div>
@@ -641,8 +670,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {roundResults.map((result, index) => (
                         <div key={result.id} className="bg-white p-3 rounded-lg border border-blue-200">
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <PlayerAvatar registration={result} size="sm" />
+                            <div className="flex-1 min-w-0">
                               <div className="font-medium text-sm">{result.name}</div>
                               <div className="text-xs text-gray-600">Age: {result.age} | {result.gender}</div>
                               {(result.tower || result.flatNumber) && (
@@ -706,7 +736,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
             </Card>
           )}
 
-          {/* Unassigned Players */}
+          {/* Unassigned Players — IPL squad style */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -722,19 +752,68 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   <p className="text-gray-600">All players in this category have been assigned to teams</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {unassignedRegistrations.map(registration => (
-                    <div key={registration.id} className="bg-gray-50 p-3 rounded-lg">
-                      <div className="font-medium text-sm">{registration.name}</div>
-                      <div className="text-xs text-gray-600">Age: {registration.age} | {registration.gender}</div>
-                      {(registration.tower || registration.flatNumber) && (
-                        <div className="text-xs text-gray-600">{registration.tower || ''} - {registration.flatNumber || ''}</div>
-                      )}
-                      <Badge variant="outline" className="text-xs mt-1">
-                        {registration.expertiseLevel}
-                      </Badge>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {unassignedRegistrations.map(registration => {
+                    const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                    const cardColors = [
+                      'from-blue-900 to-blue-700',
+                      'from-purple-900 to-purple-700',
+                      'from-emerald-900 to-emerald-700',
+                      'from-rose-900 to-rose-700',
+                      'from-amber-900 to-amber-700',
+                      'from-cyan-900 to-cyan-700',
+                      'from-indigo-900 to-indigo-700',
+                      'from-teal-900 to-teal-700',
+                    ];
+                    const colorClass = cardColors[registration.name.charCodeAt(0) % cardColors.length];
+                    const levelColor: Record<string, string> = {
+                      beginner: 'bg-emerald-500',
+                      intermediate: 'bg-blue-500',
+                      advanced: 'bg-violet-500',
+                      expert: 'bg-orange-500',
+                    };
+                    return (
+                      <div key={registration.id} className="group relative rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white">
+                        {/* Photo / gradient area */}
+                        <div className={`relative bg-gradient-to-b ${colorClass} overflow-hidden`} style={{ aspectRatio: '3/4' }}>
+                          {registration.profilePhotoUrl ? (
+                            <Image
+                              src={registration.profilePhotoUrl}
+                              alt={registration.name}
+                              fill
+                              className="object-cover object-top"
+                            />
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-2">
+                              <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-3xl font-bold">
+                                {initials}
+                              </div>
+                            </div>
+                          )}
+                          {/* Gradient overlay at bottom */}
+                          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
+                          {/* Level badge — top right */}
+                          <div className="absolute top-2 right-2">
+                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white ${levelColor[registration.expertiseLevel] ?? 'bg-gray-500'}`}>
+                              {registration.expertiseLevel}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Info strip */}
+                        <div className="px-2 py-2 text-center">
+                          <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate" title={registration.name}>
+                            {registration.name}
+                          </p>
+                          {(registration.tower || registration.flatNumber) && (
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                              {registration.tower || ''}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
