@@ -165,135 +165,135 @@ export default function TournamentDetailPage() {
     <PublicLayout>
       <div className="bg-slate-950 min-h-screen">
 
-        {/* ── HERO ─────────────────────────────────────────────────── */}
-        <div className="relative h-[70vh] min-h-[480px] overflow-hidden">
-          {/* Background image */}
-          <Image src={bannerUrl} alt={tournament.name} fill className="object-cover object-center scale-105" priority />
-          {/* Heavy gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/50 to-slate-950" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/40" />
+        {/* ── HERO + STATS + TABS — all on the banner ───────────── */}
+        <div className="relative">
+          {/* Image container — overflow-hidden only here for scale effect */}
+          <div className="absolute inset-0 overflow-hidden">
+            <Image src={bannerUrl} alt={tournament.name} fill className="object-cover object-center scale-105" priority />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/55 via-slate-950/45 to-slate-950" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/40" />
+          </div>
 
-          {/* Content */}
-          <div className="relative h-full flex flex-col justify-start pt-16 sm:pt-20 px-6 max-w-7xl mx-auto">
-            {/* Live pill — only shown when ongoing */}
-            {tournament.status === 'ongoing' && (
-              <div className="flex items-center gap-2 mb-4">
-                <span className="inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Live Now
+          {/* All overlay content — flows naturally pushing the div taller */}
+          <div className="relative z-10">
+            {/* ── Title section ── */}
+            <div className="max-w-7xl mx-auto px-6 pt-16 sm:pt-20 pb-10">
+              {tournament.status === 'ongoing' && (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Live Now
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-5xl drop-shadow-lg">{getSportEmoji(tournament.sport)}</span>
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-none tracking-tight drop-shadow-xl">
+                  {tournament.name}
+                </h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-slate-300">
+                <span className="flex items-center gap-1.5 text-sm">
+                  <Calendar className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                  {fmt(tournament.startDate)} — {fmt(tournament.endDate)}
                 </span>
+                <span className="flex items-center gap-1.5 text-sm">
+                  <MapPin className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                  {tournament.venue}
+                </span>
+                <span className="flex items-center gap-1.5 text-sm capitalize">
+                  <Trophy className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                  {tournament.sport} · {tournament.tournamentType || 'individual'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-6">
+                {isRegistrationOpen() && (
+                  <Link href={`/tournament/${tournamentId}/register`}>
+                    <Button className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-6 h-11 rounded-full text-sm shadow-lg shadow-yellow-400/30 transition-all hover:scale-105">
+                      Register Now <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </Link>
+                )}
+                {tournament.rules && (
+                  <Link href={`/tournament/${tournamentId}/rules`}>
+                    <button className="inline-flex items-center gap-2 bg-transparent border border-white/30 text-white hover:bg-white/10 h-11 rounded-full text-sm px-6 transition-colors">
+                      <ScrollText className="h-4 w-4" /> Rules
+                    </button>
+                  </Link>
+                )}
+                {liveMatches.length > 0 && (
+                  <Link href={`/tournament/${tournamentId}/live/${liveMatches[0].id}`}>
+                    <Button className="bg-red-600 hover:bg-red-500 text-white font-bold h-11 rounded-full px-6 text-sm animate-pulse">
+                      <Flame className="h-4 w-4 mr-2" /> Watch Live
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            {/* ── Stats bar — inside banner ── */}
+            <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
+              <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Players', value: participants.length, icon: Users, color: 'text-blue-400' },
+                  { label: 'Teams', value: teams.length, icon: Shield, color: 'text-purple-400' },
+                  { label: 'Matches', value: matches.length, icon: Activity, color: 'text-yellow-400' },
+                  { label: 'Pools', value: pools.length, icon: Users2, color: 'text-emerald-400' },
+                ].map(s => (
+                  <div key={s.label} className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg bg-white/5 ${s.color}`}>
+                      <s.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-black text-white tabular-nums">{s.value}</p>
+                      <p className="text-xs text-slate-400 uppercase tracking-widest">{s.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Live ticker ── */}
+            {liveMatches.length > 0 && (
+              <div className="bg-red-600/90 border-t border-red-500/50">
+                <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-3 overflow-x-auto">
+                  <span className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-widest flex-shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Live
+                  </span>
+                  {liveMatches.map(m => (
+                    <Link key={m.id} href={`/tournament/${tournamentId}/live/${m.id}`}
+                      className="flex-shrink-0 text-xs text-white/90 hover:text-white font-medium">
+                      {m.player1Name} vs {m.player2Name}
+                      {m.sets?.length ? ` · ${m.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}` : ''}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Sport emoji + Title */}
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-5xl drop-shadow-lg">{getSportEmoji(tournament.sport)}</span>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-none tracking-tight drop-shadow-xl">
-                {tournament.name}
-              </h1>
-            </div>
-
-            {/* Meta row */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-slate-300">
-              <span className="flex items-center gap-1.5 text-sm">
-                <Calendar className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-                {fmt(tournament.startDate)} — {fmt(tournament.endDate)}
-              </span>
-              <span className="flex items-center gap-1.5 text-sm">
-                <MapPin className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-                {tournament.venue}
-              </span>
-              <span className="flex items-center gap-1.5 text-sm capitalize">
-                <Trophy className="h-4 w-4 text-yellow-400 flex-shrink-0" />
-                {tournament.sport} · {tournament.tournamentType || 'individual'}
-              </span>
-            </div>
-
-            {/* CTA buttons */}
-            <div className="flex flex-wrap gap-3 mt-6">
-              {isRegistrationOpen() && (
-                <Link href={`/tournament/${tournamentId}/register`}>
-                  <Button className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-6 h-11 rounded-full text-sm shadow-lg shadow-yellow-400/30 transition-all hover:scale-105">
-                    Register Now <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              )}
-              {tournament.rules && (
-                <Link href={`/tournament/${tournamentId}/rules`}>
-                  <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 h-11 rounded-full text-sm px-6">
-                    <ScrollText className="h-4 w-4 mr-2" /> Rules
-                  </Button>
-                </Link>
-              )}
-              {liveMatches.length > 0 && (
-                <Link href={`/tournament/${tournamentId}/live/${liveMatches[0].id}`}>
-                  <Button className="bg-red-600 hover:bg-red-500 text-white font-bold h-11 rounded-full px-6 text-sm animate-pulse">
-                    <Flame className="h-4 w-4 mr-2" /> Watch Live
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── STATS BAR ──────────────────────────────────────────── */}
-        <div className="bg-slate-900 border-y border-white/5">
-          <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[
-              { label: 'Players', value: participants.length, icon: Users, color: 'text-blue-400' },
-              { label: 'Teams', value: teams.length, icon: Shield, color: 'text-purple-400' },
-              { label: 'Matches', value: matches.length, icon: Activity, color: 'text-yellow-400' },
-              { label: 'Pools', value: pools.length, icon: Users2, color: 'text-emerald-400' },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-white/5 ${s.color}`}>
-                  <s.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-xl font-black text-white tabular-nums">{s.value}</p>
-                  <p className="text-xs text-slate-400 uppercase tracking-widest">{s.label}</p>
-                </div>
+            {/* ── Tabs — inside banner, sticky ── */}
+            <div className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-t border-b border-white/10">
+              <div className="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto scrollbar-hide">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                    className={`flex items-center gap-1.5 px-4 py-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
+                      activeTab === tab.id
+                        ? 'border-yellow-400 text-yellow-400'
+                        : 'border-transparent text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── LIVE TICKER (only when live matches exist) ─────────── */}
-        {liveMatches.length > 0 && (
-          <div className="bg-red-600/90 border-b border-red-500">
-            <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-3 overflow-x-auto">
-              <span className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-widest flex-shrink-0">
-                <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Live
-              </span>
-              {liveMatches.map(m => (
-                <Link key={m.id} href={`/tournament/${tournamentId}/live/${m.id}`}
-                  className="flex-shrink-0 text-xs text-white/90 hover:text-white font-medium">
-                  {m.player1Name} vs {m.player2Name}
-                  {m.sets?.length ? ` · ${m.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}` : ''}
-                </Link>
-              ))}
             </div>
+            {/* end tabs */}
           </div>
-        )}
-
-        {/* ── TABS ───────────────────────────────────────────────── */}
-        <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-white/10">
-          <div className="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto scrollbar-hide">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={`flex items-center gap-1.5 px-4 py-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
-                  activeTab === tab.id
-                    ? 'border-yellow-400 text-yellow-400'
-                    : 'border-transparent text-slate-400 hover:text-white'
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* end relative z-10 */}
         </div>
+        {/* end hero wrapper */}
 
         {/* ── CONTENT ────────────────────────────────────────────── */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
