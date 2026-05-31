@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
-  Shield, Users2, ScrollText, Zap, ChevronRight,
+  Shield, Users2, ScrollText, ChevronRight,
   Flame, Star, Activity,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -117,13 +117,6 @@ export default function TournamentDetailPage() {
   const isRegistrationOpen = () =>
     !!tournament?.registrationOpen && new Date() <= new Date(tournament.registrationDeadline);
 
-  const statusConfig = {
-    upcoming: { label: 'Upcoming', bg: 'bg-blue-500', dot: 'bg-blue-400' },
-    ongoing:  { label: 'Live Now', bg: 'bg-green-500', dot: 'bg-green-300' },
-    completed:{ label: 'Completed', bg: 'bg-gray-500', dot: 'bg-gray-400' },
-    cancelled:{ label: 'Cancelled', bg: 'bg-red-500', dot: 'bg-red-400' },
-  };
-
   const fmt = (d: Date) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmtTime = (d: Date) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
@@ -166,7 +159,6 @@ export default function TournamentDetailPage() {
     );
   }
 
-  const sc = statusConfig[tournament.status as keyof typeof statusConfig] ?? statusConfig.upcoming;
   const bannerUrl = tournament.banner || getSportBanner(tournament.sport);
 
   return (
@@ -183,18 +175,14 @@ export default function TournamentDetailPage() {
 
           {/* Content */}
           <div className="relative h-full flex flex-col justify-end pb-12 px-6 max-w-7xl mx-auto">
-            {/* Status pill */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`inline-flex items-center gap-1.5 ${sc.bg} text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest`}>
-                {tournament.status === 'ongoing' && <span className={`w-1.5 h-1.5 rounded-full ${sc.dot} animate-pulse`} />}
-                {sc.label}
-              </span>
-              {isRegistrationOpen() && (
-                <span className="inline-flex items-center gap-1 bg-yellow-400 text-black text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                  <Zap className="h-3 w-3" /> Registration Open
+            {/* Live pill — only shown when ongoing */}
+            {tournament.status === 'ongoing' && (
+              <div className="flex items-center gap-2 mb-4">
+                <span className="inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Live Now
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Sport emoji + Title */}
             <div className="flex items-center gap-3 mb-2">
