@@ -174,7 +174,7 @@ export default function TournamentDetailPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-transparent to-slate-950/40" />
 
           {/* Content */}
-          <div className="relative h-full flex flex-col justify-end pb-12 px-6 max-w-7xl mx-auto">
+          <div className="relative h-full flex flex-col justify-start pt-16 sm:pt-20 px-6 max-w-7xl mx-auto">
             {/* Live pill — only shown when ongoing */}
             {tournament.status === 'ongoing' && (
               <div className="flex items-center gap-2 mb-4">
@@ -322,15 +322,26 @@ export default function TournamentDetailPage() {
                   </div>
                 </div>
 
-                {/* Categories pill grid */}
+                {/* Categories — clickable cards linking to category pages */}
                 <div className="col-span-full lg:col-span-2 bg-slate-900 rounded-2xl p-6 border border-white/5">
                   <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-4">Categories</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {tournament.categories?.map(cat => (
-                      <span key={cat} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm text-white capitalize transition-colors">
-                        {cat.replace(/-/g, ' ')}
-                      </span>
-                    ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {tournament.categories?.map(cat => {
+                      const catTeamCount = teams.filter(t => t.category === cat).length;
+                      const catPlayerCount = participants.filter(p => p.selectedCategory === cat).length;
+                      const isTCat = (cat.includes('team') || cat.includes('doubles')) && !cat.includes('kids-team-u13') && !cat.includes('kids-team-u18');
+                      return (
+                        <Link key={cat} href={`/tournament/${tournamentId}/category/${cat}`}
+                          className="group flex flex-col gap-1 bg-white/5 hover:bg-yellow-400/10 border border-white/10 hover:border-yellow-400/40 rounded-xl px-4 py-3 transition-all">
+                          <span className="text-sm font-bold text-white capitalize group-hover:text-yellow-400 transition-colors leading-tight">
+                            {cat.replace(/-/g, ' ')}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            {isTCat ? `${catTeamCount} teams · ` : ''}{catPlayerCount} players
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
 
                   {/* Match summary bar */}
