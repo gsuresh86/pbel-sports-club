@@ -477,127 +477,98 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         </div>
       </div>
 
-      {/* Category Selection */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Label htmlFor="category-select">Select Category:</Label>
-              <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Choose category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tournament.categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Category Selection — compact toolbar */}
+      <div className="flex flex-wrap items-center gap-3 px-1">
+        <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
+          <SelectTrigger className="w-44 h-8 text-sm">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {tournament.categories.map(category => (
+              <SelectItem key={category} value={category}>
+                {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-            {selectedCategory && (
-              <div className="space-y-4">
-                {/* Round Mode Toggle */}
-                <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="round-mode"
-                      checked={roundMode}
-                      onChange={(e) => setRoundMode(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <Label htmlFor="round-mode" className="text-sm font-medium text-blue-800">
-                      Round Assignment Mode
-                    </Label>
-                  </div>
-                  <div className="text-xs text-blue-600">
-                    {roundMode 
-                      ? `Assign ${Math.min(unassignedRegistrations.length, teams.filter(t => t.category === selectedCategory).length)} players to all teams in one spin`
-                      : 'Assign one player per spin'
-                    }
-                  </div>
-                </div>
+        {selectedCategory && (
+          <>
+            <Select value={selectedGender} onValueChange={(value) => setSelectedGender(value as 'male' | 'female' | 'all')}>
+              <SelectTrigger className="w-28 h-8 text-sm">
+                <SelectValue placeholder="Gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All genders</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+              </SelectContent>
+            </Select>
 
-                {/* Filters */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-4">
-                    <Label htmlFor="gender-select">Filter by Gender:</Label>
-                    <Select value={selectedGender} onValueChange={(value) => setSelectedGender(value as 'male' | 'female' | 'all')}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <Select value={selectedLevel} onValueChange={(value) => setSelectedLevel(value as 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all')}>
+              <SelectTrigger className="w-32 h-8 text-sm">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All levels</SelectItem>
+                <SelectItem value="beginner">Beginner</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+                <SelectItem value="expert">Expert</SelectItem>
+              </SelectContent>
+            </Select>
 
-                  <div className="flex items-center gap-4">
-                    <Label htmlFor="level-select">Filter by Level:</Label>
-                    <Select value={selectedLevel} onValueChange={(value) => setSelectedLevel(value as 'beginner' | 'intermediate' | 'advanced' | 'expert' | 'all')}>
-                      <SelectTrigger className="w-40">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            <label className="flex items-center gap-1.5 cursor-pointer select-none ml-1">
+              <input
+                type="checkbox"
+                checked={roundMode}
+                onChange={(e) => setRoundMode(e.target.checked)}
+                className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-xs font-medium text-gray-700">Round mode</span>
+            </label>
+          </>
+        )}
+      </div>
 
       {selectedCategory && (
         <>
-          {/* Spin Wheel Section */}
+          {/* Merged Spin Wheel + Unassigned Players */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shuffle className="h-5 w-5" />
                 {roundMode ? 'Round Assignment' : 'Spin the Wheel'}
+                <span className="ml-1 text-sm font-normal text-gray-500">
+                  — {unassignedRegistrations.length} unassigned
+                </span>
               </CardTitle>
               <CardDescription>
-                {roundMode 
+                {roundMode
                   ? 'Assign multiple players to all teams in one round'
-                  : 'Randomly assign unassigned players to teams'
-                }
+                  : 'Randomly assign unassigned players to teams'}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center space-y-4">
-                <div className="text-lg font-medium">
-                  Unassigned Players: {unassignedRegistrations.length}
-                </div>
-                
-                {roundMode && (
-                  <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div className="font-medium mb-1">Round Assignment Mode</div>
-                    <div>
-                      Will assign {Math.min(unassignedRegistrations.length, teams.filter(t => t.category === selectedCategory).length)} players 
-                      to {teams.filter(t => t.category === selectedCategory).length} teams in this round
+              <div className="flex gap-6">
+                {/* Left: Spin button + result */}
+                <div className="flex flex-col items-center gap-4 w-64 shrink-0 pt-2">
+                  {roundMode && (
+                    <div className="text-xs text-blue-600 bg-blue-50 p-2.5 rounded-lg border border-blue-200 text-center w-full">
+                      <div className="font-medium mb-0.5">Round Mode</div>
+                      <div>
+                        {Math.min(unassignedRegistrations.length, teams.filter(t => t.category === selectedCategory).length)} players →{' '}
+                        {teams.filter(t => t.category === selectedCategory).length} teams
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                <div className="flex flex-col items-center gap-3">
-                  {/* Profile photo flicker during spin */}
+                  )}
+
                   {isSpinning && spinResult && !roundMode && (
-                    <div className={`transition-opacity duration-75 ${isSpinning ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="transition-opacity duration-75 opacity-100">
                       <PlayerAvatar registration={spinResult} size="lg" />
                     </div>
                   )}
+
                   <Button
                     onClick={spinWheel}
                     disabled={unassignedRegistrations.length === 0 || isSpinning}
@@ -606,97 +577,159 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   >
                     {isSpinning ? 'SPINNING...' : roundMode ? 'ROUND!' : 'SPIN!'}
                   </Button>
-                </div>
 
-                {/* Single Player Result */}
-                {spinResult && !roundMode && (
-                  <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <h3 className="text-lg font-semibold mb-2 text-green-800">Player Selected & Assigned!</h3>
-                    <div className="flex items-center justify-center gap-4 mb-4">
-                      <PlayerAvatar registration={spinResult} size="md" />
-                      <div className="text-center">
-                        <div className="font-medium text-lg">{spinResult.name}</div>
-                        <div className="text-sm text-gray-600">Age: {spinResult.age} | Gender: {spinResult.gender}</div>
-                        {(spinResult.tower || spinResult.flatNumber) && (
-                          <div className="text-sm text-gray-600">Tower: {spinResult.tower || 'N/A'} | Flat: {spinResult.flatNumber || 'N/A'}</div>
-                        )}
-                        <Badge variant="outline" className="mt-1">{spinResult.expertiseLevel}</Badge>
-                      </div>
-                    </div>
-                    
-                    {spinResult.assignedTeam ? (
-                      <div className="text-center">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-lg font-medium">
-                          <Target className="h-4 w-4" />
-                          Automatically assigned to: {spinResult.assignedTeam}
+                  {/* Single Player Result */}
+                  {spinResult && !roundMode && (
+                    <div className="w-full p-3 bg-green-50 rounded-lg border border-green-200 text-center">
+                      <p className="text-sm font-semibold text-green-800 mb-2">Player Assigned!</p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <PlayerAvatar registration={spinResult} size="sm" />
+                        <div className="text-left min-w-0">
+                          <div className="font-medium text-sm truncate">{spinResult.name}</div>
+                          <div className="text-xs text-gray-500">{spinResult.age} · {spinResult.gender}</div>
+                          <Badge variant="outline" className="text-[10px] mt-0.5">{spinResult.expertiseLevel}</Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mt-2">
-                          Player was assigned to the team with the least players to maintain balance.
-                        </p>
                       </div>
-                    ) : (
-                      <div className="flex justify-center gap-2">
-                        <Label>Assign to team:</Label>
-                        <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                          <SelectTrigger className="w-48">
-                            <SelectValue placeholder="Select team" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {teams.filter(team => team.category === selectedCategory).map(team => (
-                              <SelectItem key={team.id} value={team.id}>
-                                {team.name} ({team.players.length} players)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button 
-                          onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)}
-                          disabled={!selectedTeam}
-                        >
-                          Assign
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {spinResult.assignedTeam ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-800 rounded-lg text-xs font-medium">
+                          <Target className="h-3 w-3" />
+                          → {spinResult.assignedTeam}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                            <SelectTrigger className="w-full h-8 text-xs">
+                              <SelectValue placeholder="Select team" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {teams.filter(team => team.category === selectedCategory).map(team => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name} ({team.players.length})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button size="sm" className="w-full" onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)} disabled={!selectedTeam}>
+                            Assign
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {/* Round Results */}
-                {roundResults.length > 0 && roundMode && (
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="text-lg font-semibold mb-4 text-blue-800 flex items-center gap-2">
-                      <RefreshCw className="h-5 w-5" />
-                      Round Assignment Complete!
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {roundResults.map((result, index) => (
-                        <div key={result.id} className="bg-white p-3 rounded-lg border border-blue-200">
-                          <div className="flex items-center justify-between gap-2">
+                  {/* Round Results */}
+                  {roundResults.length > 0 && roundMode && (
+                    <div className="w-full p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+                        <RefreshCw className="h-4 w-4" />
+                        Round Complete!
+                      </p>
+                      <div className="space-y-2">
+                        {roundResults.map((result) => (
+                          <div key={result.id} className="bg-white p-2 rounded border border-blue-200 flex items-center gap-2">
                             <PlayerAvatar registration={result} size="sm" />
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{result.name}</div>
-                              <div className="text-xs text-gray-600">Age: {result.age} | {result.gender}</div>
-                              {(result.tower || result.flatNumber) && (
-                                <div className="text-xs text-gray-600">{result.tower || ''} - {result.flatNumber || ''}</div>
-                              )}
-                            </div>
-                            <div className="text-right">
-                              <Badge variant="outline" className="text-xs mb-1">{result.expertiseLevel}</Badge>
-                              <div className="text-xs font-medium text-blue-600">
-                                → {result.assignedTeam}
-                              </div>
+                              <div className="font-medium text-xs truncate">{result.name}</div>
+                              <div className="text-[10px] text-blue-600 font-medium">→ {result.assignedTeam}</div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-4 text-center">
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium">
-                        <Target className="h-4 w-4" />
-                        {roundResults.length} players assigned to teams in round-robin fashion
+                        ))}
                       </div>
                     </div>
+                  )}
+                </div>
+
+                {/* Right: Unassigned Players grid */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="h-4 w-4 text-gray-600" />
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      Unassigned Players ({unassignedRegistrations.length})
+                    </h3>
                   </div>
-                )}
+
+                  {unassignedRegistrations.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-48 text-center">
+                      <Users className="h-10 w-10 text-gray-300 mb-3" />
+                      <p className="text-sm font-medium text-gray-700">All players assigned!</p>
+                      <p className="text-xs text-gray-500 mt-1">All players have been assigned to teams</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+                      {unassignedRegistrations.map(registration => {
+                        const isSelected = !isSpinning && spinResult?.id === registration.id;
+                        const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                        const cardColors = [
+                          'from-blue-900 to-blue-700',
+                          'from-purple-900 to-purple-700',
+                          'from-emerald-900 to-emerald-700',
+                          'from-rose-900 to-rose-700',
+                          'from-amber-900 to-amber-700',
+                          'from-cyan-900 to-cyan-700',
+                          'from-indigo-900 to-indigo-700',
+                          'from-teal-900 to-teal-700',
+                        ];
+                        const colorClass = cardColors[registration.name.charCodeAt(0) % cardColors.length];
+                        const levelColor: Record<string, string> = {
+                          beginner: 'bg-emerald-500',
+                          intermediate: 'bg-blue-500',
+                          advanced: 'bg-violet-500',
+                          expert: 'bg-orange-500',
+                        };
+                        return (
+                          <div
+                            key={registration.id}
+                            className={`group relative rounded-xl overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white ${
+                              isSelected
+                                ? 'border-green-500 ring-2 ring-green-400 scale-105 shadow-green-200'
+                                : 'border-gray-200'
+                            }`}
+                          >
+                            <div className={`relative bg-gradient-to-b ${colorClass} overflow-hidden`} style={{ aspectRatio: '3/4' }}>
+                              {registration.profilePhotoUrl ? (
+                                <Image
+                                  src={registration.profilePhotoUrl}
+                                  alt={registration.name}
+                                  fill
+                                  className="object-cover object-top"
+                                />
+                              ) : (
+                                <div className="flex h-full flex-col items-center justify-center gap-2">
+                                  <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-3xl font-bold">
+                                    {initials}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
+                              <div className="absolute top-2 right-2">
+                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white ${levelColor[registration.expertiseLevel] ?? 'bg-gray-500'}`}>
+                                  {registration.expertiseLevel}
+                                </span>
+                              </div>
+                              {isSelected && (
+                                <div className="absolute top-2 left-2">
+                                  <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white bg-green-500">
+                                    Selected
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-2 py-2 text-center">
+                              <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate" title={registration.name}>
+                                {registration.name}
+                              </p>
+                              {(registration.tower || registration.flatNumber) && (
+                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                  {registration.tower || ''}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -735,89 +768,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
               </CardContent>
             </Card>
           )}
-
-          {/* Unassigned Players — IPL squad style */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Unassigned Players ({unassignedRegistrations.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {unassignedRegistrations.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">All players assigned!</h3>
-                  <p className="text-gray-600">All players in this category have been assigned to teams</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {unassignedRegistrations.map(registration => {
-                    const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-                    const cardColors = [
-                      'from-blue-900 to-blue-700',
-                      'from-purple-900 to-purple-700',
-                      'from-emerald-900 to-emerald-700',
-                      'from-rose-900 to-rose-700',
-                      'from-amber-900 to-amber-700',
-                      'from-cyan-900 to-cyan-700',
-                      'from-indigo-900 to-indigo-700',
-                      'from-teal-900 to-teal-700',
-                    ];
-                    const colorClass = cardColors[registration.name.charCodeAt(0) % cardColors.length];
-                    const levelColor: Record<string, string> = {
-                      beginner: 'bg-emerald-500',
-                      intermediate: 'bg-blue-500',
-                      advanced: 'bg-violet-500',
-                      expert: 'bg-orange-500',
-                    };
-                    return (
-                      <div key={registration.id} className="group relative rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white">
-                        {/* Photo / gradient area */}
-                        <div className={`relative bg-gradient-to-b ${colorClass} overflow-hidden`} style={{ aspectRatio: '3/4' }}>
-                          {registration.profilePhotoUrl ? (
-                            <Image
-                              src={registration.profilePhotoUrl}
-                              alt={registration.name}
-                              fill
-                              className="object-cover object-top"
-                            />
-                          ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-2">
-                              <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-3xl font-bold">
-                                {initials}
-                              </div>
-                            </div>
-                          )}
-                          {/* Gradient overlay at bottom */}
-                          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
-                          {/* Level badge — top right */}
-                          <div className="absolute top-2 right-2">
-                            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white ${levelColor[registration.expertiseLevel] ?? 'bg-gray-500'}`}>
-                              {registration.expertiseLevel}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Info strip */}
-                        <div className="px-2 py-2 text-center">
-                          <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate" title={registration.name}>
-                            {registration.name}
-                          </p>
-                          {(registration.tower || registration.flatNumber) && (
-                            <p className="text-[10px] text-gray-500 mt-0.5">
-                              {registration.tower || ''}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </>
       )}
       
