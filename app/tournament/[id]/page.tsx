@@ -4,14 +4,12 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { PublicLayout } from '@/components/PublicLayout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
   Shield, Users2, ScrollText, ChevronRight,
-  Flame, Star, Activity,
+  Flame, Star, Activity, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -134,38 +132,47 @@ export default function TournamentDetailPage() {
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <PublicLayout>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-400 text-sm tracking-widest uppercase">Loading Tournament</p>
-          </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm tracking-widest uppercase">Loading Tournament</p>
         </div>
-      </PublicLayout>
+      </div>
     );
   }
 
   if (!tournament) {
     return (
-      <PublicLayout>
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-5xl mb-4">🏆</p>
-            <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
-            <Link href="/tournament"><Button variant="outline" className="border-white/20 text-white">← All Tournaments</Button></Link>
-          </div>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-5xl mb-4">🏆</p>
+          <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
+          <Link href="/tournament"><Button variant="outline" className="border-white/20 text-white">← All Tournaments</Button></Link>
         </div>
-      </PublicLayout>
+      </div>
     );
   }
 
   const bannerUrl = tournament.banner || getSportBanner(tournament.sport);
 
   return (
-    <PublicLayout>
-      <div className="bg-slate-950 min-h-screen">
+    <div className="bg-slate-950 min-h-screen">
 
-        {/* ── HERO + STATS + TABS — all on the banner ───────────── */}
+      {/* ── CUSTOM TOP BAR ─────────────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-4">
+          <Link href="/tournament" className="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs transition-colors flex-shrink-0 group">
+            <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="hidden sm:inline">Tournaments</span>
+          </Link>
+          <div className="flex-1 text-center">
+            <span className="text-sm font-bold text-white tracking-tight truncate">{tournament.name}</span>
+          </div>
+          <div className="w-20 flex-shrink-0" />
+        </div>
+      </div>
+
+      {/* ── HERO + STATS + TABS — all on the banner ───────────── */}
         <div className="relative">
           {/* Image container — overflow-hidden only here for scale effect */}
           <div className="absolute inset-0 overflow-hidden">
@@ -177,7 +184,7 @@ export default function TournamentDetailPage() {
           {/* All overlay content — flows naturally pushing the div taller */}
           <div className="relative z-10">
             {/* ── Title section ── */}
-            <div className="max-w-7xl mx-auto px-6 pt-16 sm:pt-20 pb-10">
+            <div className="max-w-7xl mx-auto px-6 pt-28 sm:pt-32 pb-10">
               {tournament.status === 'ongoing' && (
                 <div className="flex items-center gap-2 mb-4">
                   <span className="inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
@@ -580,8 +587,7 @@ export default function TournamentDetailPage() {
         <div className="border-t border-white/5 mt-12 py-8 px-6 text-center">
           <p className="text-slate-500 text-xs">PBEL Sports Club · {tournament.name}</p>
         </div>
-      </div>
-    </PublicLayout>
+    </div>
   );
 }
 
