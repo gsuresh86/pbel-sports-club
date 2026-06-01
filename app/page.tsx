@@ -1,317 +1,206 @@
 import Link from 'next/link';
 import { PublicLayout } from '@/components/PublicLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ChevronRight } from 'lucide-react';
+
+const SPORTS = [
+  {
+    name: 'Badminton',
+    emoji: '🏸',
+    bar: 'from-yellow-500 to-amber-500',
+    desc: 'Singles, doubles, and mixed doubles across all skill levels',
+    href: '/tournament',
+  },
+  {
+    name: 'Table Tennis',
+    emoji: '🏓',
+    bar: 'from-blue-500 to-cyan-500',
+    desc: 'Competitive table tennis with live scoring and brackets',
+    href: '/tournament',
+  },
+  {
+    name: 'Volleyball',
+    emoji: '🏐',
+    bar: 'from-purple-500 to-violet-500',
+    desc: 'Team volleyball with pool stages and knockout rounds',
+    href: '/tournament',
+  },
+  {
+    name: 'Throw Ball',
+    emoji: '🎯',
+    bar: 'from-pink-500 to-rose-500',
+    desc: 'Community throw ball with team and open categories',
+    href: '/tournament',
+  },
+];
+
+const QUICK_LINKS = [
+  {
+    emoji: '📅',
+    label: 'Schedules',
+    desc: 'Upcoming fixtures and court assignments',
+    href: '/schedules',
+    border: 'hover:border-blue-400/40',
+  },
+  {
+    emoji: '🔴',
+    label: 'Live Scores',
+    desc: 'Real-time updates for ongoing matches',
+    href: '/live-scores',
+    border: 'hover:border-red-400/40',
+    live: true,
+  },
+  {
+    emoji: '🏆',
+    label: 'Winners',
+    desc: 'Results, brackets, and champion gallery',
+    href: '/winners',
+    border: 'hover:border-yellow-400/40',
+  },
+  {
+    emoji: '📝',
+    label: 'Register',
+    desc: 'Join an upcoming tournament or event',
+    href: '/tournament',
+    border: 'hover:border-green-400/40',
+  },
+];
 
 export default function Home() {
-  const sports = [
-    {
-      name: 'Badminton',
-      description: 'Professional badminton tournaments with advanced bracket management',
-      icon: '🏸',
-      slug: 'badminton',
-      tournaments: 15,
-      players: 120,
-    },
-    {
-      name: 'Table Tennis',
-      description: 'Competitive table tennis events with live scoring and rankings',
-      icon: '🏓',
-      slug: 'table-tennis',
-      tournaments: 12,
-      players: 95,
-    },
-    {
-      name: 'Volleyball',
-      description: 'Team volleyball competitions with comprehensive match tracking',
-      icon: '🏐',
-      slug: 'volleyball',
-      tournaments: 8,
-      players: 80,
-    },
-  ];
-
-  const features = [
-    {
-      title: 'Live Tournament Management',
-      description: 'Real-time bracket updates, match scheduling, and score tracking',
-      icon: '⚡',
-    },
-    {
-      title: 'Professional Scoring',
-      description: 'Advanced scoring systems with detailed statistics and analytics',
-      icon: '📊',
-    },
-    {
-      title: 'Player Registration',
-      description: 'Streamlined registration process with automated tournament placement',
-      icon: '👥',
-    },
-    {
-      title: 'Results & Rankings',
-      description: 'Comprehensive results tracking and player ranking systems',
-      icon: '🏆',
-    },
-  ];
-
-  const stats = [
-    { number: '500+', label: 'Active Players', description: 'Competitive athletes' },
-    { number: '35+', label: 'Tournaments', description: 'Completed this year' },
-    { number: '3', label: 'Sports', description: 'Professional leagues' },
-    { number: '98%', label: 'Satisfaction', description: 'Player satisfaction rate' },
-  ];
-
-  const testimonials = [
-    {
-      name: 'Sarah Mitchell',
-      role: 'Tournament Director',
-      sport: 'Badminton',
-      quote: 'The platform has revolutionized how we manage tournaments. The live scoring and bracket management features are exceptional.',
-      avatar: '👩‍💼',
-    },
-    {
-      name: 'Michael Rodriguez',
-      role: 'Head Coach',
-      sport: 'Table Tennis',
-      quote: 'Professional-grade tournament management with real-time updates. Our players love the seamless experience.',
-      avatar: '👨‍🏫',
-    },
-    {
-      name: 'Jennifer Chen',
-      role: 'League Coordinator',
-      sport: 'Volleyball',
-      quote: 'Outstanding platform for competitive sports. The analytics and reporting features give us valuable insights.',
-      avatar: '👩‍🎓',
-    },
-  ];
-
   return (
     <PublicLayout hideAuth={true}>
-      {/* Hero Section */}
-      <section className="pt-24 pb-24 px-4 min-h-screen flex items-center justify-center overflow-hidden">
-          <div className="max-w-7xl mx-auto text-center text-white">
-            <div className="mb-8">
-              <Badge variant="secondary" className="bg-blue-600/30 text-blue-100 border-blue-400/50 mb-6 px-8 py-3 text-lg backdrop-blur-sm">
-                Professional Tournament Management
-              </Badge>
-            </div>
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl">
-              Tournament Craft
-            </h1>
-            <h2 className="text-3xl md:text-4xl font-semibold mb-8 text-blue-100 drop-shadow-lg">
-              Tournament Management System
-            </h2>
-            <p className="text-xl md:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed drop-shadow-md">
-              Professional-grade tournament management platform for competitive sports. 
-              Advanced bracket systems, live scoring, and comprehensive analytics for serious athletes and organizers.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-              <Link href="/tournament">
-                <Button size="lg" className="text-lg px-12 py-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105">
-                  View Active Tournaments
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button size="lg" variant="outline" className="text-lg px-12 py-5 border-2 text-blue-600 border-white hover:text-slate-900 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
-                  Register for Tournament
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
 
-        {/* Stats Section */}
-        <section className="py-24 px-4 bg-white/90 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold text-gray-900 mb-6">Tournament Statistics</h2>
-              <p className="text-xl text-gray-600">Professional sports management at scale</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {stats.map((stat, index) => (
-                <div key={index} className="text-center group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
-                  <div className="text-5xl md:text-6xl font-bold text-blue-600 mb-4 group-hover:scale-110 transition-transform duration-300">
-                    {stat.number}
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <section className="min-h-screen flex items-center justify-center px-4 pt-16 pb-12">
+        <div className="max-w-4xl mx-auto w-full text-center">
+
+          {/* Pill label */}
+          <div className="flex justify-center mb-8">
+            <span className="inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 text-xs font-bold px-5 py-2 rounded-full uppercase tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+              PBEL City · Hyderabad
+            </span>
+          </div>
+
+          {/* Main title */}
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-black text-white leading-none tracking-tight mb-2">
+            PBEL
+          </h1>
+          <h1 className="text-5xl sm:text-7xl md:text-8xl font-black leading-none tracking-tight mb-6">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500">
+              Sports Club
+            </span>
+          </h1>
+
+          <p className="text-slate-400 text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed">
+            Your community sports hub for residents. Tournaments, live scores, brackets, and more — all in one place.
+          </p>
+
+          {/* Sport chips */}
+          <div className="flex flex-wrap justify-center gap-2 mb-10">
+            {['🏸 Badminton', '🏓 Table Tennis', '🏐 Volleyball', '🎯 Throw Ball'].map(s => (
+              <span key={s} className="text-xs text-slate-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
+                {s}
+              </span>
+            ))}
+          </div>
+
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href="/tournament">
+              <div className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black px-8 py-4 rounded-full text-sm shadow-2xl shadow-yellow-400/30 transition-all duration-200 hover:scale-105">
+                View Tournaments <ChevronRight className="h-4 w-4" />
+              </div>
+            </Link>
+            <Link href="/live-scores">
+              <div className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-bold px-8 py-4 rounded-full text-sm transition-all duration-200">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                Live Scores
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Quick access ──────────────────────────────────────────────── */}
+      <section className="py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest text-center mb-6">Quick Access</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {QUICK_LINKS.map(ql => (
+              <Link key={ql.href + ql.label} href={ql.href}>
+                <div className={`group h-full bg-black/30 backdrop-blur-md rounded-2xl border border-white/5 ${ql.border} p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer`}>
+                  <div className="text-3xl mb-3">{ql.emoji}</div>
+                  <h3 className="text-sm font-black text-white mb-1 group-hover:text-yellow-400 transition-colors flex items-center gap-1.5">
+                    {ql.label}
+                    {ql.live && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">{ql.desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Sports ────────────────────────────────────────────────────── */}
+      <section className="py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">Sports</p>
+            <h2 className="text-3xl font-black text-white">What We Play</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SPORTS.map(s => (
+              <Link key={s.name} href={s.href}>
+                <div className="group relative bg-slate-900/70 backdrop-blur-sm rounded-2xl border border-white/5 overflow-hidden hover:border-white/15 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+                  <div className={`h-1 bg-gradient-to-r ${s.bar}`} />
+                  <div className="p-5">
+                    <div className="text-4xl mb-3">{s.emoji}</div>
+                    <h3 className="text-sm font-black text-white mb-2 group-hover:text-yellow-400 transition-colors">
+                      {s.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">{s.desc}</p>
+                    <div className="mt-4 flex items-center gap-1 text-xs text-yellow-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                      Browse <ChevronRight className="h-3 w-3" />
+                    </div>
                   </div>
-                  <div className="text-xl font-semibold text-gray-900 mb-2">{stat.label}</div>
-                  <div className="text-gray-600">{stat.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Sports Categories */}
-        <section className="py-24 px-4 bg-white/80 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold text-gray-900 mb-6">Professional Sports Leagues</h2>
-              <p className="text-xl text-gray-600">Competitive tournaments with advanced management systems</p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-10">
-              {sports.map((sport, index) => (
-                <Card key={sport.slug} className="bg-white hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-3 border border-gray-200 rounded-2xl overflow-hidden group">
-                  <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-gray-50">
-                    <div className="text-8xl mb-6 group-hover:scale-110 transition-transform duration-300">{sport.icon}</div>
-                    <CardTitle className="text-3xl font-bold text-gray-900 mb-4">{sport.name}</CardTitle>
-                    <CardDescription className="text-gray-600 text-lg leading-relaxed">
-                      {sport.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6 p-8">
-                    <div className="flex justify-between text-sm text-gray-500 bg-gray-50 rounded-lg p-4">
-                      <span>Active Tournaments: <span className="font-semibold text-blue-600">{sport.tournaments}</span></span>
-                      <span>Registered Players: <span className="font-semibold text-blue-600">{sport.players}</span></span>
-                    </div>
-                    <Link href={`/tournament?sport=${sport.slug}`}>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                        View Tournaments
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-24 px-4 bg-white/90 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold text-gray-900 mb-6">Tournament Management Features</h2>
-              <p className="text-xl text-gray-600">Professional tools for competitive sports management</p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {features.map((feature, index) => (
-                <Card key={index} className="bg-white hover:shadow-2xl transition-all duration-300 border border-gray-200 rounded-2xl overflow-hidden group">
-                  <CardContent className="p-8 text-center">
-                    <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-4">{feature.title}</h3>
-                    <p className="text-gray-600 leading-relaxed text-lg">{feature.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials Section */}
-        <section className="py-24 px-4 bg-white/80 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold text-gray-900 mb-6">Professional Testimonials</h2>
-              <p className="text-xl text-gray-600">What tournament directors and coaches say about our platform</p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-10">
-              {testimonials.map((testimonial, index) => (
-                <Card key={index} className="bg-white hover:shadow-2xl transition-all duration-300 border border-gray-200 rounded-2xl overflow-hidden group">
-                  <CardContent className="p-8">
-                    <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">{testimonial.avatar}</div>
-                    <blockquote className="text-lg text-gray-700 mb-8 italic leading-relaxed">
-                      &ldquo;{testimonial.quote}&rdquo;
-                    </blockquote>
-                    <div className="border-t pt-6">
-                      <div className="font-semibold text-gray-900 text-xl">{testimonial.name}</div>
-                      <div className="text-blue-600 font-medium text-lg">{testimonial.role}</div>
-                      <div className="text-gray-500">{testimonial.sport}</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Links */}
-        <section className="py-24 px-4 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-10 left-10 text-6xl">🏸</div>
-            <div className="absolute top-20 right-20 text-5xl">🏓</div>
-            <div className="absolute top-40 left-1/4 text-4xl">🏐</div>
-            <div className="absolute top-60 right-1/3 text-5xl">🏆</div>
-            <div className="absolute bottom-40 left-20 text-4xl">⚡</div>
-            <div className="absolute bottom-20 right-10 text-6xl">🏸</div>
-            <div className="absolute bottom-60 left-1/2 text-5xl">🏓</div>
-            <div className="absolute top-1/2 left-10 text-4xl">🏐</div>
-            <div className="absolute top-1/3 right-1/4 text-5xl">🏆</div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto relative z-10">
-            <div className="text-center mb-20">
-              <h2 className="text-5xl font-bold mb-6">Tournament Management Tools</h2>
-              <p className="text-xl text-gray-300">Essential features for competitive sports</p>
-            </div>
-            <div className="grid md:grid-cols-4 gap-8">
-              <Link href="/schedules" className="group">
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
-                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">📅</div>
-                  <h3 className="text-2xl font-bold mb-4">Match Schedules</h3>
-                  <p className="text-gray-300 text-lg">Professional tournament scheduling and fixture management</p>
                 </div>
               </Link>
-              <Link href="/live-scores" className="group">
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
-                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">🔴</div>
-                  <h3 className="text-2xl font-bold mb-4">Live Scoring</h3>
-                  <p className="text-gray-300 text-lg">Real-time score updates and match tracking</p>
-                </div>
-              </Link>
-              <Link href="/winners" className="group">
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
-                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">🏆</div>
-                  <h3 className="text-2xl font-bold mb-4">Results & Rankings</h3>
-                  <p className="text-gray-300 text-lg">Comprehensive tournament results and player rankings</p>
-                </div>
-              </Link>
-              <Link href="/register" className="group">
-                <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl p-8 text-center hover:bg-slate-700/80 transition-all duration-300 transform hover:-translate-y-2 border border-slate-700/50 shadow-xl hover:shadow-2xl">
-                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-300">📝</div>
-                  <h3 className="text-2xl font-bold mb-4">Player Registration</h3>
-                  <p className="text-gray-300 text-lg">Streamlined registration for tournaments and leagues</p>
-                </div>
-              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA strip ─────────────────────────────────────────────────── */}
+      <section className="py-16 px-4 pb-20">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-yellow-400/15 via-amber-500/5 to-transparent border border-yellow-400/20 p-10 sm:p-14 text-center">
+            {/* Glow orb */}
+            <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-yellow-400/8 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10">
+              <p className="text-5xl mb-5">🏆</p>
+              <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Ready to Compete?</h2>
+              <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto leading-relaxed">
+                Register for an upcoming tournament and represent your tower. All skill levels welcome.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href="/tournament">
+                  <div className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-black px-7 py-3.5 rounded-full text-sm shadow-lg shadow-yellow-400/25 transition-all duration-200 hover:scale-105">
+                    Browse Tournaments <ChevronRight className="h-4 w-4" />
+                  </div>
+                </Link>
+                <Link href="/schedules">
+                  <div className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-bold px-7 py-3.5 rounded-full text-sm transition-all duration-200">
+                    View Schedule
+                  </div>
+                </Link>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Call to Action */}
-        <section className="py-24 px-4 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-10 left-10 text-6xl">🏸</div>
-            <div className="absolute top-20 right-20 text-5xl">🏓</div>
-            <div className="absolute top-40 left-1/4 text-4xl">🏐</div>
-            <div className="absolute top-60 right-1/3 text-5xl">🏆</div>
-            <div className="absolute bottom-40 left-20 text-4xl">⚡</div>
-            <div className="absolute bottom-20 right-10 text-6xl">🏸</div>
-            <div className="absolute bottom-60 left-1/2 text-5xl">🏓</div>
-            <div className="absolute top-1/2 left-10 text-4xl">🏐</div>
-            <div className="absolute top-1/3 right-1/4 text-5xl">🏆</div>
-          </div>
-          
-          <div className="max-w-4xl mx-auto text-center relative z-10">
-            <h2 className="text-5xl font-bold mb-8">Ready to Compete?</h2>
-            <p className="text-2xl mb-12 text-blue-100">
-              Join our professional tournament management platform and elevate your competitive sports experience.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-8 justify-center">
-              <Link href="/register">
-                <Button size="lg" className="text-xl px-12 py-6 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105">
-                  Register for Tournament
-                </Button>
-              </Link>
-              <Link href="/tournament">
-                <Button size="lg" variant="outline" className="text-xl px-12 py-6 border-2 text-blue-800 border-white hover:bg-white hover:text-blue-600 font-semibold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 backdrop-blur-sm">
-                  View Active Tournaments
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-
-      </PublicLayout>
+    </PublicLayout>
   );
 }

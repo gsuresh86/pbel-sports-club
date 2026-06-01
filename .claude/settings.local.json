@@ -9,7 +9,17 @@
       "Bash(firebase init:*)",
       "Bash(npx tsc:*)",
       "Bash(npx next build:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git pull *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(npx next *)",
+      "Bash(npx eslint *)",
+      "Bash(npm run *)",
+      "Bash(grep *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git *)"
     ],
     "deny": [],
     "ask": []

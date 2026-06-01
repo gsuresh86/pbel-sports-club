@@ -268,22 +268,27 @@ export default function ManageTournamentsPage() {
   const loadTournamentStats = async (tournamentsData: Tournament[]) => {
     try {
       const stats: {[key: string]: {registrations: number, players: number}} = {};
-      
+
       for (const tournament of tournamentsData) {
-        // Get registrations count
         const registrationsSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'registrations'));
         const registrationsCount = registrationsSnapshot.docs.length;
-        
-        // Get players count
-        const playersSnapshot = await getDocs(collection(db, 'tournaments', tournament.id, 'players'));
-        const playersCount = playersSnapshot.docs.length;
-        
+
+        // Count unique individuals — same logic as the detail page's uniquePlayers
+        const seen = new Set<string>();
+        for (const d of registrationsSnapshot.docs) {
+          const data = d.data();
+          const name = typeof data.name === 'string' ? data.name.trim().toLowerCase() : '';
+          const partner = typeof data.partnerName === 'string' ? data.partnerName.trim().toLowerCase() : '';
+          if (name) seen.add(name);
+          if (partner) seen.add(partner);
+        }
+
         stats[tournament.id] = {
           registrations: registrationsCount,
-          players: playersCount
+          players: seen.size,
         };
       }
-      
+
       setTournamentStats(stats);
     } catch (error) {
       console.error('Error loading tournament stats:', error);
@@ -628,8 +633,19 @@ export default function ManageTournamentsPage() {
         {viewMode === 'card' ? (
           <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
             {filteredTournaments.map((tournament) => (
-            <Card key={tournament.id} className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
-              <CardHeader className="pb-3">
+            <Card key={tournament.id} className="hover:shadow-lg transition-all duration-200 hover:scale-[1.02] overflow-hidden p-0 gap-0">
+              {/* Banner */}
+              {tournament.banner ? (
+                <div className="w-full h-36 overflow-hidden">
+                  <img src={tournament.banner} alt={tournament.name} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-full h-36 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                  <span className="text-5xl opacity-40">{getSportIcon(tournament.sport)}</span>
+                </div>
+              )}
+
+              <CardHeader className="pt-4 pb-3">
                 <div className="flex justify-between items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -648,8 +664,8 @@ export default function ManageTournamentsPage() {
                     </CardDescription>
                   </div>
                 </div>
-                
-                {/* Status Badges - Moved below title */}
+
+                {/* Status Badges */}
                 <div className="flex gap-2 mt-3">
                   <Badge className={`${getStatusColor(tournament.status)} text-xs`}>
                     {tournament.status}
@@ -661,7 +677,7 @@ export default function ManageTournamentsPage() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className="pt-0 pb-5">
                 <div className="space-y-4">
                   {/* Key Stats - 2x2 Grid */}
                   <div className="grid grid-cols-2 gap-3">
@@ -675,7 +691,7 @@ export default function ManageTournamentsPage() {
                     <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                       <Trophy className="h-4 w-4 text-purple-500" />
                       <div>
-                        <p className="text-xs text-gray-500">Players</p>
+                        <p className="text-xs text-gray-500">Unique Players</p>
                         <p className="text-sm font-semibold">{tournamentStats[tournament.id]?.players || 0}</p>
                       </div>
                     </div>
@@ -717,18 +733,18 @@ export default function ManageTournamentsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="flex-1 text-xs"
                       onClick={() => router.push(`/admin/tournaments/${tournament.id}`)}
                     >
                       <Eye className="h-3 w-3 mr-1" />
                       Details
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="flex-1 text-xs"
                       onClick={() => window.open(generateRegistrationLink(tournament.id), '_blank')}
                     >
@@ -739,46 +755,6 @@ export default function ManageTournamentsPage() {
                       <Edit className="h-3 w-3 mr-1" />
                       Edit
                     </Button>
-                  </div>
-                  
-                  {/* Management Buttons */}
-                  <div className="grid grid-cols-4 gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-8"
-                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=teams`)}
-                      >
-                        <Users2 className="h-3 w-3 mr-1" />
-                        Teams
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-8"
-                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=spin-wheel`)}
-                      >
-                        <Shuffle className="h-3 w-3 mr-1" />
-                        Spin
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-8"
-                        onClick={() => router.push(`/admin/tournaments/${tournament.id}?tab=pools`)}
-                      >
-                        <Target className="h-3 w-3 mr-1" />
-                        Pools
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50"
-                        onClick={() => handleOpenRules(tournament)}
-                      >
-                        <ScrollText className="h-3 w-3 mr-1" />
-                        Rules
-                      </Button>
                   </div>
                 </div>
               </CardContent>
