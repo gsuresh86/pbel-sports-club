@@ -7,14 +7,14 @@ const SPORTS = [
     name: 'Badminton',
     emoji: '🏸',
     bar: 'from-yellow-500 to-amber-500',
-    desc: 'Singles, doubles, and mixed doubles across all skill levels',
+    desc: 'Singles, doubles, mixed doubles and team events across all skill levels',
     href: '/tournament',
   },
   {
     name: 'Table Tennis',
     emoji: '🏓',
     bar: 'from-blue-500 to-cyan-500',
-    desc: 'Competitive table tennis with live scoring and brackets',
+    desc: 'Competitive table tennis with live scoring and bracket management',
     href: '/tournament',
   },
   {
@@ -28,8 +28,47 @@ const SPORTS = [
     name: 'Throw Ball',
     emoji: '🎯',
     bar: 'from-pink-500 to-rose-500',
-    desc: 'Community throw ball with team and open categories',
+    desc: 'Team and open categories with full bracket and scoring support',
     href: '/tournament',
+  },
+];
+
+const FEATURES = [
+  {
+    emoji: '🎰',
+    title: 'Smart Team Draw',
+    desc: 'Spin-wheel player assignment with skill-level balancing across teams and pools — fair by design.',
+    color: 'hover:border-yellow-400/40',
+  },
+  {
+    emoji: '📊',
+    title: 'Pool & Bracket Play',
+    desc: 'Configure group stages, round-robin pools, and knockout brackets in minutes.',
+    color: 'hover:border-blue-400/40',
+  },
+  {
+    emoji: '🔴',
+    title: 'Live Scoring',
+    desc: 'Real-time match scores visible to all participants as games happen.',
+    color: 'hover:border-red-400/40',
+  },
+  {
+    emoji: '📝',
+    title: 'Online Registration',
+    desc: 'Custom registration forms with payment tracking, approval workflows, and QR codes.',
+    color: 'hover:border-green-400/40',
+  },
+  {
+    emoji: '🏆',
+    title: 'Results & Winners',
+    desc: 'Automatic standings, podium results, and champion gallery after every event.',
+    color: 'hover:border-amber-400/40',
+  },
+  {
+    emoji: '📅',
+    title: 'Schedule Management',
+    desc: 'Court assignments, match schedules, and fixture lists — all in one place.',
+    color: 'hover:border-purple-400/40',
   },
 ];
 
@@ -77,22 +116,22 @@ export default function Home() {
           <div className="flex justify-center mb-8">
             <span className="inline-flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 text-xs font-bold px-5 py-2 rounded-full uppercase tracking-widest">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-              PBEL City · Hyderabad
+              Sports Tournament Platform
             </span>
           </div>
 
           {/* Main title */}
           <h1 className="text-5xl sm:text-7xl md:text-8xl font-black text-white leading-none tracking-tight mb-2">
-            PBEL
+            Tournament
           </h1>
           <h1 className="text-5xl sm:text-7xl md:text-8xl font-black leading-none tracking-tight mb-6">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500">
-              Sports Club
+              Craft
             </span>
           </h1>
 
-          <p className="text-slate-400 text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-            Your community sports hub for residents. Tournaments, live scores, brackets, and more — all in one place.
+          <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+            Run any sports tournament end-to-end — registration, draws, pools, live scores, and results — for any club, community, or organisation.
           </p>
 
           {/* Sport chips */}
@@ -142,12 +181,34 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Features ──────────────────────────────────────────────────── */}
+      <section className="py-12 px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">Platform Features</p>
+            <h2 className="text-3xl font-black text-white">Everything You Need to Run a Tournament</h2>
+            <p className="text-slate-400 text-sm mt-3 max-w-xl mx-auto">
+              From the first registration to the final podium — Tournament Craft handles the whole journey.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map(f => (
+              <div key={f.title} className={`group bg-slate-900/70 backdrop-blur-sm rounded-2xl border border-white/5 ${f.color} p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}>
+                <div className="text-4xl mb-3">{f.emoji}</div>
+                <h3 className="text-sm font-black text-white mb-2 group-hover:text-yellow-400 transition-colors">{f.title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Sports ────────────────────────────────────────────────────── */}
       <section className="py-12 px-4">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
-            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">Sports</p>
-            <h2 className="text-3xl font-black text-white">What We Play</h2>
+            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">Supported Sports</p>
+            <h2 className="text-3xl font-black text-white">Built for Multiple Sports</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {SPORTS.map(s => (
@@ -175,14 +236,12 @@ export default function Home() {
       <section className="py-16 px-4 pb-20">
         <div className="max-w-5xl mx-auto">
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-yellow-400/15 via-amber-500/5 to-transparent border border-yellow-400/20 p-10 sm:p-14 text-center">
-            {/* Glow orb */}
             <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-72 h-72 bg-yellow-400/8 rounded-full blur-3xl pointer-events-none" />
-
             <div className="relative z-10">
               <p className="text-5xl mb-5">🏆</p>
-              <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Ready to Compete?</h2>
-              <p className="text-slate-400 text-sm mb-8 max-w-sm mx-auto leading-relaxed">
-                Register for an upcoming tournament and represent your tower. All skill levels welcome.
+              <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Ready to Run Your Tournament?</h2>
+              <p className="text-slate-400 text-sm mb-8 max-w-md mx-auto leading-relaxed">
+                Set up your tournament, invite players to register, and let Tournament Craft handle the rest — draws, scoring, and results included.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="/tournament">
