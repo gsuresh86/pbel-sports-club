@@ -25,11 +25,15 @@ interface SpinResult extends Registration {
 
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
-// Normalises an expertise level into a skill tier used for team balancing.
-// 'intermediate', 'advanced' and 'expert' are treated as the same (top) tier
-// so that two such players are not placed on the same team during distribution.
+// Players are bucketed into two tiers for team balancing: 'beginner' and
+// 'skilled' (intermediate / advanced / expert). A team may contain at most one
+// 'skilled' player; beginners are unconstrained.
 const normalizeLevel = (level: Registration['expertiseLevel']): string =>
-  level === 'expert' || level === 'intermediate' ? 'advanced' : level;
+  level === 'beginner' ? 'beginner' : 'skilled';
+
+// True for the capped tier (intermediate / advanced / expert).
+const isSkilled = (level: Registration['expertiseLevel']): boolean =>
+  normalizeLevel(level) === 'skilled';
 
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
@@ -222,11 +226,15 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         for (const team of categoryTeams) {
           if (isLocalFull(team.id, team)) continue; // skip full teams
           const teamLevels = getLocalLevels(team.id);
-          // Prefer a player whose level isn't already in this team; fall back to any unused player.
+          const teamHasSkilled = teamLevels.has('skilled');
+          // Prefer a player whose tier isn't already in this team; otherwise fall
+          // back to any unused player that won't give the team a 2nd skilled player.
           const match =
             shuffledPlayers.find(p => !used.has(p.id) && !teamLevels.has(normalizeLevel(p.expertiseLevel))) ??
-            shuffledPlayers.find(p => !used.has(p.id));
-          if (!match) break;
+            shuffledPlayers.find(p => !used.has(p.id) && !(teamHasSkilled && isSkilled(p.expertiseLevel)));
+          // No eligible player for this team (only skilled players remain and the
+          // team already has one); skip it and leave them unassigned.
+          if (!match) continue;
 
           used.add(match.id);
           localPlayers[team.id].push(match.id);
@@ -302,9 +310,22 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const available = categoryTeams.filter(t => !isTeamFull(t));
       const pool = available.length > 0 ? available : categoryTeams;
 
-      // Prefer teams that don't yet have a player of this level.
+      // Teams that don't yet have a player of this tier.
       const withoutLevel = pool.filter(t => !getTeamLevels(t).has(normalizeLevel(player.expertiseLevel)));
-      const candidates = withoutLevel.length > 0 ? withoutLevel : pool;
+      // Skilled players are hard-capped at one per team; beginners only prefer
+      // an empty tier but may double up when needed.
+      const candidates = isSkilled(player.expertiseLevel)
+        ? withoutLevel
+        : (withoutLevel.length > 0 ? withoutLevel : pool);
+      if (candidates.length === 0) {
+        alert({
+          title: 'No Team Available',
+          description: 'Every team already has a skilled player (intermediate/advanced/expert). This player was left unassigned.',
+          variant: 'warning',
+        });
+        setSpinResult(null);
+        return;
+      }
       const targetTeam = candidates.reduce((min, t) => t.players.length < min.players.length ? t : min, candidates[0]);
 
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
@@ -372,6 +393,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const isLocalFull = (team: Team) =>
         team.maxPlayers != null && localPlayers[team.id].length >= team.maxPlayers;
 
+      let unassignedSkilled = 0;
       for (const player of unassignedRegistrations) {
         const sorted = [...categoryTeams]
           .filter(t => !isLocalFull(t))
@@ -381,8 +403,24 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           (a, b) => localPlayers[a.id].length - localPlayers[b.id].length
         );
         const withoutLevel = candidates.filter(t => !getLocalLevels(t.id).has(normalizeLevel(player.expertiseLevel)));
-        const target = (withoutLevel.length > 0 ? withoutLevel : candidates)[0];
-        localPlayers[target.id].push(player.id);
+        // Skilled players are hard-capped at one per team; if no team is free of a
+        // skilled player, leave them unassigned. Beginners may double up.
+        const eligible = isSkilled(player.expertiseLevel)
+          ? withoutLevel
+          : (withoutLevel.length > 0 ? withoutLevel : candidates);
+        if (eligible.length === 0) {
+          unassignedSkilled++;
+          continue;
+        }
+        localPlayers[eligible[0].id].push(player.id);
+      }
+
+      if (unassignedSkilled > 0) {
+        alert({
+          title: 'Some Players Left Unassigned',
+          description: `${unassignedSkilled} skilled player(s) could not be placed because every team already has one skilled player (intermediate/advanced/expert).`,
+          variant: 'warning',
+        });
       }
 
       await Promise.all(
