@@ -320,6 +320,7 @@ export interface Team {
   captainId?: string; // ID of team captain
   poolId?: string; // ID of pool/group this team belongs to
   seed?: number; // Seeding for tournament
+  maxPlayers?: number; // Maximum players allowed in this team
   status: 'active' | 'eliminated' | 'withdrawn';
   createdAt: Date;
   updatedAt?: Date;
