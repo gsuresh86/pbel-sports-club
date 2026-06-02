@@ -13,7 +13,7 @@ import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw } from 'lucide-react'
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { distributePlayersAcrossTeams, selectTeamForPlayer, selectPlayerForTeam } from '@/lib/teamAssignment';
+import { assignByTierQuota, selectQuotaTeamForPlayer, selectQuotaPlayerForTeam } from '@/lib/teamAssignment';
 
 interface SpinWheelProps {
   tournament: Tournament;
@@ -25,12 +25,6 @@ interface SpinResult extends Registration {
 }
 
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
-
-// Each distinct expertise level is treated as its own tier for team balancing,
-// so players of the same level (e.g. two 'advanced') are spread across different
-// teams rather than clustered together. Merging levels into a single tier would
-// make the diversity check blind to differences within that tier.
-const normalizeLevel = (level: Registration['expertiseLevel']): string => level;
 
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
@@ -208,22 +202,21 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       if (isTeamCategory()) {
         const categoryTeams = targets as Team[];
 
-        // Track local team compositions so the level-diversity constraint is
-        // honoured within a single round (one player per team).
+        // Track local team compositions so each team builds toward one expert,
+        // one advanced and one intermediate within the round (one player per team).
         const localPlayers: Record<string, string[]> = Object.fromEntries(
           categoryTeams.map(t => [t.id, [...t.players]])
         );
         const used = new Set<string>();
-        const isLocalFull = (teamId: string, team: Team) =>
-          team.maxPlayers != null && localPlayers[teamId].length >= team.maxPlayers;
         const levelOf = makeLevelOf();
 
         // shuffledPlayers already randomised above; keep that order as the priority.
         for (const team of categoryTeams) {
-          if (isLocalFull(team.id, team)) continue; // skip full teams
           const available = shuffledPlayers.filter(p => !used.has(p.id)).map(p => p.id);
-          const matchId = selectPlayerForTeam(available, localPlayers[team.id], levelOf);
-          if (!matchId) break;
+          const matchId = selectQuotaPlayerForTeam(available, localPlayers[team.id], levelOf);
+          // Nothing suitable for this team (e.g. only surplus top-tier players
+          // remain and it already has those tiers); skip it.
+          if (!matchId) continue;
           const match = shuffledPlayers.find(p => p.id === matchId)!;
 
           used.add(match.id);
@@ -285,10 +278,10 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     }
   };
 
-  // Builds a fast resolver from player id to skill tier for the current registrations.
+  // Builds a fast resolver from player id to expertise level for the current registrations.
   const makeLevelOf = () => {
-    const levelById = new Map(registrations.map(r => [r.id, normalizeLevel(r.expertiseLevel)]));
-    return (id: string) => levelById.get(id) ?? normalizeLevel('beginner');
+    const levelById = new Map(registrations.map(r => [r.id, r.expertiseLevel as string]));
+    return (id: string) => levelById.get(id) ?? 'beginner';
   };
 
   const autoAssignPlayerToNextTeam = async (player: Registration) => {
@@ -298,10 +291,19 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       if (categoryTeams.length === 0) return;
 
-      // Prefer a team that doesn't yet have a player of this tier; otherwise fall
-      // back to the smallest team so each tier stays spread evenly.
-      const targetTeam = selectTeamForPlayer(normalizeLevel(player.expertiseLevel), categoryTeams, makeLevelOf());
-      if (!targetTeam) return;
+      // Place the player on a team that still needs their tier (beginners go to
+      // the smallest team). A surplus expert/advanced/intermediate has no eligible
+      // team and is left unassigned.
+      const targetTeam = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, makeLevelOf());
+      if (!targetTeam) {
+        alert({
+          title: 'No Team Available',
+          description: `Every team already has ${player.expertiseLevel === 'expert' ? 'an' : 'a'} ${player.expertiseLevel} player. Each team holds at most one expert, one advanced and one intermediate, so this player was left unassigned.`,
+          variant: 'warning',
+        });
+        setSpinResult(null);
+        return;
+      }
 
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
         players: [...targetTeam.players, player.id],
@@ -357,8 +359,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const categoryTeams = teams.filter(t => t.category === selectedCategory);
       if (categoryTeams.length === 0) return;
 
-      // Distribute all players in one batch so each tier is spread evenly across teams.
-      const localPlayers = distributePlayersAcrossTeams(
+      // Give each team one expert, one advanced and one intermediate, then fill
+      // the rest with beginners. Surplus top-tier players are left unassigned.
+      const { assignments, unassigned } = assignByTierQuota(
         unassignedRegistrations.map(r => r.id),
         categoryTeams,
         makeLevelOf(),
@@ -367,13 +370,21 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       await Promise.all(
         categoryTeams.map(team =>
           updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
-            players: localPlayers[team.id],
+            players: assignments[team.id],
             updatedAt: new Date(),
           })
         )
       );
       await loadData();
       filterRegistrations();
+
+      if (unassigned.length > 0) {
+        alert({
+          title: 'Some Players Left Unassigned',
+          description: `${unassigned.length} player(s) could not be placed. Each team holds at most one expert, one advanced and one intermediate, so surplus players of those levels were left unassigned.`,
+          variant: 'warning',
+        });
+      }
     } else {
       const categoryPools = pools.filter(p => p.category === selectedCategory);
       if (categoryPools.length === 0) return;
