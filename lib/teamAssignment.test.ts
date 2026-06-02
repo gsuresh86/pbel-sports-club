@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { distributePlayersAcrossTeams, type AssignTeam } from './teamAssignment.ts';
+import {
+  distributePlayersAcrossTeams,
+  selectTeamForPlayer,
+  selectPlayerForTeam,
+  type AssignTeam,
+} from './teamAssignment.ts';
 
 // --- helpers -------------------------------------------------------------
 
@@ -114,4 +119,58 @@ test('respects maxPlayers until every team is full', () => {
   // Both teams reach capacity with one player each before any doubles up.
   assert.equal(result.t0.length, 1);
   assert.equal(result.t1.length, 1);
+});
+
+// --- selectTeamForPlayer (used by single spin + batch) -------------------
+
+const lvl = (map: Record<string, string>) => (id: string) => map[id];
+
+test('selectTeamForPlayer: picks the smallest team lacking the tier', () => {
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['a'] },        // has advanced
+    { id: 't1', players: [] },           // empty, lacks advanced
+  ];
+  const t = selectTeamForPlayer('advanced', teams, lvl({ a: 'advanced' }));
+  assert.equal(t?.id, 't1');
+});
+
+test('selectTeamForPlayer: falls back to smallest team when all have the tier', () => {
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['a', 'b'] },   // 2 players, has advanced
+    { id: 't1', players: ['c'] },        // 1 player, has advanced
+  ];
+  const levels = lvl({ a: 'advanced', b: 'beginner', c: 'advanced' });
+  const t = selectTeamForPlayer('advanced', teams, levels);
+  assert.equal(t?.id, 't1', 'should pick the smaller team when neither lacks the tier');
+});
+
+test('selectTeamForPlayer: skips full teams unless all are full', () => {
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['a'], maxPlayers: 1 }, // full
+    { id: 't1', players: [] },
+  ];
+  const t = selectTeamForPlayer('advanced', teams, lvl({ a: 'beginner' }));
+  assert.equal(t?.id, 't1');
+});
+
+test('selectTeamForPlayer: returns undefined when there are no teams', () => {
+  assert.equal(selectTeamForPlayer('advanced', [], () => 'advanced'), undefined);
+});
+
+// --- selectPlayerForTeam (used by round spin) ----------------------------
+
+test('selectPlayerForTeam: prefers a player whose tier is not on the team', () => {
+  // Team already has an advanced player; should pick the beginner.
+  const picked = selectPlayerForTeam(['p0', 'p1'], ['x'], lvl({ p0: 'advanced', p1: 'beginner', x: 'advanced' }));
+  assert.equal(picked, 'p1');
+});
+
+test('selectPlayerForTeam: falls back to the first available when all share the tier', () => {
+  const levels = lvl({ p0: 'advanced', p1: 'advanced', x: 'advanced' });
+  const picked = selectPlayerForTeam(['p0', 'p1'], ['x'], levels);
+  assert.equal(picked, 'p0', 'preserves given (shuffled) order on fallback');
+});
+
+test('selectPlayerForTeam: returns undefined when no players are available', () => {
+  assert.equal(selectPlayerForTeam([], ['x'], () => 'advanced'), undefined);
 });

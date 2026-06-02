@@ -13,7 +13,7 @@ import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw } from 'lucide-react'
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { distributePlayersAcrossTeams } from '@/lib/teamAssignment';
+import { distributePlayersAcrossTeams, selectTeamForPlayer, selectPlayerForTeam } from '@/lib/teamAssignment';
 
 interface SpinWheelProps {
   tournament: Tournament;
@@ -208,27 +208,23 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       if (isTeamCategory()) {
         const categoryTeams = targets as Team[];
 
-        // Track local team compositions to honour the level-diversity constraint
-        // even within a single round (one player per team, no same level as existing).
+        // Track local team compositions so the level-diversity constraint is
+        // honoured within a single round (one player per team).
         const localPlayers: Record<string, string[]> = Object.fromEntries(
           categoryTeams.map(t => [t.id, [...t.players]])
         );
-        const getLocalLevels = (teamId: string) =>
-          new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
-
         const used = new Set<string>();
         const isLocalFull = (teamId: string, team: Team) =>
           team.maxPlayers != null && localPlayers[teamId].length >= team.maxPlayers;
-        // shuffledPlayers already randomised above
+        const levelOf = makeLevelOf();
+
+        // shuffledPlayers already randomised above; keep that order as the priority.
         for (const team of categoryTeams) {
           if (isLocalFull(team.id, team)) continue; // skip full teams
-          const teamLevels = getLocalLevels(team.id);
-          // Prefer a player whose tier isn't already in this team; fall back to
-          // any unused player so each tier still ends up spread evenly.
-          const match =
-            shuffledPlayers.find(p => !used.has(p.id) && !teamLevels.has(normalizeLevel(p.expertiseLevel))) ??
-            shuffledPlayers.find(p => !used.has(p.id));
-          if (!match) break;
+          const available = shuffledPlayers.filter(p => !used.has(p.id)).map(p => p.id);
+          const matchId = selectPlayerForTeam(available, localPlayers[team.id], levelOf);
+          if (!matchId) break;
+          const match = shuffledPlayers.find(p => p.id === matchId)!;
 
           used.add(match.id);
           localPlayers[team.id].push(match.id);
@@ -289,9 +285,11 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     }
   };
 
-  // Returns the set of expertise levels already present in a team.
-  const getTeamLevels = (team: Team): Set<string> =>
-    new Set(registrations.filter(r => team.players.includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
+  // Builds a fast resolver from player id to skill tier for the current registrations.
+  const makeLevelOf = () => {
+    const levelById = new Map(registrations.map(r => [r.id, normalizeLevel(r.expertiseLevel)]));
+    return (id: string) => levelById.get(id) ?? normalizeLevel('beginner');
+  };
 
   const autoAssignPlayerToNextTeam = async (player: Registration) => {
     try {
@@ -300,15 +298,10 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
       if (categoryTeams.length === 0) return;
 
-      const isTeamFull = (t: Team) => t.maxPlayers != null && t.players.length >= t.maxPlayers;
-      const available = categoryTeams.filter(t => !isTeamFull(t));
-      const pool = available.length > 0 ? available : categoryTeams;
-
       // Prefer a team that doesn't yet have a player of this tier; otherwise fall
       // back to the smallest team so each tier stays spread evenly.
-      const withoutLevel = pool.filter(t => !getTeamLevels(t).has(normalizeLevel(player.expertiseLevel)));
-      const candidates = withoutLevel.length > 0 ? withoutLevel : pool;
-      const targetTeam = candidates.reduce((min, t) => t.players.length < min.players.length ? t : min, candidates[0]);
+      const targetTeam = selectTeamForPlayer(normalizeLevel(player.expertiseLevel), categoryTeams, makeLevelOf());
+      if (!targetTeam) return;
 
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
         players: [...targetTeam.players, player.id],
@@ -364,14 +357,11 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const categoryTeams = teams.filter(t => t.category === selectedCategory);
       if (categoryTeams.length === 0) return;
 
-      // Resolve the skill tier for any player id, then distribute all players in
-      // one batch so each tier is spread evenly across teams.
-      const levelById = new Map(registrations.map(r => [r.id, normalizeLevel(r.expertiseLevel)]));
-      const levelOf = (id: string) => levelById.get(id) ?? normalizeLevel('beginner');
+      // Distribute all players in one batch so each tier is spread evenly across teams.
       const localPlayers = distributePlayersAcrossTeams(
         unassignedRegistrations.map(r => r.id),
         categoryTeams,
-        levelOf,
+        makeLevelOf(),
       );
 
       await Promise.all(
