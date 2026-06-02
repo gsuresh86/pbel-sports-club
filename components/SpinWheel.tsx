@@ -25,11 +25,11 @@ interface SpinResult extends Registration {
 
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
-// Players are bucketed into two tiers for team balancing: 'beginner' and
-// 'skilled' (intermediate / advanced / expert). Each tier is spread evenly
-// across teams so skilled players are never clustered on a single team.
-const normalizeLevel = (level: Registration['expertiseLevel']): string =>
-  level === 'beginner' ? 'beginner' : 'skilled';
+// Each distinct expertise level is treated as its own tier for team balancing,
+// so players of the same level (e.g. two 'advanced') are spread across different
+// teams rather than clustered together. Merging levels into a single tier would
+// make the diversity check blind to differences within that tier.
+const normalizeLevel = (level: Registration['expertiseLevel']): string => level;
 
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
