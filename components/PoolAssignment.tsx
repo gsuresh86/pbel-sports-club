@@ -531,12 +531,24 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Pool Assignment</h2>
           <p className="text-gray-600">Assign {isOpenTeamCategory() ? 'teams' : 'players'} to pools/groups</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Choose category" />
+            </SelectTrigger>
+            <SelectContent>
+              {tournament.categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             onClick={generateMatchesFromPools}
@@ -552,59 +564,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         </div>
       </div>
 
-      {/* Category Selection */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <Label htmlFor="category-select">Select Category:</Label>
-            <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Choose category" />
-              </SelectTrigger>
-              <SelectContent>
-                {tournament.categories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
       {selectedCategory && (
         <>
-          {/* Statistics */}
-          <div className="grid grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {isOpenTeamCategory() ? categoryTeams.length : getCategoryPlayers().length}
-                </div>
-                <div className="text-sm text-gray-600">Total {isOpenTeamCategory() ? 'Teams' : 'Players'}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {isOpenTeamCategory() 
-                    ? categoryTeams.length - unassignedTeams.length 
-                    : getCategoryPlayers().length - getUnassignedPlayers().length
-                  }
-                </div>
-                <div className="text-sm text-gray-600">Assigned {isOpenTeamCategory() ? 'Teams' : 'Players'}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {isOpenTeamCategory() ? unassignedTeams.length : getUnassignedPlayers().length}
-                </div>
-                <div className="text-sm text-gray-600">Unassigned {isOpenTeamCategory() ? 'Teams' : 'Players'}</div>
-              </CardContent>
-            </Card>
-          </div>
 
           {/* Manual Assignment */}
           <Card>

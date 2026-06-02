@@ -26,6 +26,8 @@ export default function TournamentDetailPage() {
   const [pools, setPools] = useState<Pool[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
+  const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
+  const [poolsCatFilter, setPoolsCatFilter] = useState<string>('all');
 
   useEffect(() => {
     if (tournamentId) {
@@ -336,7 +338,12 @@ export default function TournamentDetailPage() {
                     {tournament.categories?.map(cat => {
                       const catTeamCount = teams.filter(t => t.category === cat).length;
                       const catPlayerCount = participants.filter(p => p.selectedCategory === cat).length;
+                      const catPoolCount = pools.filter(p => p.category === cat).length;
                       const isTCat = cat.includes('team') && !cat.includes('doubles') && !cat.includes('kids-team-u13') && !cat.includes('kids-team-u18') && !cat.includes('under-');
+                      const parts: string[] = [];
+                      if (isTCat) parts.push(`${catTeamCount} teams`);
+                      if (catPoolCount > 0) parts.push(`${catPoolCount} pools`);
+                      parts.push(`${catPlayerCount} players`);
                       return (
                         <Link key={cat} href={`/tournament/${tournamentId}/category/${cat}`}
                           className="group flex flex-col gap-1 bg-white/5 hover:bg-yellow-400/10 border border-white/10 hover:border-yellow-400/40 rounded-xl px-4 py-3 transition-all">
@@ -344,7 +351,7 @@ export default function TournamentDetailPage() {
                             {cat.replace(/-/g, ' ')}
                           </span>
                           <span className="text-[10px] text-slate-500">
-                            {isTCat ? `${catTeamCount} teams · ` : ''}{catPlayerCount} players
+                            {parts.join(' · ')}
                           </span>
                         </Link>
                       );
@@ -442,7 +449,24 @@ export default function TournamentDetailPage() {
 
           {/* TEAMS ────────────────────────────────────────────── */}
           {activeTab === 'teams' && (
-            <div>
+            <div className="space-y-4">
+              {teams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={teamsCatFilter}
+                    onChange={e => setTeamsCatFilter(e.target.value)}
+                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                  >
+                    <option value="all">All Categories</option>
+                    {tournament.categories?.filter(cat => cat === 'mens-team' || cat === 'womens-team').map(cat => (
+                      <option key={cat} value={cat}>{cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                    ))}
+                  </select>
+                  {teamsCatFilter !== 'all' && (
+                    <button onClick={() => setTeamsCatFilter('all')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Clear</button>
+                  )}
+                </div>
+              )}
               {teams.length === 0 ? (
                 <div className="text-center py-24">
                   <Shield className="h-12 w-12 text-slate-600 mx-auto mb-4" />
@@ -450,7 +474,7 @@ export default function TournamentDetailPage() {
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {teams.map(team => {
+                  {teams.filter(t => teamsCatFilter === 'all' || t.category === teamsCatFilter).map(team => {
                     const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
                     const captain = participants.find(p => p.id === team.captainId);
                     return (
@@ -516,13 +540,30 @@ export default function TournamentDetailPage() {
           {/* POOLS ────────────────────────────────────────────── */}
           {activeTab === 'pools' && (
             <div className="space-y-6">
+              {pools.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={poolsCatFilter}
+                    onChange={e => setPoolsCatFilter(e.target.value)}
+                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                  >
+                    <option value="all">All Categories</option>
+                    {tournament.categories?.map(cat => (
+                      <option key={cat} value={cat}>{cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                    ))}
+                  </select>
+                  {poolsCatFilter !== 'all' && (
+                    <button onClick={() => setPoolsCatFilter('all')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Clear</button>
+                  )}
+                </div>
+              )}
               {pools.length === 0 ? (
                 <div className="text-center py-24">
                   <Users2 className="h-12 w-12 text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-400">Pools will appear once they are created</p>
                 </div>
               ) : (
-                pools.map(pool => {
+                pools.filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter).map(pool => {
                   const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18') || pool.category.includes('under-');
                   const isTeamCategory = pool.category.includes('team') && !pool.category.includes('doubles') && !isKidsCategory;
                   return (
@@ -565,7 +606,6 @@ export default function TournamentDetailPage() {
                                 )}
                                 <div>
                                   <p className="text-sm font-semibold text-white">{player?.name ?? `Player ${idx + 1}`}</p>
-                                  {player && <p className="text-[10px] text-slate-400 capitalize">{player.expertiseLevel}</p>}
                                 </div>
                               </div>
                             );

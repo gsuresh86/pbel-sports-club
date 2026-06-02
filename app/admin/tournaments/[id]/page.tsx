@@ -978,88 +978,71 @@ export default function TournamentDetailsPage() {
                 <h3 className="text-base font-semibold sm:text-lg">Registrations ({filteredParticipants.length})</h3>
                 <p className="text-xs text-gray-600 sm:text-sm">Manage tournament registrations</p>
               </div>
-              <Button onClick={exportParticipants} size="sm" className="w-full sm:w-auto">
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </div>
-
-            {/* Filter Controls - compact single row */}
-            <Card className="shrink-0">
-              <CardContent className="p-3">
-                <div className="flex flex-wrap items-end gap-2 sm:gap-3">
-                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[140px]">
-                    <Label htmlFor="category-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Category</Label>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger id="category-filter" className="h-8 text-xs">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {tournament?.categories?.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category === 'girls-under-13' ? 'Girls Under 13' :
-                             category === 'boys-under-13' ? 'Boys Under 13' :
-                             category === 'girls-under-18' ? 'Girls Under 18' :
-                             category === 'boys-under-18' ? 'Boys Under 18' :
-                             category === 'mens-single' ? 'Mens Single' :
-                             category === 'womens-single' ? 'Womens Single' :
-                             category === 'mens-doubles' ? 'Mens Doubles' :
-                             category === 'mixed-doubles' ? 'Mixed Doubles' :
-                             category === 'mens-team' ? 'Mens Team' :
-                             category === 'womens-team' ? 'Womens Team' :
-                             category === 'kids-team-u13' ? 'Kids Team (U13)' :
-                             category === 'kids-team-u18' ? 'Kids Team (U18)' :
-                             category === 'open-team' ? 'Open Team' : category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[120px]">
-                    <Label htmlFor="level-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Level</Label>
-                    <Select value={levelFilter} onValueChange={setLevelFilter}>
-                      <SelectTrigger id="level-filter" className="h-8 text-xs">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Levels</SelectItem>
-                        <SelectItem value="beginner">Beginner</SelectItem>
-                        <SelectItem value="intermediate">Intermediate</SelectItem>
-                        <SelectItem value="advanced">Advanced</SelectItem>
-                        <SelectItem value="expert">Expert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:min-w-[100px]">
-                    <Label htmlFor="gender-filter" className="text-xs text-muted-foreground shrink-0 w-14 sm:w-16">Gender</Label>
-                    <Select value={genderFilter} onValueChange={setGenderFilter}>
-                      <SelectTrigger id="gender-filter" className="h-8 text-xs">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Genders</SelectItem>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-8 w-36 text-xs">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {tournament?.categories?.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category === 'girls-under-13' ? 'Girls Under 13' :
+                         category === 'boys-under-13' ? 'Boys Under 13' :
+                         category === 'girls-under-18' ? 'Girls Under 18' :
+                         category === 'boys-under-18' ? 'Boys Under 18' :
+                         category === 'mens-single' ? 'Mens Single' :
+                         category === 'womens-single' ? 'Womens Single' :
+                         category === 'mens-doubles' ? 'Mens Doubles' :
+                         category === 'mixed-doubles' ? 'Mixed Doubles' :
+                         category === 'mens-team' ? 'Mens Team' :
+                         category === 'womens-team' ? 'Womens Team' :
+                         category === 'kids-team-u13' ? 'Kids Team (U13)' :
+                         category === 'kids-team-u18' ? 'Kids Team (U18)' :
+                         category === 'open-team' ? 'Open Team' : category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={levelFilter} onValueChange={setLevelFilter}>
+                  <SelectTrigger className="h-8 w-32 text-xs">
+                    <SelectValue placeholder="All Levels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
+                    <SelectItem value="expert">Expert</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={genderFilter} onValueChange={setGenderFilter}>
+                  <SelectTrigger className="h-8 w-28 text-xs">
+                    <SelectValue placeholder="All Genders" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Genders</SelectItem>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(categoryFilter !== 'all' || levelFilter !== 'all' || genderFilter !== 'all') && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground shrink-0"
-                    onClick={() => {
-                      setCategoryFilter('all');
-                      setLevelFilter('all');
-                      setGenderFilter('all');
-                    }}
+                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => { setCategoryFilter('all'); setLevelFilter('all'); setGenderFilter('all'); }}
                   >
                     Clear
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                )}
+                <Button onClick={exportParticipants} size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
 
             <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">

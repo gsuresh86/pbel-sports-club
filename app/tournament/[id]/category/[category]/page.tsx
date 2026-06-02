@@ -27,12 +27,6 @@ function isDoublesCategory(cat: string) {
   return cat.includes('doubles');
 }
 
-const LEVEL_COLOR: Record<string, string> = {
-  beginner: 'bg-emerald-500',
-  intermediate: 'bg-blue-500',
-  advanced: 'bg-violet-500',
-  expert: 'bg-orange-500',
-};
 
 const CARD_GRADIENTS = [
   'from-blue-900 to-blue-700',
@@ -77,7 +71,6 @@ function Avatar({ name, photoUrl, size = 'lg' }: { name: string; photoUrl?: stri
 function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: boolean }) {
   const initials = player.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   const grad = CARD_GRADIENTS[player.name.charCodeAt(0) % CARD_GRADIENTS.length];
-  const levelColor = LEVEL_COLOR[player.expertiseLevel] ?? 'bg-gray-500';
 
   return (
     <div className="group relative rounded-xl overflow-hidden border border-white/5 shadow hover:shadow-xl transition-all duration-200 hover:-translate-y-1 bg-slate-900">
@@ -97,11 +90,6 @@ function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: b
             <Star className="h-2.5 w-2.5 fill-black" /> C
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase text-white ${levelColor}`}>
-            {player.expertiseLevel}
-          </span>
-        </div>
         {(player.tower || player.flatNumber) && (
           <p className="absolute bottom-1.5 left-0 right-0 text-center text-[10px] text-white/70 font-medium">
             {player.tower}{player.flatNumber ? ` - ${player.flatNumber}` : ''}
@@ -122,8 +110,6 @@ function DoublesCard({ registration }: { registration: Registration }) {
   const hasPartner = !!registration.partnerName?.trim();
   const partnerName = registration.partnerName ?? '';
   const partnerPhoto = registration.partnerProfilePhotoUrl;
-  const levelColor = LEVEL_COLOR[registration.expertiseLevel] ?? 'bg-gray-500';
-
   return (
     <div className="rounded-2xl overflow-hidden border border-white/5 bg-slate-900 hover:border-yellow-400/20 hover:-translate-y-1 transition-all duration-200 shadow hover:shadow-xl">
       {/* Two avatars side by side */}
@@ -138,9 +124,11 @@ function DoublesCard({ registration }: { registration: Registration }) {
           <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[72px] truncate">
             {registration.name.split(' ')[0]}
           </p>
-          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase text-white ${levelColor}`}>
-            {registration.expertiseLevel}
-          </span>
+          {(registration.tower || registration.flatNumber) && (
+            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-slate-300 bg-slate-700">
+              {registration.tower}{registration.flatNumber ? `-${registration.flatNumber}` : ''}
+            </span>
+          )}
         </div>
 
         {/* VS divider */}
@@ -156,9 +144,11 @@ function DoublesCard({ registration }: { registration: Registration }) {
             <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[72px] truncate">
               {partnerName.split(' ')[0]}
             </p>
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase text-slate-400 bg-slate-700">
-              partner
-            </span>
+            {(registration.partnerTower || registration.partnerFlatNumber) ? (
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-slate-300 bg-slate-700">
+                {registration.partnerTower}{registration.partnerFlatNumber ? `-${registration.partnerFlatNumber}` : ''}
+              </span>
+            ) : null}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1.5 z-10 opacity-30">
@@ -230,11 +220,6 @@ function PoolStandings({ pool, teams, participants, isTeamCat }: {
                     <p className="text-[10px] text-slate-500">{player.tower} {player.flatNumber}</p>
                   )}
                 </div>
-                {player && (
-                  <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${LEVEL_COLOR[player.expertiseLevel] ?? 'bg-gray-500'}`}>
-                    {player.expertiseLevel}
-                  </span>
-                )}
               </div>
             );
           }
@@ -311,9 +296,9 @@ export default function CategoryPage() {
           <span className="text-slate-600">/</span>
           <span className="text-sm font-bold text-white truncate">{label}</span>
           <div className="flex-1" />
-          {poolsAvailable && (
+          {poolsAvailable && isCatTeam && (
             <div className="flex gap-1 bg-slate-800 p-0.5 rounded-full">
-              {([['squads', isCatTeam ? 'Squads' : 'Players'], ['pools', 'Pools']] as const).map(([id, lbl]) => (
+              {([['squads', 'Squads'], ['pools', 'Pools']] as const).map(([id, lbl]) => (
                 <button key={id} onClick={() => setActiveSection(id)}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${activeSection === id ? 'bg-yellow-400 text-black' : 'text-slate-400 hover:text-white'}`}>
                   {lbl}
@@ -358,89 +343,54 @@ export default function CategoryPage() {
       {/* ── Content ────────────────────────────────────────────── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-12">
 
-        {/* SQUADS / PLAYERS */}
-        {activeSection === 'squads' && (
-          <>
-            {isCatTeam ? (
-              catTeams.length === 0 ? (
-                <div className="text-center py-24">
-                  <Shield className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">No teams assigned to this category yet</p>
-                </div>
-              ) : (
-                catTeams.map((team, ti) => {
-                  const players = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
-                  const grad = TEAM_HEADER_GRADIENTS[ti % TEAM_HEADER_GRADIENTS.length];
-                  return (
-                    <section key={team.id}>
-                      <div className={`flex items-center justify-between bg-gradient-to-r ${grad} rounded-2xl px-6 py-5 mb-5 border border-white/5`}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                            <Shield className="h-6 w-6 text-white/80" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-black text-white">{team.name}</h2>
-                            <p className="text-sm text-white/50 mt-0.5">{players.length} players</p>
-                          </div>
-                        </div>
-                        {team.captainId && (
-                          <div className="hidden sm:flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/20 rounded-full px-4 py-1.5">
-                            <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
-                            <span className="text-xs font-bold text-yellow-400">
-                              Captain: {participants.find(p => p.id === team.captainId)?.name ?? '—'}
-                            </span>
-                          </div>
-                        )}
+        {/* TEAM CATEGORIES — tab-controlled */}
+        {isCatTeam && activeSection === 'squads' && (
+          catTeams.length === 0 ? (
+            <div className="text-center py-24">
+              <Shield className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400">No teams assigned to this category yet</p>
+            </div>
+          ) : (
+            catTeams.map((team, ti) => {
+              const players = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
+              const grad = TEAM_HEADER_GRADIENTS[ti % TEAM_HEADER_GRADIENTS.length];
+              return (
+                <section key={team.id}>
+                  <div className={`flex items-center justify-between bg-gradient-to-r ${grad} rounded-2xl px-6 py-5 mb-5 border border-white/5`}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                        <Shield className="h-6 w-6 text-white/80" />
                       </div>
-                      {players.length === 0 ? (
-                        <p className="text-slate-500 text-sm italic px-2">No players assigned yet</p>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                          {players.map((player) => (
-                            <PlayerCard key={player.id} player={player} isCaptain={player.id === team.captainId} />
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  );
-                })
-              )
-            ) : (
-              /* INDIVIDUAL / DOUBLES */
-              catPlayers.length === 0 ? (
-                <div className="text-center py-24">
-                  <Users className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">No players registered in this category yet</p>
-                </div>
-              ) : (
-                <section>
-                  <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
-                    <Trophy className="h-3.5 w-3.5" />
-                    {isDoubles ? 'Pairs' : 'Players'} — {label}
-                  </h2>
-                  {isDoubles ? (
-                    /* Doubles: wider grid, each card shows both players */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {catPlayers.map(reg => (
-                        <DoublesCard key={reg.id} registration={reg} />
-                      ))}
+                      <div>
+                        <h2 className="text-2xl font-black text-white">{team.name}</h2>
+                        <p className="text-sm text-white/50 mt-0.5">{players.length} players</p>
+                      </div>
                     </div>
+                    {team.captainId && (
+                      <div className="hidden sm:flex items-center gap-2 bg-yellow-400/10 border border-yellow-400/20 rounded-full px-4 py-1.5">
+                        <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                        <span className="text-xs font-bold text-yellow-400">
+                          Captain: {participants.find(p => p.id === team.captainId)?.name ?? '—'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {players.length === 0 ? (
+                    <p className="text-slate-500 text-sm italic px-2">No players assigned yet</p>
                   ) : (
-                    /* Singles: portrait IPL grid */
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                      {catPlayers.map(player => (
-                        <PlayerCard key={player.id} player={player} />
+                      {players.map((player) => (
+                        <PlayerCard key={player.id} player={player} isCaptain={player.id === team.captainId} />
                       ))}
                     </div>
                   )}
                 </section>
-              )
-            )}
-          </>
+              );
+            })
+          )
         )}
 
-        {/* POOLS */}
-        {activeSection === 'pools' && (
+        {isCatTeam && activeSection === 'pools' && (
           <section>
             <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
               <Users2 className="h-3.5 w-3.5" /> Pools — {label}
@@ -453,11 +403,56 @@ export default function CategoryPage() {
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {catPools.map(pool => (
-                  <PoolStandings key={pool.id} pool={pool} teams={teams} participants={participants} isTeamCat={isCatTeam} />
+                  <PoolStandings key={pool.id} pool={pool} teams={teams} participants={participants} isTeamCat={true} />
                 ))}
               </div>
             )}
           </section>
+        )}
+
+        {/* INDIVIDUAL / DOUBLES — players always visible, pools shown below when available */}
+        {!isCatTeam && (
+          <>
+            {catPlayers.length === 0 ? (
+              <div className="text-center py-24">
+                <Users className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400">No players registered in this category yet</p>
+              </div>
+            ) : (
+              <section>
+                <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
+                  <Trophy className="h-3.5 w-3.5" />
+                  {isDoubles ? 'Pairs' : 'Players'} — {label}
+                </h2>
+                {isDoubles ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {catPlayers.map(reg => (
+                      <DoublesCard key={reg.id} registration={reg} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {catPlayers.map(player => (
+                      <PlayerCard key={player.id} player={player} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {poolsAvailable && (
+              <section>
+                <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
+                  <Users2 className="h-3.5 w-3.5" /> Pools — {label}
+                </h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {catPools.map(pool => (
+                    <PoolStandings key={pool.id} pool={pool} teams={teams} participants={participants} isTeamCat={false} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
         )}
       </div>
 
