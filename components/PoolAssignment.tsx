@@ -24,6 +24,10 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+// Categories whose pools are filled with teams (assign team numbers) rather than
+// individual players. Mirrors the team categories used at registration time.
+const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'];
+
 interface PoolAssignmentProps {
   tournament: Tournament;
   user: { id: string; role: string; email: string };
@@ -178,7 +182,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     const categoryPools = getCategoryPools();
     if (categoryPools.length === 0) return;
 
-    if (isOpenTeamCategory()) {
+    if (isTeamCategory()) {
       // For open-team category: assign teams to pools
       const unassignedTeams = getUnassignedTeams();
       if (unassignedTeams.length === 0) return;
@@ -279,8 +283,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     }
   };
 
-  const isOpenTeamCategory = () => {
-    return selectedCategory === 'open-team';
+  const isTeamCategory = () => {
+    return selectedCategory !== '' && TEAM_CATEGORIES.includes(selectedCategory as CategoryType);
   };
 
   const getUnassignedTeams = () => {
@@ -338,7 +342,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       const venue = tournament.venue || 'TBD';
 
       for (const pool of categoryPools) {
-        const items = isOpenTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
+        const items = isTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
         if (items.length < 2) {
           continue; // skip pool with 0 or 1 participant
         }
@@ -380,7 +384,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       if (totalCreated === 0) {
         alert({
           title: 'No matches created',
-          description: 'Each pool needs at least 2 ' + (isOpenTeamCategory() ? 'teams' : 'players') + ' to generate matches.',
+          description: 'Each pool needs at least 2 ' + (isTeamCategory() ? 'teams' : 'players') + ' to generate matches.',
           variant: 'error',
         });
       } else {
@@ -413,7 +417,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     }
     confirm({
       title: 'Generate matches',
-      description: `Generate round-robin matches for ${categoryPools.length} pool(s) in this category? Each pool will have every ${isOpenTeamCategory() ? 'team' : 'player'} play every other once.`,
+      description: `Generate round-robin matches for ${categoryPools.length} pool(s) in this category? Each pool will have every ${isTeamCategory() ? 'team' : 'player'} play every other once.`,
       confirmText: 'Generate',
       onConfirm: runGenerateMatchesFromPools,
     });
@@ -421,7 +425,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
   const openEditPool = (pool: Pool) => {
     setEditingPool(pool);
-    if (isOpenTeamCategory()) {
+    if (isTeamCategory()) {
       setSelectedTeamsForPool(pool.teams);
     } else {
       setSelectedPlayersForPool(pool.teams);
@@ -457,13 +461,13 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
     try {
       // Update pool teams/players
-      const selectedItems = isOpenTeamCategory() ? selectedTeamsForPool : selectedPlayersForPool;
+      const selectedItems = isTeamCategory() ? selectedTeamsForPool : selectedPlayersForPool;
       await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', editingPool.id), {
         teams: selectedItems,
         updatedAt: new Date(),
       });
 
-      if (isOpenTeamCategory()) {
+      if (isTeamCategory()) {
         // Update team pool references
         const allTeams = getCategoryTeams();
         
@@ -534,7 +538,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       <div className="flex justify-between items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Pool Assignment</h2>
-          <p className="text-gray-600">Assign {isOpenTeamCategory() ? 'teams' : 'players'} to pools/groups</p>
+          <p className="text-gray-600">Assign {isTeamCategory() ? 'teams' : 'players'} to pools/groups</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
@@ -557,9 +561,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
             <Swords className="h-4 w-4 mr-2" />
             Generate matches
           </Button>
-          <Button onClick={autoAssignToPools} disabled={!selectedCategory || (isOpenTeamCategory() ? unassignedTeams.length === 0 : getUnassignedPlayers().length === 0)}>
+          <Button onClick={autoAssignToPools} disabled={!selectedCategory || (isTeamCategory() ? unassignedTeams.length === 0 : getUnassignedPlayers().length === 0)}>
             <Shuffle className="h-4 w-4 mr-2" />
-            Auto Assign {isOpenTeamCategory() ? 'Teams' : 'Players'}
+            Auto Assign {isTeamCategory() ? 'Teams' : 'Players'}
           </Button>
         </div>
       </div>
@@ -575,15 +579,15 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 Manual Assignment
               </CardTitle>
               <CardDescription>
-                Assign individual {isOpenTeamCategory() ? 'teams' : 'players'} to pools
+                Assign individual {isTeamCategory() ? 'teams' : 'players'} to pools
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="font-medium mb-3">Unassigned {isOpenTeamCategory() ? 'Teams' : 'Players'}</h3>
+                  <h3 className="font-medium mb-3">Unassigned {isTeamCategory() ? 'Teams' : 'Players'}</h3>
                   <div className="space-y-2">
-                    {isOpenTeamCategory() ? (
+                    {isTeamCategory() ? (
                       unassignedTeams.map(team => (
                         <div key={team.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
@@ -644,9 +648,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                         </div>
                       ))
                     )}
-                    {(isOpenTeamCategory() ? unassignedTeams.length === 0 : getUnassignedPlayers().length === 0) && (
+                    {(isTeamCategory() ? unassignedTeams.length === 0 : getUnassignedPlayers().length === 0) && (
                       <div className="text-center py-8 text-gray-500">
-                        All {isOpenTeamCategory() ? 'teams' : 'players'} have been assigned to pools
+                        All {isTeamCategory() ? 'teams' : 'players'} have been assigned to pools
                       </div>
                     )}
                   </div>
@@ -661,7 +665,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                           <div>
                             <div className="font-medium">{pool.name}</div>
                             <div className="text-sm text-gray-600">
-                              {pool.teams.length}/{pool.maxTeams} {isOpenTeamCategory() ? 'teams' : 'players'}
+                              {pool.teams.length}/{pool.maxTeams} {isTeamCategory() ? 'teams' : 'players'}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -679,8 +683,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                           </div>
                         </div>
                         <div className="text-xs text-gray-500">
-                          {isOpenTeamCategory() ? 'Teams' : 'Players'}: {
-                            isOpenTeamCategory() 
+                          {isTeamCategory() ? 'Teams' : 'Players'}: {
+                            isTeamCategory() 
                               ? getPoolTeams(pool).map(team => team.name).join(', ') || 'None'
                               : getPoolPlayers(pool).map(player => player.name).join(', ') || 'None'
                           }
@@ -706,15 +710,15 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 Pool Overview
               </CardTitle>
               <CardDescription>
-                Current pool assignments and {isOpenTeamCategory() ? 'team' : 'player'} distribution
+                Current pool assignments and {isTeamCategory() ? 'team' : 'player'} distribution
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {categoryPools.map(pool => {
-                  const poolTeams = isOpenTeamCategory() ? getPoolTeams(pool) : [];
-                  const poolPlayers = isOpenTeamCategory() ? [] : getPoolPlayers(pool);
-                  const items = isOpenTeamCategory() ? poolTeams : poolPlayers;
+                  const poolTeams = isTeamCategory() ? getPoolTeams(pool) : [];
+                  const poolPlayers = isTeamCategory() ? [] : getPoolPlayers(pool);
+                  const items = isTeamCategory() ? poolTeams : poolPlayers;
                   
                   return (
                     <div key={pool.id} className="border rounded-lg p-4">
@@ -766,9 +770,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                         </div>
                         
                         <div>
-                          <div className="text-sm font-medium mb-1">{isOpenTeamCategory() ? 'Teams' : 'Players'}:</div>
+                          <div className="text-sm font-medium mb-1">{isTeamCategory() ? 'Teams' : 'Players'}:</div>
                           <div className="space-y-1">
-                            {isOpenTeamCategory() ? (
+                            {isTeamCategory() ? (
                               poolTeams.map(team => (
                                 <div key={team.id} className="flex items-center justify-between text-sm bg-gray-50 p-2 rounded">
                                   <span>{team.name}</span>
@@ -809,7 +813,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             )}
                             {items.length === 0 && (
                               <div className="text-center text-gray-500 py-2 text-sm">
-                                No {isOpenTeamCategory() ? 'teams' : 'players'} assigned
+                                No {isTeamCategory() ? 'teams' : 'players'} assigned
                               </div>
                             )}
                           </div>
@@ -890,7 +894,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
           <DialogHeader>
             <DialogTitle>Edit Pool: {editingPool?.name}</DialogTitle>
             <DialogDescription>
-              Select {isOpenTeamCategory() ? 'teams' : 'players'} to assign to this pool. {isOpenTeamCategory() ? 'Teams' : 'Players'} can only be assigned to one pool at a time.
+              Select {isTeamCategory() ? 'teams' : 'players'} to assign to this pool. {isTeamCategory() ? 'Teams' : 'Players'} can only be assigned to one pool at a time.
             </DialogDescription>
           </DialogHeader>
           
@@ -904,15 +908,15 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Capacity</Label>
-                  <div className="text-lg font-semibold">{editingPool.maxTeams} {isOpenTeamCategory() ? 'teams' : 'players'}</div>
+                  <div className="text-lg font-semibold">{editingPool.maxTeams} {isTeamCategory() ? 'teams' : 'players'}</div>
                 </div>
               </div>
 
               {/* Team Selection */}
               <div>
-                <Label className="text-base font-semibold mb-4 block">Select {isOpenTeamCategory() ? 'Teams' : 'Players'}</Label>
+                <Label className="text-base font-semibold mb-4 block">Select {isTeamCategory() ? 'Teams' : 'Players'}</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                  {isOpenTeamCategory() ? (
+                  {isTeamCategory() ? (
                     getCategoryTeams().map(team => (
                       <div key={team.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50">
                         <Checkbox
@@ -957,9 +961,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                   )}
                 </div>
                 
-                {(isOpenTeamCategory() ? getCategoryTeams().length === 0 : getCategoryPlayers().length === 0) && (
+                {(isTeamCategory() ? getCategoryTeams().length === 0 : getCategoryPlayers().length === 0) && (
                   <div className="text-center py-8 text-gray-500">
-                    No {isOpenTeamCategory() ? 'teams' : 'players'} available for this category
+                    No {isTeamCategory() ? 'teams' : 'players'} available for this category
                   </div>
                 )}
               </div>
