@@ -212,6 +212,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
         // shuffledPlayers already randomised above; keep that order as the priority.
         for (const team of categoryTeams) {
+          if (team.maxPlayers != null && localPlayers[team.id].length >= team.maxPlayers) continue;
           const available = shuffledPlayers.filter(p => !used.has(p.id)).map(p => p.id);
           const matchId = selectQuotaPlayerForTeam(available, localPlayers[team.id], levelOf);
           // Nothing suitable for this team (e.g. only surplus top-tier players

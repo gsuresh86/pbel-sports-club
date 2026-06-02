@@ -8,11 +8,15 @@
 //     are teams, the surplus is left UNASSIGNED (at most one per team).
 //   - If a top tier has fewer players than teams, some teams simply go without.
 //   - Every beginner is assigned, spread evenly so team sizes stay balanced.
+//   - maxPlayers (if set) caps how many players any team can hold; once a team
+//     is full it is skipped in all assignment phases.
 
 export interface AssignTeam {
   id: string;
   /** Player ids already on the team. */
   players: string[];
+  /** Hard cap on team size. Undefined means no limit. */
+  maxPlayers?: number;
 }
 
 /** Capped tiers, in the priority order used when a team still needs players. */
@@ -20,16 +24,19 @@ export const TOP_TIERS = ['expert', 'advanced', 'intermediate'] as const;
 
 const isTopTier = (level: string): boolean => (TOP_TIERS as readonly string[]).includes(level);
 
+const hasCapacity = (t: AssignTeam): boolean =>
+  t.maxPlayers == null || t.players.length < t.maxPlayers;
+
 const smallest = <T extends AssignTeam>(teams: T[]): T =>
   teams.reduce((min, t) => (t.players.length < min.players.length ? t : min), teams[0]);
 
 /**
  * Picks the team a single player should join under the quota rules.
- *  - A beginner goes to the smallest team.
+ *  - A beginner goes to the smallest team that still has capacity.
  *  - A top-tier player goes to the smallest team that does not yet have that
- *    tier. If every team already has the tier, returns `undefined` (the player
- *    is surplus and should be left unassigned).
- * Returns `undefined` when there are no teams.
+ *    tier and still has capacity. Returns `undefined` when every eligible team
+ *    is either full or already holds that tier (player is left unassigned).
+ * Returns `undefined` when there are no teams or all are full.
  */
 export function selectQuotaTeamForPlayer<T extends AssignTeam>(
   playerLevel: string,
@@ -37,11 +44,13 @@ export function selectQuotaTeamForPlayer<T extends AssignTeam>(
   levelOf: (playerId: string) => string,
 ): T | undefined {
   if (teams.length === 0) return undefined;
+  const open = teams.filter(hasCapacity);
+  if (open.length === 0) return undefined;
   if (!isTopTier(playerLevel)) {
     // beginner (or any non-capped level): just balance team sizes
-    return smallest(teams);
+    return smallest(open);
   }
-  const lacking = teams.filter(t => !new Set(t.players.map(levelOf)).has(playerLevel));
+  const lacking = open.filter(t => !new Set(t.players.map(levelOf)).has(playerLevel));
   if (lacking.length === 0) return undefined; // surplus of this tier
   return smallest(lacking);
 }
@@ -84,12 +93,15 @@ export function assignByTierQuota(
   const local: Record<string, string[]> = Object.fromEntries(
     teams.map(t => [t.id, [...t.players]]),
   );
+  const cap = (t: AssignTeam) => t.maxPlayers ?? Infinity;
+  const localHasCapacity = (t: AssignTeam) => local[t.id].length < cap(t);
   const used = new Set<string>();
   const tiersOf = (teamId: string) => new Set(local[teamId].map(levelOf));
 
-  // One of each top tier per team (teams lacking the tier, in order).
+  // One of each top tier per team (skip teams that are full or already have it).
   for (const tier of TOP_TIERS) {
     for (const team of teams) {
+      if (!localHasCapacity(team)) continue;
       if (tiersOf(team.id).has(tier)) continue;
       const pid = unassignedIds.find(id => !used.has(id) && levelOf(id) === tier);
       if (!pid) continue; // no more players of this tier; team goes without
@@ -98,18 +110,20 @@ export function assignByTierQuota(
     }
   }
 
-  // Beginners: assign all, always to the currently smallest team.
-  const beginners = unassignedIds.filter(id => !used.has(id) && !isTopTier(levelOf(id)));
-  for (const id of beginners) {
-    const team = teams.reduce(
+  // Remaining (beginners + any surplus): assign equally to teams that still have capacity.
+  const remaining = unassignedIds.filter(id => !used.has(id) && !isTopTier(levelOf(id)));
+  for (const id of remaining) {
+    const eligible = teams.filter(localHasCapacity);
+    if (eligible.length === 0) break; // all teams full
+    const team = eligible.reduce(
       (min, t) => (local[t.id].length < local[min.id].length ? t : min),
-      teams[0],
+      eligible[0],
     );
     used.add(id);
     local[team.id].push(id);
   }
 
-  // Anything still unused is surplus top-tier and stays unassigned.
+  // Anything still unused is surplus top-tier or unplaceable (all teams full).
   const unassigned = unassignedIds.filter(id => !used.has(id));
   return { assignments: local, unassigned };
 }

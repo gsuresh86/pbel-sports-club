@@ -185,3 +185,67 @@ test('does not add a second expert to a team that already has one', () => {
   assert.deepEqual(assignments.t0, ['x0']);
   assert.deepEqual(unassigned, ['p0']);
 });
+
+// --- maxPlayers cap ---------------------------------------------------------
+
+test('maxPlayers: team at capacity is skipped for top-tier assignment', () => {
+  // t0 is already full (maxPlayers=1); expert must go to t1
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['a'], maxPlayers: 1 },
+    { id: 't1', players: [] },
+  ];
+  const levelOf = (id: string) => (id === 'p0' ? 'expert' : 'beginner');
+  const { assignments, unassigned } = assignByTierQuota(['p0'], teams, levelOf);
+  assert.ok(!assignments.t0.includes('p0'), 't0 is full, should not receive the expert');
+  assert.ok(assignments.t1.includes('p0'), 't1 should receive the expert');
+  assert.deepEqual(unassigned, []);
+});
+
+test('maxPlayers: beginners are not assigned to full teams', () => {
+  // 2 teams, maxPlayers=2 each, 1 expert+1 beginner per team already present
+  // one new beginner should go to whichever has space; both are full → unassigned
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['e0', 'b0'], maxPlayers: 2 },
+    { id: 't1', players: ['e1', 'b1'], maxPlayers: 2 },
+  ];
+  const levelOf = (id: string) => (id.startsWith('e') ? 'expert' : 'beginner');
+  const { assignments, unassigned } = assignByTierQuota(['p0'], teams, levelOf);
+  assert.deepEqual(assignments.t0, ['e0', 'b0']);
+  assert.deepEqual(assignments.t1, ['e1', 'b1']);
+  assert.deepEqual(unassigned, ['p0']);
+});
+
+test('maxPlayers: stops filling a team once it reaches the cap', () => {
+  // 2 teams maxPlayers=3; 1 expert + 4 beginners → each team gets expert then up to cap
+  const teams: AssignTeam[] = [
+    { id: 't0', players: [], maxPlayers: 3 },
+    { id: 't1', players: [], maxPlayers: 3 },
+  ];
+  const levels = ['expert', 'beginner', 'beginner', 'beginner', 'beginner'];
+  const ids = levels.map((_, i) => `p${i}`);
+  const levelOf = (id: string) => levels[Number(id.slice(1))];
+  const { assignments, unassigned } = assignByTierQuota(ids, teams, levelOf);
+  assert.ok(assignments.t0.length <= 3, `t0 exceeds maxPlayers: ${assignments.t0}`);
+  assert.ok(assignments.t1.length <= 3, `t1 exceeds maxPlayers: ${assignments.t1}`);
+  assert.equal(unassigned.length, 0, 'all 5 players should be placed (2 teams × 3 cap = 6 slots)');
+});
+
+test('maxPlayers: selectQuotaTeamForPlayer returns undefined when all teams are full', () => {
+  const teams: AssignTeam[] = [
+    { id: 't0', players: ['a', 'b'], maxPlayers: 2 },
+    { id: 't1', players: ['c', 'd'], maxPlayers: 2 },
+  ];
+  const levelOf = (_id: string) => 'beginner';
+  const result = selectQuotaTeamForPlayer('beginner', teams, levelOf);
+  assert.equal(result, undefined);
+});
+
+test('maxPlayers: undefined (no cap) behaves like unlimited', () => {
+  const teams: AssignTeam[] = [{ id: 't0', players: [] }];
+  const levels = Array(10).fill('beginner');
+  const ids = levels.map((_, i) => `p${i}`);
+  const levelOf = (_id: string) => 'beginner';
+  const { assignments, unassigned } = assignByTierQuota(ids, teams, levelOf);
+  assert.equal(assignments.t0.length, 10);
+  assert.deepEqual(unassigned, []);
+});
