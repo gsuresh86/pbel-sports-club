@@ -25,6 +25,12 @@ interface SpinResult extends Registration {
 
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
+// Normalises an expertise level into a skill tier used for team balancing.
+// 'advanced' and 'expert' are treated as the same (top) tier so that two
+// top-tier players are not placed on the same team during distribution.
+const normalizeLevel = (level: Registration['expertiseLevel']): string =>
+  level === 'expert' ? 'advanced' : level;
+
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const { alert, AlertDialogComponent } = useAlertDialog();
@@ -207,7 +213,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           categoryTeams.map(t => [t.id, [...t.players]])
         );
         const getLocalLevels = (teamId: string) =>
-          new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => r.expertiseLevel));
+          new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
 
         const used = new Set<string>();
         const isLocalFull = (teamId: string, team: Team) =>
@@ -218,7 +224,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           const teamLevels = getLocalLevels(team.id);
           // Prefer a player whose level isn't already in this team; fall back to any unused player.
           const match =
-            shuffledPlayers.find(p => !used.has(p.id) && !teamLevels.has(p.expertiseLevel)) ??
+            shuffledPlayers.find(p => !used.has(p.id) && !teamLevels.has(normalizeLevel(p.expertiseLevel))) ??
             shuffledPlayers.find(p => !used.has(p.id));
           if (!match) break;
 
@@ -283,7 +289,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   // Returns the set of expertise levels already present in a team.
   const getTeamLevels = (team: Team): Set<string> =>
-    new Set(registrations.filter(r => team.players.includes(r.id)).map(r => r.expertiseLevel));
+    new Set(registrations.filter(r => team.players.includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
 
   const autoAssignPlayerToNextTeam = async (player: Registration) => {
     try {
@@ -297,7 +303,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const pool = available.length > 0 ? available : categoryTeams;
 
       // Prefer teams that don't yet have a player of this level.
-      const withoutLevel = pool.filter(t => !getTeamLevels(t).has(player.expertiseLevel));
+      const withoutLevel = pool.filter(t => !getTeamLevels(t).has(normalizeLevel(player.expertiseLevel)));
       const candidates = withoutLevel.length > 0 ? withoutLevel : pool;
       const targetTeam = candidates.reduce((min, t) => t.players.length < min.players.length ? t : min, candidates[0]);
 
@@ -361,7 +367,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         categoryTeams.map(t => [t.id, [...t.players]])
       );
       const getLocalLevels = (teamId: string) =>
-        new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => r.expertiseLevel));
+        new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
 
       const isLocalFull = (team: Team) =>
         team.maxPlayers != null && localPlayers[team.id].length >= team.maxPlayers;
@@ -374,7 +380,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         const candidates = sorted.length > 0 ? sorted : [...categoryTeams].sort(
           (a, b) => localPlayers[a.id].length - localPlayers[b.id].length
         );
-        const withoutLevel = candidates.filter(t => !getLocalLevels(t.id).has(player.expertiseLevel));
+        const withoutLevel = candidates.filter(t => !getLocalLevels(t.id).has(normalizeLevel(player.expertiseLevel)));
         const target = (withoutLevel.length > 0 ? withoutLevel : candidates)[0];
         localPlayers[target.id].push(player.id);
       }
