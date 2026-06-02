@@ -293,14 +293,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
       // Place the player on a team that still needs their tier (beginners go to
       // the smallest team). A surplus expert/advanced/intermediate has no eligible
-      // team and is left unassigned.
+      // team and is left unassigned (silently).
       const targetTeam = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, makeLevelOf());
       if (!targetTeam) {
-        alert({
-          title: 'No Team Available',
-          description: `Every team already has ${player.expertiseLevel === 'expert' ? 'an' : 'a'} ${player.expertiseLevel} player. Each team holds at most one expert, one advanced and one intermediate, so this player was left unassigned.`,
-          variant: 'warning',
-        });
         setSpinResult(null);
         return;
       }
@@ -361,7 +356,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
       // Give each team one expert, one advanced and one intermediate, then fill
       // the rest with beginners. Surplus top-tier players are left unassigned.
-      const { assignments, unassigned } = assignByTierQuota(
+      const { assignments } = assignByTierQuota(
         unassignedRegistrations.map(r => r.id),
         categoryTeams,
         makeLevelOf(),
@@ -377,14 +372,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       );
       await loadData();
       filterRegistrations();
-
-      if (unassigned.length > 0) {
-        alert({
-          title: 'Some Players Left Unassigned',
-          description: `${unassigned.length} player(s) could not be placed. Each team holds at most one expert, one advanced and one intermediate, so surplus players of those levels were left unassigned.`,
-          variant: 'warning',
-        });
-      }
     } else {
       const categoryPools = pools.filter(p => p.category === selectedCategory);
       if (categoryPools.length === 0) return;
