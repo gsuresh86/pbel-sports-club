@@ -26,10 +26,10 @@ interface SpinResult extends Registration {
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
 // Normalises an expertise level into a skill tier used for team balancing.
-// 'advanced' and 'expert' are treated as the same (top) tier so that two
-// top-tier players are not placed on the same team during distribution.
+// 'intermediate', 'advanced' and 'expert' are treated as the same (top) tier
+// so that two such players are not placed on the same team during distribution.
 const normalizeLevel = (level: Registration['expertiseLevel']): string =>
-  level === 'expert' ? 'advanced' : level;
+  level === 'expert' || level === 'intermediate' ? 'advanced' : level;
 
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
