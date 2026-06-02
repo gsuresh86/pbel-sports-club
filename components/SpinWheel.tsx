@@ -290,14 +290,22 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const categoryTeams = teams
         .filter(t => t.category === selectedCategory)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      if (categoryTeams.length === 0) return;
+      if (categoryTeams.length === 0) {
+        setShowSpinDialog(false);
+        return;
+      }
 
       // Place the player on a team that still needs their tier (beginners go to
       // the smallest team). A surplus expert/advanced/intermediate has no eligible
       // team and is left unassigned (silently).
       const targetTeam = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, makeLevelOf());
       if (!targetTeam) {
-        setSpinResult(null);
+        setShowSpinDialog(false);
+        alert({
+          title: 'Cannot Assign Player',
+          description: `${player.name} could not be assigned — all teams are either full or already have a player at this skill level.`,
+          variant: 'warning',
+        });
         return;
       }
 
@@ -310,6 +318,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       setSpinResult({ ...player, assignedTeam: targetTeam.name });
     } catch (error) {
       console.error('Error auto-assigning player to team:', error);
+      setShowSpinDialog(false);
     }
   };
 
@@ -318,7 +327,10 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const categoryPools = pools
         .filter(p => p.category === selectedCategory)
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      if (categoryPools.length === 0) return;
+      if (categoryPools.length === 0) {
+        setShowSpinDialog(false);
+        return;
+      }
 
       const targetPool = categoryPools.reduce((min, p) => p.teams.length < min.teams.length ? p : min, categoryPools[0]);
       await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', targetPool.id), {
@@ -330,6 +342,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       setSpinResult({ ...player, assignedTeam: targetPool.name });
     } catch (error) {
       console.error('Error auto-assigning player to pool:', error);
+      setShowSpinDialog(false);
     }
   };
 
