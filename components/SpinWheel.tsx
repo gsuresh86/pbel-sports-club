@@ -13,6 +13,7 @@ import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw } from 'lucide-react'
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
+import { distributePlayersAcrossTeams } from '@/lib/teamAssignment';
 
 interface SpinWheelProps {
   tournament: Tournament;
@@ -363,31 +364,15 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       const categoryTeams = teams.filter(t => t.category === selectedCategory);
       if (categoryTeams.length === 0) return;
 
-      // Build local state so we can do level-diversity checks without waiting for
-      // React state updates between iterations, then write all in one batch.
-      const localPlayers: Record<string, string[]> = Object.fromEntries(
-        categoryTeams.map(t => [t.id, [...t.players]])
+      // Resolve the skill tier for any player id, then distribute all players in
+      // one batch so each tier is spread evenly across teams.
+      const levelById = new Map(registrations.map(r => [r.id, normalizeLevel(r.expertiseLevel)]));
+      const levelOf = (id: string) => levelById.get(id) ?? normalizeLevel('beginner');
+      const localPlayers = distributePlayersAcrossTeams(
+        unassignedRegistrations.map(r => r.id),
+        categoryTeams,
+        levelOf,
       );
-      const getLocalLevels = (teamId: string) =>
-        new Set(registrations.filter(r => localPlayers[teamId].includes(r.id)).map(r => normalizeLevel(r.expertiseLevel)));
-
-      const isLocalFull = (team: Team) =>
-        team.maxPlayers != null && localPlayers[team.id].length >= team.maxPlayers;
-
-      for (const player of unassignedRegistrations) {
-        const sorted = [...categoryTeams]
-          .filter(t => !isLocalFull(t))
-          .sort((a, b) => localPlayers[a.id].length - localPlayers[b.id].length);
-        // Fall back to all teams if every team is at capacity
-        const candidates = sorted.length > 0 ? sorted : [...categoryTeams].sort(
-          (a, b) => localPlayers[a.id].length - localPlayers[b.id].length
-        );
-        const withoutLevel = candidates.filter(t => !getLocalLevels(t.id).has(normalizeLevel(player.expertiseLevel)));
-        // Prefer a team without this tier; otherwise the smallest team, so each
-        // tier is spread evenly across teams.
-        const target = (withoutLevel.length > 0 ? withoutLevel : candidates)[0];
-        localPlayers[target.id].push(player.id);
-      }
 
       await Promise.all(
         categoryTeams.map(team =>
