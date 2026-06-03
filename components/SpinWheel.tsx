@@ -44,8 +44,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const [roundMode, setRoundMode] = useState(false);
   const [roundResults, setRoundResults] = useState<SpinResult[]>([]);
   const [showSpinDialog, setShowSpinDialog] = useState(false);
-  // Per-card manual target (registrationId -> teamId/poolId) for the "assign manually" control.
-  const [manualSelections, setManualSelections] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadData();
@@ -247,23 +245,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       await loadData();
       filterRegistrations();
     }, 3000);
-  };
-
-  // Manually assign a single unassigned player to the team/pool chosen on their card.
-  // Bypasses the spin and the skill quota — an explicit admin override.
-  const manualAssign = async (registrationId: string) => {
-    const targetId = manualSelections[registrationId];
-    if (!targetId) return;
-    if (isTeamCategory()) {
-      await assignPlayerToTeam(registrationId, targetId);
-    } else {
-      await assignPlayerToPool(registrationId, targetId);
-    }
-    setManualSelections(prev => {
-      const next = { ...prev };
-      delete next[registrationId];
-      return next;
-    });
   };
 
   const assignPlayerToTeam = async (registrationId: string, teamId: string) => {
@@ -740,45 +721,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                                   {registration.tower || ''}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
                                 </p>
                               )}
-                            </div>
-                            {/* Manual assignment — pick a team/pool and assign directly */}
-                            <div className="px-2 pb-2 space-y-1.5">
-                              <Select
-                                value={manualSelections[registration.id] || ''}
-                                onValueChange={(value) => setManualSelections(prev => ({ ...prev, [registration.id]: value }))}
-                              >
-                                <SelectTrigger className="w-full h-7 text-[11px]">
-                                  <SelectValue placeholder={isTeamCategory() ? 'Select team' : 'Select pool'} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {isTeamCategory()
-                                    ? teams
-                                        .filter(t => t.category === selectedCategory)
-                                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-                                        .map(team => (
-                                          <SelectItem key={team.id} value={team.id}>
-                                            {team.name} ({team.players.length})
-                                          </SelectItem>
-                                        ))
-                                    : pools
-                                        .filter(p => p.category === selectedCategory)
-                                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-                                        .map(pool => (
-                                          <SelectItem key={pool.id} value={pool.id}>
-                                            {pool.name} ({pool.teams.length})
-                                          </SelectItem>
-                                        ))}
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full h-7 text-[11px]"
-                                onClick={() => manualAssign(registration.id)}
-                                disabled={!manualSelections[registration.id]}
-                              >
-                                Assign
-                              </Button>
                             </div>
                           </div>
                         );
