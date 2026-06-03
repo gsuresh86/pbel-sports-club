@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy, arrayRemove } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw } from 'lucide-react'
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
+import { assignByTierQuota, selectQuotaTeamForPlayer, selectQuotaPlayerForTeam } from '@/lib/teamAssignment';
 
 interface SpinWheelProps {
   tournament: Tournament;
@@ -134,31 +135,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setUnassignedRegistrations(filtered.filter(r => !assignedPlayerIds.includes(r.id)));
   };
 
-  // All assignment writes go through the server route so they run inside a
-  // single Firestore transaction (atomic, no stale-snapshot clobbering).
-  interface ApiAssignResult { playerId: string; targetId: string; targetName: string }
-  interface ApiResponse { success?: boolean; results?: ApiAssignResult[]; reason?: string; unassignedCount?: number; error?: string }
-
-  const assignViaApi = async (
-    action: 'single' | 'round' | 'all' | 'manual',
-    extra: { playerId?: string; targetId?: string } = {},
-  ): Promise<ApiResponse> => {
-    const res = await fetch('/api/assign-players', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tournamentId: tournament.id,
-        category: selectedCategory,
-        isTeamCategory: isTeamCategory(),
-        action,
-        ...extra,
-      }),
-    });
-    const data = (await res.json().catch(() => ({}))) as ApiResponse;
-    if (!res.ok) throw new Error(data.error || 'Assignment request failed');
-    return data;
-  };
-
   const spinWheel = async () => {
     if (unassignedRegistrations.length === 0) return;
     if (roundMode) {
@@ -183,28 +159,13 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setTimeout(async () => {
       clearInterval(spinIntervalId);
       setIsSpinning(false);
-      try {
-        // The server picks a placeable player at random and the team/pool that
-        // needs their tier, then writes it atomically. We just reveal the result.
-        const data = await assignViaApi('single');
-        const result = data.results?.[0];
-        if (!result) {
-          setShowSpinDialog(false);
-          alert({
-            title: 'Cannot Assign Player',
-            description: data.reason || 'No player could be assigned right now.',
-            variant: 'warning',
-          });
-          await loadData();
-          return;
-        }
-        const player = registrations.find(r => r.id === result.playerId);
-        if (player) setSpinResult({ ...player, assignedTeam: result.targetName });
-        await loadData();
-      } catch (error) {
-        console.error('Error assigning player:', error);
-        setShowSpinDialog(false);
-        alert({ title: 'Error', description: (error as Error).message, variant: 'error' });
+      const finalIndex = Math.floor(Math.random() * unassignedRegistrations.length);
+      const selectedPlayer = unassignedRegistrations[finalIndex];
+      setSpinResult(selectedPlayer);
+      if (isTeamCategory()) {
+        await autoAssignPlayerToNextTeam(selectedPlayer);
+      } else {
+        await autoAssignPlayerToNextPool(selectedPlayer);
       }
     }, spinDuration);
   };
@@ -238,35 +199,53 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       clearInterval(spinIntervalId);
       setIsSpinning(false);
 
-      try {
-        // The server assigns one player per team/pool inside a transaction and
-        // returns exactly what it committed, so the result we show always
-        // matches what was written.
-        const data = await assignViaApi('round');
-        const finalResults: SpinResult[] = [];
-        for (const r of data.results ?? []) {
-          const player = registrations.find(p => p.id === r.playerId);
-          if (player) finalResults.push({ ...player, assignedTeam: r.targetName });
-        }
+      const finalResults: SpinResult[] = [];
 
-        if (finalResults.length === 0) {
-          setShowSpinDialog(false);
-          alert({
-            title: 'Nothing Assigned',
-            description: data.reason || 'No players could be assigned this round.',
-            variant: 'warning',
+      if (isTeamCategory()) {
+        const categoryTeams = targets as Team[];
+
+        // Track local team compositions so each team builds toward one expert,
+        // one advanced and one intermediate within the round (one player per team).
+        const localPlayers: Record<string, string[]> = Object.fromEntries(
+          categoryTeams.map(t => [t.id, [...t.players]])
+        );
+        const used = new Set<string>();
+        const levelOf = makeLevelOf();
+
+        // shuffledPlayers already randomised above; keep that order as the priority.
+        for (const team of categoryTeams) {
+          if (team.maxPlayers != null && localPlayers[team.id].length >= team.maxPlayers) continue;
+          const available = shuffledPlayers.filter(p => !used.has(p.id)).map(p => p.id);
+          const matchId = selectQuotaPlayerForTeam(available, localPlayers[team.id], levelOf);
+          // Nothing suitable for this team (e.g. only surplus top-tier players
+          // remain and it already has those tiers); skip it.
+          if (!matchId) continue;
+          const match = shuffledPlayers.find(p => p.id === matchId)!;
+
+          used.add(match.id);
+          localPlayers[team.id].push(match.id);
+          await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+            players: localPlayers[team.id],
+            updatedAt: new Date(),
           });
-          await loadData();
-          return;
+          finalResults.push({ ...match, assignedTeam: team.name });
         }
-
-        setRoundResults(finalResults);
-        await loadData();
-      } catch (error) {
-        console.error('Error running round assignment:', error);
-        setShowSpinDialog(false);
-        alert({ title: 'Error', description: (error as Error).message, variant: 'error' });
+      } else {
+        const categoryPools = targets as Pool[];
+        for (let i = 0; i < selectedPlayers.length; i++) {
+          const player = selectedPlayers[i];
+          const pool = categoryPools[i % categoryPools.length];
+          await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', pool.id), {
+            teams: [...pool.teams, player.id],
+            updatedAt: new Date(),
+          });
+          finalResults.push({ ...player, assignedTeam: pool.name });
+        }
       }
+
+      setRoundResults(finalResults);
+      await loadData();
+      filterRegistrations();
     }, 3000);
   };
 
@@ -289,35 +268,113 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   const assignPlayerToTeam = async (registrationId: string, teamId: string) => {
     try {
-      await assignViaApi('manual', { playerId: registrationId, targetId: teamId });
+      const team = teams.find(t => t.id === teamId);
+      if (!team) return;
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
+        players: [...team.players, registrationId],
+        updatedAt: new Date(),
+      });
       await loadData();
+      filterRegistrations();
       setSpinResult(null);
     } catch (error) {
       console.error('Error assigning player to team:', error);
-      alert({ title: 'Error', description: (error as Error).message, variant: 'error' });
     }
   };
 
   const assignPlayerToPool = async (registrationId: string, poolId: string) => {
     try {
-      await assignViaApi('manual', { playerId: registrationId, targetId: poolId });
+      const pool = pools.find(p => p.id === poolId);
+      if (!pool) return;
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId), {
+        teams: [...pool.teams, registrationId],
+        updatedAt: new Date(),
+      });
       await loadData();
+      filterRegistrations();
       setSpinResult(null);
     } catch (error) {
       console.error('Error assigning player to pool:', error);
-      alert({ title: 'Error', description: (error as Error).message, variant: 'error' });
+    }
+  };
+
+  // Builds a fast resolver from player id to expertise level for the current registrations.
+  const makeLevelOf = () => {
+    const levelById = new Map(registrations.map(r => [r.id, r.expertiseLevel as string]));
+    return (id: string) => levelById.get(id) ?? 'beginner';
+  };
+
+  const autoAssignPlayerToNextTeam = async (player: Registration) => {
+    try {
+      const categoryTeams = teams
+        .filter(t => t.category === selectedCategory)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      if (categoryTeams.length === 0) {
+        setShowSpinDialog(false);
+        return;
+      }
+
+      // Place the player on a team that still needs their tier (beginners go to
+      // the smallest team). A surplus expert/advanced/intermediate has no eligible
+      // team and is left unassigned (silently).
+      const targetTeam = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, makeLevelOf());
+      if (!targetTeam) {
+        setShowSpinDialog(false);
+        alert({
+          title: 'Cannot Assign Player',
+          description: `${player.name} could not be assigned — all teams are either full or already have a player at this skill level.`,
+          variant: 'warning',
+        });
+        return;
+      }
+
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
+        players: [...targetTeam.players, player.id],
+        updatedAt: new Date(),
+      });
+      await loadData();
+      filterRegistrations();
+      setSpinResult({ ...player, assignedTeam: targetTeam.name });
+    } catch (error) {
+      console.error('Error auto-assigning player to team:', error);
+      setShowSpinDialog(false);
+    }
+  };
+
+  const autoAssignPlayerToNextPool = async (player: Registration) => {
+    try {
+      const categoryPools = pools
+        .filter(p => p.category === selectedCategory)
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      if (categoryPools.length === 0) {
+        setShowSpinDialog(false);
+        return;
+      }
+
+      const targetPool = categoryPools.reduce((min, p) => p.teams.length < min.teams.length ? p : min, categoryPools[0]);
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', targetPool.id), {
+        teams: [...targetPool.teams, player.id],
+        updatedAt: new Date(),
+      });
+      await loadData();
+      filterRegistrations();
+      setSpinResult({ ...player, assignedTeam: targetPool.name });
+    } catch (error) {
+      console.error('Error auto-assigning player to pool:', error);
+      setShowSpinDialog(false);
     }
   };
 
   const removePlayerFromTeam = async (registrationId: string, teamId: string) => {
     try {
-      // arrayRemove is an atomic field operation, so it does not depend on a
-      // possibly-stale local snapshot of the team's player list.
+      const team = teams.find(t => t.id === teamId);
+      if (!team) return;
       await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
-        players: arrayRemove(registrationId),
+        players: team.players.filter(id => id !== registrationId),
         updatedAt: new Date(),
       });
       await loadData();
+      filterRegistrations();
     } catch (error) {
       console.error('Error removing player from team:', error);
     }
@@ -325,21 +382,38 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   const autoAssignAllPlayers = async () => {
     if (!selectedCategory) return;
-    try {
-      // Server gives each team one expert/advanced/intermediate then fills with
-      // beginners (surplus top-tier left unassigned); pools are filled evenly.
-      const data = await assignViaApi('all');
+
+    if (isTeamCategory()) {
+      const categoryTeams = teams.filter(t => t.category === selectedCategory);
+      if (categoryTeams.length === 0) return;
+
+      // Give each team one expert, one advanced and one intermediate, then fill
+      // the rest with beginners. Surplus top-tier players are left unassigned.
+      const { assignments } = assignByTierQuota(
+        unassignedRegistrations.map(r => r.id),
+        categoryTeams,
+        makeLevelOf(),
+      );
+
+      await Promise.all(
+        categoryTeams.map(team =>
+          updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+            players: assignments[team.id],
+            updatedAt: new Date(),
+          })
+        )
+      );
       await loadData();
-      if (data.unassignedCount && data.unassignedCount > 0) {
-        alert({
-          title: 'Players Assigned',
-          description: `${data.results?.length ?? 0} players assigned. ${data.unassignedCount} surplus top-tier player(s) left unassigned — every team already has that skill level. Assign them manually if needed.`,
-          variant: 'warning',
-        });
+      filterRegistrations();
+    } else {
+      const categoryPools = pools.filter(p => p.category === selectedCategory);
+      if (categoryPools.length === 0) return;
+      let poolIndex = 0;
+      for (const registration of unassignedRegistrations) {
+        const pool = categoryPools[poolIndex % categoryPools.length];
+        await assignPlayerToPool(registration.id, pool.id);
+        poolIndex++;
       }
-    } catch (error) {
-      console.error('Error auto-assigning all players:', error);
-      alert({ title: 'Error', description: (error as Error).message, variant: 'error' });
     }
   };
 
