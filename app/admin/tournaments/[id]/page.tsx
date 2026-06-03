@@ -131,8 +131,9 @@ export default function TournamentDetailsPage() {
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
 
-  // Players tab search
+  // Players tab search + filter
   const [playerSearch, setPlayerSearch] = useState('');
+  const [playerCategoryFilter, setPlayerCategoryFilter] = useState<string>('all');
 
   // Tournament admin management
   const [tournamentAdmins, setTournamentAdmins] = useState<User[]>([]);
@@ -412,6 +413,28 @@ export default function TournamentDetailsPage() {
     } finally {
       setSavingPlayer(false);
     }
+  };
+
+  const exportPlayersCsv = (players: UniquePlayerRow[]) => {
+    const rows = [
+      ['Name', 'Phone', 'T-Shirt Size', 'Level', 'Categories'],
+      ...players.map((p) => [
+        p.name,
+        p.phone,
+        p.tshirtSize,
+        p.expertiseLevel,
+        p.categories.map(formatCategoryLabel).join('; '),
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const slug = (tournament?.name ?? 'tournament').replace(/\s+/g, '-').toLowerCase().slice(0, 30);
+    a.href = url;
+    a.download = `players-${slug}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -1148,75 +1171,111 @@ export default function TournamentDetailsPage() {
 
           {/* Players Tab — one row per unique person */}
           <TabsContent value="players" className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
-            <div className="flex shrink-0 items-start justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <h3 className="text-base font-semibold sm:text-lg">
-                  Players ({playerSearch ? `${uniquePlayers.filter(p => p.name.toLowerCase().includes(playerSearch.toLowerCase()) || p.phone.includes(playerSearch)).length} of ${uniquePlayers.length}` : uniquePlayers.length})
-                </h3>
-                <p className="text-xs text-gray-600 sm:text-sm">
-                  Unique players — click <Edit className="inline h-3 w-3" /> to edit level, T-shirt size or photo
-                </p>
-              </div>
-              <div className="relative flex-shrink-0 w-48 sm:w-56">
-                <Input
-                  placeholder="Search players…"
-                  value={playerSearch}
-                  onChange={(e) => setPlayerSearch(e.target.value)}
-                  className="h-8 pr-8 text-xs"
-                />
-                {playerSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setPlayerSearch('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* hidden file input for inline photo upload */}
-            <input
-              ref={playerPhotoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePlayerPhotoUpload(f); }}
-            />
-
-            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
-                {uniquePlayers.length === 0 ? (
-                  <div className="flex flex-1 items-center justify-center p-8 text-center">
-                    <div>
-                      <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                      <h3 className="mb-2 text-lg font-medium text-gray-900">No players yet</h3>
-                      <p className="text-gray-600">
-                        Players will appear here once registrations are submitted.
+            {(() => {
+              const allPlayerCategories = Array.from(
+                new Set(uniquePlayers.flatMap((p) => p.categories))
+              ).sort();
+              const filteredPlayers = uniquePlayers.filter((p) => {
+                const matchesSearch = !playerSearch ||
+                  p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
+                  p.phone.includes(playerSearch);
+                const matchesCategory = playerCategoryFilter === 'all' ||
+                  p.categories.includes(playerCategoryFilter as CategoryType);
+                return matchesSearch && matchesCategory;
+              });
+              return (
+                <>
+                  <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <h3 className="text-base font-semibold sm:text-lg">
+                        Players ({(playerSearch || playerCategoryFilter !== 'all') ? `${filteredPlayers.length} of ${uniquePlayers.length}` : uniquePlayers.length})
+                      </h3>
+                      <p className="text-xs text-gray-600 sm:text-sm">
+                        Unique players — click <Edit className="inline h-3 w-3" /> to edit level, T-shirt size or photo
                       </p>
                     </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Category filter */}
+                      <Select value={playerCategoryFilter} onValueChange={setPlayerCategoryFilter}>
+                        <SelectTrigger className="h-8 w-36 text-xs">
+                          <SelectValue placeholder="All categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all" className="text-xs">All categories</SelectItem>
+                          {allPlayerCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat} className="text-xs capitalize">{formatCategoryLabel(cat)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {/* Search */}
+                      <div className="relative w-44 sm:w-52">
+                        <Input
+                          placeholder="Search players…"
+                          value={playerSearch}
+                          onChange={(e) => setPlayerSearch(e.target.value)}
+                          className="h-8 pr-8 text-xs"
+                        />
+                        {playerSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setPlayerSearch('')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {/* Export CSV */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                        onClick={() => exportPlayersCsv(filteredPlayers)}
+                        disabled={filteredPlayers.length === 0}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Export CSV
+                      </Button>
+                    </div>
                   </div>
-                ) : (
-                  <div className="registrations-table-scroll min-h-0 flex-1 overflow-auto sm:mx-0">
-                    <Table className="min-w-[700px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-10 text-xs sm:text-sm"></TableHead>
-                          <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Phone</TableHead>
-                          <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Level</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Categories</TableHead>
-                          <TableHead className="w-20 text-xs sm:text-sm">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {uniquePlayers.filter(p => {
-                          if (!playerSearch) return true;
-                          const q = playerSearch.toLowerCase();
-                          return p.name.toLowerCase().includes(q) || p.phone.includes(playerSearch);
-                        }).map((player) => {
+
+                  {/* hidden file input for inline photo upload */}
+                  <input
+                    ref={playerPhotoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePlayerPhotoUpload(f); }}
+                  />
+
+                  <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+                      {uniquePlayers.length === 0 ? (
+                        <div className="flex flex-1 items-center justify-center p-8 text-center">
+                          <div>
+                            <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                            <h3 className="mb-2 text-lg font-medium text-gray-900">No players yet</h3>
+                            <p className="text-gray-600">
+                              Players will appear here once registrations are submitted.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="registrations-table-scroll min-h-0 flex-1 overflow-auto sm:mx-0">
+                          <Table className="min-w-[700px] [&_[data-slot=table-container]]:overflow-visible [&_[data-slot=table-container]]:w-max">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-10 text-xs sm:text-sm"></TableHead>
+                                <TableHead className="text-xs sm:text-sm">Name</TableHead>
+                                <TableHead className="text-xs sm:text-sm">Phone</TableHead>
+                                <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
+                                <TableHead className="text-xs sm:text-sm">Level</TableHead>
+                                <TableHead className="text-xs sm:text-sm">Categories</TableHead>
+                                <TableHead className="w-20 text-xs sm:text-sm">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {filteredPlayers.map((player) => {
                           const key = normalizePlayerName(player.name);
                           const isEditing = editingPlayerKey === key;
                           const initials = player.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
@@ -1317,13 +1376,16 @@ export default function TournamentDetailsPage() {
                               </TableCell>
                             </TableRow>
                           );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Matches Tab */}

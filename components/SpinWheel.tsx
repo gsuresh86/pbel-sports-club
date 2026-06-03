@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
-import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Loader2 } from 'lucide-react';
+import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Trophy } from 'lucide-react';
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
@@ -54,6 +54,14 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       filterRegistrations();
     }
   }, [selectedCategory, registrations, teams, pools]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSpinResult(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const isTeamCategory = () =>
     selectedCategory !== '' && TEAM_CATEGORIES.includes(selectedCategory as CategoryType);
@@ -146,7 +154,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setIsSpinning(true);
     setSpinResult(null);
     setRoundResults([]);
-    setShowSpinDialog(true);
 
     // Show the loader for a moment, then pick a random player who actually fits a
     // team/pool and assign them.
@@ -182,8 +189,17 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         return;
       }
     }
-    // No one could be placed (every team is full).
-    setShowSpinDialog(false);
+
+    // Quota rules blocked everyone — try again without tier reservations (last-player fallback).
+    const teamsWithCapacity = categoryTeams.filter(t => t.maxPlayers == null || t.players.length < t.maxPlayers);
+    if (teamsWithCapacity.length > 0 && shuffled.length > 0) {
+      const player = shuffled[0];
+      const team = teamsWithCapacity.reduce((a, b) => a.players.length <= b.players.length ? a : b);
+      await assignPlayerToTeam(player.id, team.id);
+      setSpinResult({ ...player, assignedTeam: team.name });
+      return;
+    }
+
     alert({
       title: 'Teams Are Full',
       description: 'Every team has reached its maximum players, so no more players can be assigned.',
@@ -478,8 +494,29 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center p-16 gap-6">
+        {/* Layered spinning rings */}
+        <div className="relative w-20 h-20">
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-violet-500 border-r-violet-300 animate-spin" style={{ animationDuration: '0.9s' }} />
+          <div className="absolute inset-2 rounded-full border-4 border-transparent border-t-pink-500 border-r-pink-300 animate-spin" style={{ animationDuration: '1.3s', animationDirection: 'reverse' }} />
+          <div className="absolute inset-4 rounded-full border-4 border-transparent border-t-cyan-500 border-r-cyan-300 animate-spin" style={{ animationDuration: '0.7s' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Shuffle className="h-5 w-5 text-violet-500 animate-pulse" />
+          </div>
+        </div>
+        {/* Bouncing dots */}
+        <div className="flex gap-2">
+          {['bg-violet-500', 'bg-pink-500', 'bg-cyan-500', 'bg-amber-500'].map((color, i) => (
+            <div
+              key={i}
+              className={`w-2 h-2 rounded-full ${color} animate-bounce`}
+              style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }}
+            />
+          ))}
+        </div>
+        <p className="text-sm font-semibold uppercase tracking-widest bg-gradient-to-r from-violet-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent animate-pulse">
+          Loading…
+        </p>
       </div>
     );
   }
@@ -492,12 +529,8 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Spin the Wheel</h2>
-          <p className="text-gray-600">Assign players to {bucketLabel}s randomly</p>
-        </div>
+      {/* Controls */}
+      <div className="flex justify-end items-center">
         <div className="flex items-center gap-3">
           <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
             <SelectTrigger className="w-44 h-8 text-sm">
@@ -547,213 +580,259 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
           {/* Spin Wheel + Unassigned Players */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shuffle className="h-5 w-5" />
-                {roundMode ? 'Round Assignment' : 'Spin the Wheel'}
-                <span className="ml-1 text-sm font-normal text-gray-500">
-                  — {unassignedRegistrations.length} unassigned
-                </span>
-              </CardTitle>
-              <CardDescription>
-                {roundMode
-                  ? `Assign multiple players to all ${bucketLabel}s in one round`
-                  : `Randomly assign unassigned players to ${bucketLabel}s`}
-              </CardDescription>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-6">
+                {/* Left: unassigned count + round mode info */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-gray-500">
+                    {unassignedRegistrations.length} unassigned
+                  </span>
+                  {roundMode && (
+                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 font-medium">
+                      Round — {Math.min(unassignedRegistrations.length, categoryTargets.length)} → {categoryTargets.length} {bucketLabel}s
+                    </span>
+                  )}
+                </div>
+                {/* Stats KPIs — top right */}
+                {stats && (
+                  <div className="flex gap-2 shrink-0">
+                    {[
+                      { value: stats.totalPlayers,    label: 'Total',           bg: 'bg-blue-50',   fg: 'text-blue-600'   },
+                      { value: stats.totalAssigned,   label: 'Assigned',        bg: 'bg-green-50',  fg: 'text-green-600'  },
+                      { value: stats.totalUnassigned, label: 'Unassigned',      bg: 'bg-orange-50', fg: 'text-orange-600' },
+                      { value: stats.averagePerBucket,label: `Avg/${stats.bucketLabel}`, bg: 'bg-purple-50', fg: 'text-purple-600' },
+                    ].map(({ value, label, bg, fg }) => (
+                      <div key={label} className={`text-center px-3 py-2 rounded-lg ${bg}`}>
+                        <div className={`text-xl font-bold ${fg}`}>{value}</div>
+                        <div className="text-[10px] text-gray-500 leading-tight">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-6">
-                {/* Left: Spin button */}
-                <div className="flex flex-col items-center gap-4 w-48 shrink-0 pt-2">
-                  {roundMode && (
-                    <div className="text-xs text-blue-600 bg-blue-50 p-2.5 rounded-lg border border-blue-200 text-center w-full">
-                      <div className="font-medium mb-0.5">Round Mode</div>
-                      <div>
-                        {Math.min(unassignedRegistrations.length, categoryTargets.length)} players →{' '}
-                        {categoryTargets.length} {bucketLabel}s
+              {(() => {
+                /* ── Orbital bubble layout ── */
+                const HALF = 360;
+                const AVATAR = 46;
+                const RADII = [108, 170, 234, 298];
+                const SPACING = 54;
+                const positions: { x: number; y: number }[] = [];
+                let remaining = unassignedRegistrations.length;
+                for (const r of RADII) {
+                  if (remaining <= 0) break;
+                  const n = Math.min(remaining, Math.floor((2 * Math.PI * r) / SPACING));
+                  for (let i = 0; i < n; i++) {
+                    const a = (i / n) * 2 * Math.PI - Math.PI / 2;
+                    positions.push({ x: Math.round(r * Math.cos(a)), y: Math.round(r * Math.sin(a)) });
+                  }
+                  remaining -= n;
+                }
+                const bubbleColors = [
+                  'from-blue-600 to-blue-400','from-purple-600 to-purple-400','from-emerald-600 to-emerald-400',
+                  'from-rose-600 to-rose-400','from-amber-600 to-amber-400','from-cyan-600 to-cyan-400',
+                  'from-indigo-600 to-indigo-400','from-teal-600 to-teal-400','from-pink-600 to-pink-400',
+                  'from-orange-600 to-orange-400',
+                ];
+
+                return (
+                  <div className="flex flex-col items-center gap-2 py-2">
+                    {roundMode && (
+                      <div className="text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 text-center">
+                        <span className="font-semibold">Round Mode — </span>
+                        {Math.min(unassignedRegistrations.length, categoryTargets.length)} players → {categoryTargets.length} {bucketLabel}s
                       </div>
-                    </div>
-                  )}
-                  <Button
-                    onClick={spinWheel}
-                    disabled={unassignedRegistrations.length === 0 || isSpinning || (!isTeamCategory() && categoryTargets.length === 0)}
-                    size="lg"
-                    className="w-32 h-32 rounded-full text-lg font-bold"
-                  >
-                    {roundMode ? 'ROUND!' : 'SPIN!'}
-                  </Button>
-                </div>
+                    )}
 
-                {/* Right: Unassigned Players grid */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Users className="h-4 w-4 text-gray-600" />
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      Unassigned Players ({unassignedRegistrations.length})
-                    </h3>
-                  </div>
+                    {/* Orbital canvas */}
+                    <div className="relative overflow-x-auto w-full">
+                      <div className="relative mx-auto" style={{ width: HALF * 2, height: HALF * 2, minWidth: HALF * 2 }}>
 
-                  {unassignedRegistrations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 text-center">
-                      <Users className="h-10 w-10 text-gray-300 mb-3" />
-                      <p className="text-sm font-medium text-gray-700">All players assigned!</p>
-                      <p className="text-xs text-gray-500 mt-1">All players have been assigned to {bucketLabel}s</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
-                      {unassignedRegistrations.map(registration => {
-                        const isSelected = !isSpinning && spinResult?.id === registration.id;
-                        const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-                        const partnerInitials = registration.partnerName
-                          ? registration.partnerName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-                          : '';
-                        const cardColors = [
-                          'from-blue-900 to-blue-700',
-                          'from-purple-900 to-purple-700',
-                          'from-emerald-900 to-emerald-700',
-                          'from-rose-900 to-rose-700',
-                          'from-amber-900 to-amber-700',
-                          'from-cyan-900 to-cyan-700',
-                          'from-indigo-900 to-indigo-700',
-                          'from-teal-900 to-teal-700',
-                        ];
-                        const colorClass = cardColors[registration.name.charCodeAt(0) % cardColors.length];
-                        const partnerColorClass = cardColors[(registration.partnerName?.charCodeAt(0) ?? 1) % cardColors.length];
-                        const isDoubles = selectedCategory === 'mixed-doubles' || selectedCategory === 'family-doubles';
-                        const showPartner = isDoubles && !!registration.partnerName;
+                        {/* Faint orbit rings */}
+                        {RADII.slice(0, Math.ceil(unassignedRegistrations.length / 5) || 1).map(r => (
+                          <div key={r} className="absolute rounded-full border border-dashed border-gray-200 pointer-events-none"
+                            style={{ width: r * 2, height: r * 2, left: HALF - r, top: HALF - r }} />
+                        ))}
 
-                        return (
-                          <div
-                            key={registration.id}
-                            className={`group relative rounded-xl overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 bg-white ${
-                              isSelected
-                                ? 'border-green-500 ring-2 ring-green-400 scale-105 shadow-green-200'
-                                : 'border-gray-200'
-                            }`}
-                          >
-                            <div className={`relative bg-gradient-to-b ${colorClass} overflow-hidden`} style={{ aspectRatio: '3/4' }}>
-                              {/* Primary player — full card */}
-                              {registration.profilePhotoUrl ? (
-                                <Image
-                                  src={registration.profilePhotoUrl}
-                                  alt={registration.name}
-                                  fill
-                                  className="object-cover object-top"
-                                />
-                              ) : (
-                                <div className="flex h-full flex-col items-center justify-center gap-2">
-                                  <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-3xl font-bold">
+                        {/* Player avatar bubbles */}
+                        {unassignedRegistrations.map((reg, i) => {
+                          if (!positions[i]) return null;
+                          const pos = positions[i];
+                          const initials = reg.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+                          const color = bubbleColors[reg.name.charCodeAt(0) % bubbleColors.length];
+                          const isSelected = spinResult?.id === reg.id && !isSpinning;
+                          return (
+                            <div
+                              key={reg.id}
+                              title={reg.name}
+                              className="absolute transition-all duration-300"
+                              style={{
+                                width: AVATAR, height: AVATAR,
+                                left: HALF + pos.x - AVATAR / 2,
+                                top: HALF + pos.y - AVATAR / 2,
+                              }}
+                            >
+                              <div className={`w-full h-full rounded-full overflow-hidden border-2 shadow-md transition-all duration-300 ${
+                                isSelected
+                                  ? 'border-green-400 ring-4 ring-green-300 scale-125 shadow-green-300'
+                                  : isSpinning
+                                    ? 'border-white/60 opacity-60'
+                                    : 'border-white hover:scale-110 hover:shadow-lg'
+                              }`}>
+                                {reg.profilePhotoUrl ? (
+                                  <Image src={reg.profilePhotoUrl} alt={reg.name} width={AVATAR} height={AVATAR} className="object-cover w-full h-full object-top" />
+                                ) : (
+                                  <div className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-[11px] font-bold`}>
                                     {initials}
                                   </div>
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/60 to-transparent" />
-                              {/* Partner thumbnail — bottom-right circle */}
-                              {showPartner && (
-                                <div className="absolute bottom-2 right-2 w-16 h-16 rounded-full border-2 border-white shadow-lg overflow-hidden">
-                                  {registration.partnerProfilePhotoUrl ? (
-                                    <Image
-                                      src={registration.partnerProfilePhotoUrl}
-                                      alt={registration.partnerName ?? 'Partner'}
-                                      fill
-                                      className="object-cover object-top"
-                                    />
-                                  ) : (
-                                    <div className={`w-full h-full bg-gradient-to-b ${partnerColorClass} flex items-center justify-center text-white text-sm font-bold`}>
-                                      {partnerInitials}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {isSelected && (
-                                <div className="absolute top-2 left-2">
-                                  <span className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white bg-green-500">
-                                    Selected
-                                  </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
-                            <div className="px-2 py-2 text-center">
-                              <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate" title={registration.name}>
-                                {registration.name}
-                              </p>
-                              {showPartner && registration.partnerName && (
-                                <p className="text-xs font-bold uppercase tracking-wide leading-tight truncate" title={registration.partnerName}>
-                                  & {registration.partnerName}
-                                </p>
-                              )}
-                              {(registration.tower || registration.flatNumber) && (
-                                <p className="text-[10px] text-gray-500 mt-0.5">
-                                  {registration.tower || ''}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
-                                </p>
-                              )}
+                          );
+                        })}
+
+                        {/* Center: SPIN button or spinner or all-done */}
+                        <div className="absolute" style={{ left: HALF - 56, top: HALF - 56, width: 112, height: 112 }}>
+                          {unassignedRegistrations.length === 0 ? (
+                            <div className="w-full h-full rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex flex-col items-center justify-center shadow-xl text-white text-center">
+                              <Trophy className="h-7 w-7 mb-0.5" />
+                              <span className="text-[10px] font-bold uppercase tracking-wide">Done!</span>
                             </div>
-                          </div>
-                        );
-                      })}
+                          ) : isSpinning ? (
+                            <div className="w-full h-full relative">
+                              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-violet-400 via-pink-400 to-cyan-400 opacity-25 animate-ping" style={{ animationDuration: '1s' }} />
+                              <div className="absolute inset-0 rounded-full border-[5px] border-transparent border-t-violet-500 border-r-violet-300 animate-spin" style={{ animationDuration: '0.75s' }} />
+                              <div className="absolute inset-[10px] rounded-full border-[5px] border-transparent border-t-pink-500 border-r-pink-300 animate-spin" style={{ animationDuration: '1.1s', animationDirection: 'reverse' }} />
+                              <div className="absolute inset-[22px] rounded-full border-[4px] border-transparent border-t-cyan-500 border-r-cyan-300 animate-spin" style={{ animationDuration: '0.6s' }} />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 via-pink-500 to-cyan-500 flex items-center justify-center shadow-lg animate-pulse">
+                                  <Shuffle className="h-6 w-6 text-white" />
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={spinWheel}
+                              disabled={!selectedCategory || unassignedRegistrations.length === 0 || (!isTeamCategory() && categoryTargets.length === 0)}
+                              className="w-full h-full rounded-full bg-gray-900 text-white font-extrabold text-xl shadow-2xl hover:scale-105 hover:bg-gray-700 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 select-none"
+                            >
+                              {roundMode ? 'ROUND!' : 'SPIN!'}
+                            </button>
+                          )}
+                        </div>
+
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 
-          {/* Statistics */}
-          {stats && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  {stats.bucketLabel} Statistics
-                </CardTitle>
-                <CardDescription>
-                  Current {stats.bucketLabel.toLowerCase()} composition and balance
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{stats.totalPlayers}</div>
-                    <div className="text-sm text-gray-600">Total Players</div>
-                  </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{stats.totalAssigned}</div>
-                    <div className="text-sm text-gray-600">Assigned</div>
-                  </div>
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">{stats.totalUnassigned}</div>
-                    <div className="text-sm text-gray-600">Unassigned</div>
-                  </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">{stats.averagePerBucket}</div>
-                    <div className="text-sm text-gray-600">Avg per {stats.bucketLabel}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
 
       {ConfirmDialogComponent}
       {AlertDialogComponent}
 
-      {/* Spin Dialog Overlay */}
-      {showSpinDialog && (
+      {/* Single spin — congrats popup */}
+      {spinResult && !isSpinning && !roundMode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden" style={{ animation: 'spinResultIn 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}>
+            {/* Celebratory header — solid amber/yellow */}
+            <div className="relative bg-amber-400 px-6 pt-8 pb-6 text-center overflow-hidden">
+              {/* Sparkle dots */}
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="absolute w-1.5 h-1.5 rounded-full bg-white/60 animate-ping"
+                  style={{ top: `${10 + (i * 11) % 70}%`, left: `${5 + (i * 13) % 90}%`, animationDelay: `${i * 0.15}s`, animationDuration: '1.4s' }} />
+              ))}
+              <div className="relative">
+                <div className="text-5xl mb-3 leading-none">🎉</div>
+                <p className="text-white font-extrabold text-lg uppercase tracking-widest drop-shadow">Congratulations!</p>
+                <p className="text-white/80 text-xs mt-0.5 font-medium">Player Selected</p>
+                {/* Avatar inside header */}
+                <div className="flex justify-center mt-5">
+                  <div className="ring-4 ring-white/60 rounded-full shadow-lg">
+                    <PlayerAvatar registration={spinResult} size="lg" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Player info */}
+            <div className="px-6 py-5 text-center">
+              <h3 className="text-xl font-bold text-gray-900 mb-0.5">{spinResult.name}</h3>
+              {(spinResult.tower || spinResult.flatNumber) && (
+                <p className="text-sm text-gray-500 mb-3">{spinResult.tower || ''}{spinResult.flatNumber ? ` - ${spinResult.flatNumber}` : ''}</p>
+              )}
+
+              {spinResult.assignedTeam ? (
+                <div className="mt-2 p-3 bg-green-50 rounded-xl border border-green-200">
+                  <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-0.5">Assigned to</p>
+                  <div className="flex items-center justify-center gap-1.5 text-base font-bold text-green-800">
+                    <Target className="h-4 w-4" />
+                    {spinResult.assignedTeam}
+                  </div>
+                </div>
+              ) : isTeamCategory() ? (
+                <div className="space-y-2 mt-2">
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
+                    <SelectContent>
+                      {teams.filter(t => t.category === selectedCategory).map(team => (
+                        <SelectItem key={team.id} value={team.id}>{team.name} ({team.players.length})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button className="w-full" onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)} disabled={!selectedTeam}>
+                    Assign to Team
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2 mt-2">
+                  <Select value={selectedPool} onValueChange={setSelectedPool}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select pool" /></SelectTrigger>
+                    <SelectContent>
+                      {pools.filter(p => p.category === selectedCategory).map(pool => (
+                        <SelectItem key={pool.id} value={pool.id}>{pool.name} ({pool.teams.length})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button className="w-full" onClick={() => assignPlayerToPool(spinResult.id, selectedPool)} disabled={!selectedPool}>
+                    Assign to Pool
+                  </Button>
+                </div>
+              )}
+
+              <Button variant="outline" className="w-full mt-3" onClick={() => setSpinResult(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Round mode dialog */}
+      {showSpinDialog && roundMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
             {isSpinning ? (
-              /* ── Spinning state: simple loader ── */
               <div className="p-12 text-center">
                 <div className="flex justify-center mb-6">
-                  <Loader2 className="h-14 w-14 text-blue-600 animate-spin" />
+                  <div className="relative w-16 h-16">
+                    <div className="absolute inset-0 rounded-full border-[4px] border-transparent border-t-violet-500 border-r-violet-300 animate-spin" style={{ animationDuration: '0.8s' }} />
+                    <div className="absolute inset-2 rounded-full border-[4px] border-transparent border-t-pink-500 border-r-pink-300 animate-spin" style={{ animationDuration: '1.2s', animationDirection: 'reverse' }} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <RefreshCw className="h-5 w-5 text-violet-500 animate-pulse" />
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
-                  {roundMode ? 'Assigning players…' : 'Spinning…'}
+                <p className="text-sm font-bold uppercase tracking-widest bg-gradient-to-r from-violet-500 via-pink-500 to-cyan-500 bg-clip-text text-transparent animate-pulse">
+                  Assigning Players…
                 </p>
               </div>
-            ) : roundMode ? (
-              /* ── Round complete ── */
+            ) : (
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <RefreshCw className="h-5 w-5 text-blue-600" />
@@ -778,72 +857,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   Done
                 </Button>
               </div>
-            ) : spinResult ? (
-              /* ── Single spin result ── */
-              <div className="p-8 text-center">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-5">
-                  Player Selected!
-                </p>
-                <div className="flex justify-center mb-4">
-                  <PlayerAvatar registration={spinResult} size="lg" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{spinResult.name}</h3>
-                {(spinResult.tower || spinResult.flatNumber) && (
-                  <p className="text-sm text-gray-500 mb-3">
-                    {spinResult.tower || ''}{spinResult.flatNumber ? ` - ${spinResult.flatNumber}` : ''}
-                  </p>
-                )}
-                {spinResult.assignedTeam ? (
-                  <div className="mt-2 p-4 bg-green-50 rounded-xl border border-green-200">
-                    <p className="text-xs text-green-600 font-medium mb-1 uppercase tracking-wide">Assigned to</p>
-                    <div className="flex items-center justify-center gap-2 text-xl font-bold text-green-800">
-                      <Target className="h-5 w-5" />
-                      {spinResult.assignedTeam}
-                    </div>
-                  </div>
-                ) : isTeamCategory() ? (
-                  <div className="space-y-2 mt-2">
-                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select team" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teams.filter(t => t.category === selectedCategory).map(team => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.name} ({team.players.length})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button className="w-full" onClick={() => assignPlayerToTeam(spinResult.id, selectedTeam)} disabled={!selectedTeam}>
-                      Assign to Team
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 mt-2">
-                    <Select value={selectedPool} onValueChange={setSelectedPool}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select pool" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pools.filter(p => p.category === selectedCategory).map(pool => (
-                          <SelectItem key={pool.id} value={pool.id}>
-                            {pool.name} ({pool.teams.length})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button className="w-full" onClick={() => assignPlayerToPool(spinResult.id, selectedPool)} disabled={!selectedPool}>
-                      Assign to Pool
-                    </Button>
-                  </div>
-                )}
-
-                <Button variant="outline" className="w-full mt-3" onClick={() => setShowSpinDialog(false)}>
-                  Close
-                </Button>
-              </div>
-            ) : null}
+            )}
           </div>
         </div>
       )}
