@@ -244,8 +244,15 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     return categoryPlayers.filter(player => !assignedPlayerIds.includes(player.id));
   };
 
+  const SKILL_RANK: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
+
   const getPoolPlayers = (pool: Pool) => {
-    return registrations.filter(registration => pool.teams.includes(registration.id));
+    return registrations
+      .filter(registration => pool.teams.includes(registration.id))
+      .sort((a, b) =>
+        (SKILL_RANK[a.expertiseLevel] ?? 4) - (SKILL_RANK[b.expertiseLevel] ?? 4) ||
+        a.name.localeCompare(b.name)
+      );
   };
 
   const startEditingPoolName = (pool: Pool) => {

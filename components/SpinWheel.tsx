@@ -528,90 +528,83 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const bucketLabel = isTeamCategory() ? 'team' : 'pool';
 
   return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex justify-end items-center">
-        <div className="flex items-center gap-3">
-          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
-            <SelectTrigger className="w-44 h-8 text-sm">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {tournament.categories.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={roundMode}
-              onChange={(e) => setRoundMode(e.target.checked)}
-              className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm font-medium text-gray-700">Round mode</span>
-          </label>
-          <Button onClick={autoAssignAllPlayers} disabled={!selectedCategory || unassignedRegistrations.length === 0}>
-            <Zap className="h-4 w-4 mr-2" />
-            Auto Assign All
-          </Button>
-          <Button
-            onClick={handleUnassignAll}
-            disabled={!selectedCategory}
-            variant="outline"
-            className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Unassign All
-          </Button>
+    <div className="space-y-3">
+      {/* Single card — no pool warning sits above it */}
+      {selectedCategory && !isTeamCategory() && pools.filter(p => p.category === selectedCategory).length === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          No pools found for this category. Create pools in the <strong>Pools</strong> tab first, then come back to spin.
         </div>
-      </div>
+      )}
 
-      {selectedCategory && (
-        <>
-          {/* No pools warning for non-team categories */}
-          {!isTeamCategory() && pools.filter(p => p.category === selectedCategory).length === 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              No pools found for this category. Create pools in the <strong>Pools</strong> tab first, then come back to spin.
-            </div>
-          )}
-
-          {/* Spin Wheel + Unassigned Players */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between gap-6">
-                {/* Left: unassigned count + round mode info */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-500">
-                    {unassignedRegistrations.length} unassigned
-                  </span>
-                  {roundMode && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 font-medium">
-                      Round — {Math.min(unassignedRegistrations.length, categoryTargets.length)} → {categoryTargets.length} {bucketLabel}s
-                    </span>
-                  )}
-                </div>
-                {/* Stats KPIs — top right */}
-                {stats && (
-                  <div className="flex gap-2 shrink-0">
-                    {[
-                      { value: stats.totalPlayers,    label: 'Total',           bg: 'bg-blue-50',   fg: 'text-blue-600'   },
-                      { value: stats.totalAssigned,   label: 'Assigned',        bg: 'bg-green-50',  fg: 'text-green-600'  },
-                      { value: stats.totalUnassigned, label: 'Unassigned',      bg: 'bg-orange-50', fg: 'text-orange-600' },
-                      { value: stats.averagePerBucket,label: `Avg/${stats.bucketLabel}`, bg: 'bg-purple-50', fg: 'text-purple-600' },
-                    ].map(({ value, label, bg, fg }) => (
-                      <div key={label} className={`text-center px-3 py-2 rounded-lg ${bg}`}>
-                        <div className={`text-xl font-bold ${fg}`}>{value}</div>
-                        <div className="text-[10px] text-gray-500 leading-tight">{label}</div>
-                      </div>
-                    ))}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Left: Stats KPIs */}
+            {stats ? (
+              <div className="flex gap-2 shrink-0">
+                {[
+                  { value: stats.totalPlayers,    label: 'Total',           bg: 'bg-blue-50',   fg: 'text-blue-600'   },
+                  { value: stats.totalAssigned,   label: 'Assigned',        bg: 'bg-green-50',  fg: 'text-green-600'  },
+                  { value: stats.totalUnassigned, label: 'Unassigned',      bg: 'bg-orange-50', fg: 'text-orange-600' },
+                  { value: stats.averagePerBucket,label: `Avg/${stats.bucketLabel}`, bg: 'bg-purple-50', fg: 'text-purple-600' },
+                ].map(({ value, label, bg, fg }) => (
+                  <div key={label} className={`text-center px-3 py-2 rounded-lg ${bg}`}>
+                    <div className={`text-xl font-bold ${fg}`}>{value}</div>
+                    <div className="text-[10px] text-gray-500 leading-tight">{label}</div>
                   </div>
-                )}
+                ))}
               </div>
-            </CardHeader>
-            <CardContent>
+            ) : (
+              <div />
+            )}
+
+            {/* Right: all controls */}
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
+                <SelectTrigger className="w-40 h-8 text-sm">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tournament.categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={roundMode}
+                  onChange={(e) => setRoundMode(e.target.checked)}
+                  className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Round mode</span>
+              </label>
+              <Button size="sm" onClick={autoAssignAllPlayers} disabled={!selectedCategory || unassignedRegistrations.length === 0}>
+                <Zap className="h-4 w-4 mr-1.5" />
+                Auto Assign All
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleUnassignAll}
+                disabled={!selectedCategory}
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
+              >
+                <RotateCcw className="h-4 w-4 mr-1.5" />
+                Unassign All
+              </Button>
+            </div>
+          </div>
+          {/* Round mode info strip */}
+          {roundMode && selectedCategory && (
+            <p className="text-xs text-blue-600 mt-1">
+              Round — {Math.min(unassignedRegistrations.length, categoryTargets.length)} players → {categoryTargets.length} {bucketLabel}s
+            </p>
+          )}
+        </CardHeader>
+        <CardContent>
               {(() => {
                 /* ── Orbital bubble layout ── */
                 const HALF = 360;
@@ -728,10 +721,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                 );
               })()}
             </CardContent>
-          </Card>
-
-        </>
-      )}
+        </Card>
 
       {ConfirmDialogComponent}
       {AlertDialogComponent}

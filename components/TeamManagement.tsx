@@ -195,6 +195,8 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   const getTeamsForPool = (pool: Pool) =>
     teams.filter(t => pool.teams.includes(t.id));
 
+  const SKILL_RANK: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
+
   const getRosterTeams = (category: 'mens-team' | 'womens-team') =>
     teams
       .filter(t => t.category === category)
@@ -206,7 +208,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           name: reg.name,
           level: reg.expertiseLevel,
           isCaptain: reg.id === team.captainId,
-        })).sort((a, b) => (b.isCaptain ? 1 : 0) - (a.isCaptain ? 1 : 0) || a.name.localeCompare(b.name)),
+        })).sort((a, b) =>
+          (SKILL_RANK[a.level] ?? 4) - (SKILL_RANK[b.level] ?? 4) ||
+          a.name.localeCompare(b.name)
+        ),
       }));
 
   const formatCategory = (cat: string) =>
