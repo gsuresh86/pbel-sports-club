@@ -249,3 +249,59 @@ test('maxPlayers: undefined (no cap) behaves like unlimited', () => {
   assert.equal(assignments.t0.length, 10);
   assert.deepEqual(unassigned, []);
 });
+
+// --- requested composition: 1 expert + 1 advanced + 1 intermediate + (maxPlayers-3) beginners ---
+
+test('full cap: each team is 1 expert + 1 advanced + 1 intermediate + (maxPlayers-3) beginners', () => {
+  const MAX = 6;
+  const levels = [
+    ...Array(3).fill('expert'),
+    ...Array(3).fill('advanced'),
+    ...Array(3).fill('intermediate'),
+    ...Array(12).fill('beginner'),
+  ];
+  const ids = levels.map((_, i) => `p${i}`);
+  const levelOf = (id: string) => levels[Number(id.slice(1))];
+  const teams: AssignTeam[] = Array.from({ length: 3 }, (_, i) => ({ id: `t${i}`, players: [], maxPlayers: MAX }));
+  const { assignments, unassigned } = assignByTierQuota(ids, teams, levelOf);
+
+  for (const t of teams) {
+    const comp = assignments[t.id].map(levelOf);
+    assert.equal(comp.length, MAX, `team not filled to cap: ${comp}`);
+    assert.equal(count(comp, 'expert'), 1);
+    assert.equal(count(comp, 'advanced'), 1);
+    assert.equal(count(comp, 'intermediate'), 1);
+    assert.equal(count(comp, 'beginner'), MAX - 3);
+  }
+  // 3 teams × 3 beginner slots = 9 placed, 3 beginners surplus
+  assert.equal(unassigned.length, 3);
+  assert.ok(unassigned.map(levelOf).every(l => l === 'beginner'));
+});
+
+test('full cap with shortage: missing top tier is back-filled with a beginner to reach maxPlayers', () => {
+  const MAX = 6;
+  // Only 1 expert for 3 teams; plenty of advanced/intermediate/beginner.
+  const levels = [
+    'expert',
+    ...Array(3).fill('advanced'),
+    ...Array(3).fill('intermediate'),
+    ...Array(15).fill('beginner'),
+  ];
+  const ids = levels.map((_, i) => `p${i}`);
+  const levelOf = (id: string) => levels[Number(id.slice(1))];
+  const teams: AssignTeam[] = Array.from({ length: 3 }, (_, i) => ({ id: `t${i}`, players: [], maxPlayers: MAX }));
+  const { assignments } = assignByTierQuota(ids, teams, levelOf);
+
+  // Every team is filled to the cap...
+  for (const t of teams) {
+    assert.equal(assignments[t.id].length, MAX, `team ${t.id} not full`);
+  }
+  // ...exactly one team has the single expert; the other two have an extra beginner instead.
+  const withExpert = teams.filter(t => assignments[t.id].map(levelOf).includes('expert'));
+  assert.equal(withExpert.length, 1);
+  for (const t of teams) {
+    const comp = assignments[t.id].map(levelOf);
+    const expected = comp.includes('expert') ? MAX - 3 : MAX - 2;
+    assert.equal(count(comp, 'beginner'), expected, `team ${t.id} beginner count: ${comp}`);
+  }
+});
