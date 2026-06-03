@@ -9,11 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
-import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw } from 'lucide-react';
+import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { assignByTierQuota, selectQuotaTeamForPlayer, selectQuotaPlayerForTeam } from '@/lib/teamAssignment';
+import { assignByTierQuota, selectQuotaTeamForPlayer, selectQuotaPlayerForTeam, topTiersAvailable } from '@/lib/teamAssignment';
 
 interface SpinWheelProps {
   tournament: Tournament;
@@ -148,24 +148,60 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setRoundResults([]);
     setShowSpinDialog(true);
 
-    const spinDuration = 2000;
-    const spinIntervalId = setInterval(() => {
-      const idx = Math.floor(Math.random() * unassignedRegistrations.length);
-      setSpinResult(unassignedRegistrations[idx]);
-    }, 50);
+    // Show the loader for a moment, then pick a random player who actually fits a
+    // team/pool and assign them.
+    const spinDuration = 1500;
+    await new Promise(resolve => setTimeout(resolve, spinDuration));
 
-    setTimeout(async () => {
-      clearInterval(spinIntervalId);
-      setIsSpinning(false);
-      const finalIndex = Math.floor(Math.random() * unassignedRegistrations.length);
-      const selectedPlayer = unassignedRegistrations[finalIndex];
-      setSpinResult(selectedPlayer);
-      if (isTeamCategory()) {
-        await autoAssignPlayerToNextTeam(selectedPlayer);
-      } else {
-        await autoAssignPlayerToNextPool(selectedPlayer);
+    if (isTeamCategory()) {
+      await assignRandomPlayerToTeam();
+    } else {
+      await assignRandomPlayerToPool();
+    }
+    setIsSpinning(false);
+  };
+
+  // Picks a random unassigned player who can be placed under the quota rules,
+  // scans for the team that fits them, and assigns them.
+  const assignRandomPlayerToTeam = async () => {
+    const categoryTeams = teams
+      .filter(t => t.category === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (categoryTeams.length === 0) return;
+
+    const levelOf = makeLevelOf();
+    const availableTopTiers = topTiersAvailable(unassignedRegistrations.map(r => r.expertiseLevel));
+
+    // Random order, then take the first player who has a team that fits.
+    const shuffled = [...unassignedRegistrations].sort(() => Math.random() - 0.5);
+    for (const player of shuffled) {
+      const team = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, levelOf, availableTopTiers);
+      if (team) {
+        await assignPlayerToTeam(player.id, team.id);
+        setSpinResult({ ...player, assignedTeam: team.name });
+        return;
       }
-    }, spinDuration);
+    }
+    // No one could be placed (every team is full).
+    setShowSpinDialog(false);
+    alert({
+      title: 'Teams Are Full',
+      description: 'Every team has reached its maximum players, so no more players can be assigned.',
+      variant: 'warning',
+    });
+  };
+
+  const assignRandomPlayerToPool = async () => {
+    const categoryPools = pools
+      .filter(p => p.category === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (categoryPools.length === 0) return;
+
+    const idx = Math.floor(Math.random() * unassignedRegistrations.length);
+    const player = unassignedRegistrations[idx];
+    const targetPool = categoryPools.reduce((min, p) => (p.teams.length < min.teams.length ? p : min), categoryPools[0]);
+    await assignPlayerToPool(player.id, targetPool.id);
+    setSpinResult({ ...player, assignedTeam: targetPool.name });
   };
 
   const spinWheelRound = async () => {
@@ -182,19 +218,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     setRoundResults([]);
     setShowSpinDialog(true);
 
-    const playersToAssign = Math.min(unassignedRegistrations.length, targets.length);
     const shuffledPlayers = [...unassignedRegistrations].sort(() => Math.random() - 0.5);
-    const selectedPlayers = shuffledPlayers.slice(0, playersToAssign);
-
-    const spinIntervalId = setInterval(() => {
-      setRoundResults(selectedPlayers.map(player => ({
-        ...player,
-        assignedTeam: targets[Math.floor(Math.random() * targets.length)].name,
-      })));
-    }, 100);
 
     setTimeout(async () => {
-      clearInterval(spinIntervalId);
       setIsSpinning(false);
 
       const finalResults: SpinResult[] = [];
@@ -230,8 +256,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         }
       } else {
         const categoryPools = targets as Pool[];
-        for (let i = 0; i < selectedPlayers.length; i++) {
-          const player = selectedPlayers[i];
+        const playersForRound = shuffledPlayers.slice(0, Math.min(shuffledPlayers.length, categoryPools.length));
+        for (let i = 0; i < playersForRound.length; i++) {
+          const player = playersForRound[i];
           const pool = categoryPools[i % categoryPools.length];
           await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', pool.id), {
             teams: [...pool.teams, player.id],
@@ -283,67 +310,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const makeLevelOf = () => {
     const levelById = new Map(registrations.map(r => [r.id, r.expertiseLevel as string]));
     return (id: string) => levelById.get(id) ?? 'beginner';
-  };
-
-  const autoAssignPlayerToNextTeam = async (player: Registration) => {
-    try {
-      const categoryTeams = teams
-        .filter(t => t.category === selectedCategory)
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      if (categoryTeams.length === 0) {
-        setShowSpinDialog(false);
-        return;
-      }
-
-      // Place the player on a team that still needs their tier (beginners go to
-      // the smallest team). A surplus expert/advanced/intermediate has no eligible
-      // team and is left unassigned (silently).
-      const targetTeam = selectQuotaTeamForPlayer(player.expertiseLevel, categoryTeams, makeLevelOf());
-      if (!targetTeam) {
-        setShowSpinDialog(false);
-        alert({
-          title: 'Cannot Assign Player',
-          description: `${player.name} could not be assigned — all teams are either full or already have a player at this skill level.`,
-          variant: 'warning',
-        });
-        return;
-      }
-
-      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', targetTeam.id), {
-        players: [...targetTeam.players, player.id],
-        updatedAt: new Date(),
-      });
-      await loadData();
-      filterRegistrations();
-      setSpinResult({ ...player, assignedTeam: targetTeam.name });
-    } catch (error) {
-      console.error('Error auto-assigning player to team:', error);
-      setShowSpinDialog(false);
-    }
-  };
-
-  const autoAssignPlayerToNextPool = async (player: Registration) => {
-    try {
-      const categoryPools = pools
-        .filter(p => p.category === selectedCategory)
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-      if (categoryPools.length === 0) {
-        setShowSpinDialog(false);
-        return;
-      }
-
-      const targetPool = categoryPools.reduce((min, p) => p.teams.length < min.teams.length ? p : min, categoryPools[0]);
-      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', targetPool.id), {
-        teams: [...targetPool.teams, player.id],
-        updatedAt: new Date(),
-      });
-      await loadData();
-      filterRegistrations();
-      setSpinResult({ ...player, assignedTeam: targetPool.name });
-    } catch (error) {
-      console.error('Error auto-assigning player to pool:', error);
-      setShowSpinDialog(false);
-    }
   };
 
   const removePlayerFromTeam = async (registrationId: string, teamId: string) => {
@@ -777,39 +743,14 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             {isSpinning ? (
-              /* ── Spinning state ── */
-              <div className="p-8 text-center">
-                <p className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">
-                  {roundMode ? 'Selecting players…' : 'Spinning…'}
-                </p>
-                {!roundMode && spinResult && (
-                  <div className="flex flex-col items-center gap-3 animate-pulse">
-                    <PlayerAvatar registration={spinResult} size="lg" />
-                    <p className="text-xl font-bold text-gray-900">{spinResult.name}</p>
-                  </div>
-                )}
-                {roundMode && roundResults.length > 0 && (
-                  <div className="space-y-2 max-h-72 overflow-y-auto text-left">
-                    {roundResults.map(r => (
-                      <div key={r.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                        <PlayerAvatar registration={r} size="sm" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{r.name}</p>
-                        </div>
-                        <span className="text-xs font-semibold text-blue-600 shrink-0">→ {r.assignedTeam}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="mt-8 flex justify-center gap-1.5">
-                  {[0, 1, 2].map(i => (
-                    <span
-                      key={i}
-                      className="inline-block w-2.5 h-2.5 rounded-full bg-gray-800 animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
-                  ))}
+              /* ── Spinning state: simple loader ── */
+              <div className="p-12 text-center">
+                <div className="flex justify-center mb-6">
+                  <Loader2 className="h-14 w-14 text-blue-600 animate-spin" />
                 </div>
+                <p className="text-sm font-semibold uppercase tracking-widest text-gray-400">
+                  {roundMode ? 'Assigning players…' : 'Spinning…'}
+                </p>
               </div>
             ) : roundMode ? (
               /* ── Round complete ── */

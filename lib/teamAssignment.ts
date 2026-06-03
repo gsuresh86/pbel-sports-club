@@ -24,6 +24,13 @@ export const TOP_TIERS = ['expert', 'advanced', 'intermediate'] as const;
 
 const isTopTier = (level: string): boolean => (TOP_TIERS as readonly string[]).includes(level);
 
+/** The set of top tiers that appear among the given player levels. */
+export function topTiersAvailable(levels: Iterable<string>): Set<string> {
+  const present = new Set<string>();
+  for (const level of levels) if (isTopTier(level)) present.add(level);
+  return present;
+}
+
 const hasCapacity = (t: AssignTeam): boolean =>
   t.maxPlayers == null || t.players.length < t.maxPlayers;
 
@@ -32,27 +39,42 @@ const smallest = <T extends AssignTeam>(teams: T[]): T =>
 
 /**
  * Picks the team a single player should join under the quota rules.
- *  - A beginner goes to the smallest team that still has capacity.
- *  - A top-tier player goes to the smallest team that does not yet have that
- *    tier and still has capacity. Returns `undefined` when every eligible team
- *    is either full or already holds that tier (player is left unassigned).
- * Returns `undefined` when there are no teams or all are full.
+ *  - A top-tier player goes to the smallest team that does not yet have that tier
+ *    and still has capacity. Returns `undefined` when every team is full or
+ *    already holds that tier (the player is surplus / unplaceable).
+ *  - A beginner goes to the smallest team that has a free slot AFTER reserving one
+ *    slot for each top tier the team still lacks that is listed in
+ *    `availableTopTiers` (i.e. a tier that still has an unassigned player). This
+ *    stops a beginner from filling the last slot a missing expert/advanced/
+ *    intermediate should occupy. When a tier is no longer available, its slot is
+ *    no longer reserved and beginners fill the team to maxPlayers.
+ * Returns `undefined` when there are no eligible teams.
  */
 export function selectQuotaTeamForPlayer<T extends AssignTeam>(
   playerLevel: string,
   teams: T[],
   levelOf: (playerId: string) => string,
+  availableTopTiers: ReadonlySet<string> = new Set(),
 ): T | undefined {
   if (teams.length === 0) return undefined;
-  const open = teams.filter(hasCapacity);
-  if (open.length === 0) return undefined;
-  if (!isTopTier(playerLevel)) {
-    // beginner (or any non-capped level): just balance team sizes
-    return smallest(open);
+  const tiersOf = (t: T) => new Set(t.players.map(levelOf));
+
+  if (isTopTier(playerLevel)) {
+    const lacking = teams.filter(t => hasCapacity(t) && !tiersOf(t).has(playerLevel));
+    if (lacking.length === 0) return undefined; // surplus of this tier, or all full
+    return smallest(lacking);
   }
-  const lacking = open.filter(t => !new Set(t.players.map(levelOf)).has(playerLevel));
-  if (lacking.length === 0) return undefined; // surplus of this tier
-  return smallest(lacking);
+
+  // Beginner: reserve one slot for each missing-but-still-available top tier.
+  const beginnerFits = (t: T) => {
+    if (t.maxPlayers == null) return true;
+    const have = tiersOf(t);
+    const reserved = TOP_TIERS.filter(tier => availableTopTiers.has(tier) && !have.has(tier)).length;
+    return t.players.length < t.maxPlayers - reserved;
+  };
+  const open = teams.filter(beginnerFits);
+  if (open.length === 0) return undefined;
+  return smallest(open);
 }
 
 /**

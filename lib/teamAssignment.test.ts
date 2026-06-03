@@ -4,6 +4,7 @@ import {
   assignByTierQuota,
   selectQuotaTeamForPlayer,
   selectQuotaPlayerForTeam,
+  topTiersAvailable,
   TOP_TIERS,
   type AssignTeam,
 } from './teamAssignment.ts';
@@ -140,6 +141,37 @@ test('selectQuotaTeamForPlayer: surplus top-tier player returns undefined', () =
   const teams: AssignTeam[] = [{ id: 't0', players: ['a'] }, { id: 't1', players: ['b'] }];
   const t = selectQuotaTeamForPlayer('expert', teams, lvl({ a: 'expert', b: 'expert' }));
   assert.equal(t, undefined);
+});
+
+test('selectQuotaTeamForPlayer: a beginner does NOT take a slot reserved for an available expert', () => {
+  // Team has 5/6, no expert yet; an expert is still available -> last slot reserved.
+  const teams: AssignTeam[] = [{ id: 't0', players: ['a', 'b', 'c', 'd', 'e'], maxPlayers: 6 }];
+  const levelOf = (_id: string) => 'beginner';
+  const blocked = selectQuotaTeamForPlayer('beginner', teams, levelOf, new Set(['expert']));
+  assert.equal(blocked, undefined, 'beginner should not fill the reserved expert slot');
+  // The expert itself still fits that reserved slot.
+  const expertTeam = selectQuotaTeamForPlayer('expert', teams, levelOf, new Set(['expert']));
+  assert.equal(expertTeam?.id, 't0');
+  // Once no expert is available, the slot is freed for a beginner.
+  const freed = selectQuotaTeamForPlayer('beginner', teams, levelOf, new Set());
+  assert.equal(freed?.id, 't0');
+});
+
+test('selectQuotaTeamForPlayer: a team that already has the expert does not reserve for it', () => {
+  // 5/6 and already has an expert -> the last slot is free for a beginner even
+  // though an expert is still available (it must go to a team that lacks one).
+  const teams: AssignTeam[] = [{ id: 't0', players: ['x', 'b', 'c', 'd', 'e'], maxPlayers: 6 }];
+  const levelOf = (id: string) => (id === 'x' ? 'expert' : 'beginner');
+  const t = selectQuotaTeamForPlayer('beginner', teams, levelOf, new Set(['expert']));
+  assert.equal(t?.id, 't0');
+});
+
+test('topTiersAvailable: reports only the top tiers present among levels', () => {
+  assert.deepEqual(
+    [...topTiersAvailable(['beginner', 'advanced', 'beginner', 'expert'])].sort(),
+    ['advanced', 'expert'],
+  );
+  assert.deepEqual([...topTiersAvailable(['beginner', 'beginner'])], []);
 });
 
 test('selectQuotaTeamForPlayer: beginner goes to the smallest team', () => {
