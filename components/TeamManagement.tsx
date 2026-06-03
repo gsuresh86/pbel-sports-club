@@ -33,7 +33,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     useTournamentRegistrations(tournament.id);
   const loading = teamsLoading || poolsLoading || registrationsLoading;
 
-  const [activeSubTab, setActiveSubTab] = useState<'teams' | 'pools'>('teams');
+  const [activeSubTab, setActiveSubTab] = useState<'teams' | 'pools' | 'mens-roster' | 'womens-roster'>('teams');
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -195,6 +195,20 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   const getTeamsForPool = (pool: Pool) =>
     teams.filter(t => pool.teams.includes(t.id));
 
+  const getRosterTeams = (category: 'mens-team' | 'womens-team') =>
+    teams
+      .filter(t => t.category === category)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(team => ({
+        team,
+        players: getPlayersForTeam(team).map(reg => ({
+          id: reg.id,
+          name: reg.name,
+          level: reg.expertiseLevel,
+          isCaptain: reg.id === team.captainId,
+        })).sort((a, b) => (b.isCaptain ? 1 : 0) - (a.isCaptain ? 1 : 0) || a.name.localeCompare(b.name)),
+      }));
+
   const formatCategory = (cat: string) =>
     cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
@@ -240,7 +254,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       </div>
 
       {/* Sub-tabs */}
-      <Tabs value={activeSubTab} onValueChange={v => setActiveSubTab(v as 'teams' | 'pools')}>
+      <Tabs value={activeSubTab} onValueChange={v => setActiveSubTab(v as 'teams' | 'pools' | 'mens-roster' | 'womens-roster')}>
         <TabsList>
           <TabsTrigger value="teams">
             <Users className="h-4 w-4 mr-2" />
@@ -250,6 +264,8 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
             <Target className="h-4 w-4 mr-2" />
             Pools ({filteredPools.length})
           </TabsTrigger>
+          <TabsTrigger value="mens-roster">Men&apos;s</TabsTrigger>
+          <TabsTrigger value="womens-roster">Women&apos;s</TabsTrigger>
         </TabsList>
 
         {/* Teams Table */}
@@ -410,6 +426,55 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
             </div>
           )}
         </TabsContent>
+
+        {/* Men's / Women's Roster */}
+        {(['mens-roster', 'womens-roster'] as const).map((tab) => {
+          const category = tab === 'mens-roster' ? 'mens-team' : 'womens-team';
+          const label = tab === 'mens-roster' ? "Men's" : "Women's";
+          const rosterTeams = getRosterTeams(category);
+          return (
+            <TabsContent key={tab} value={tab} className="mt-4">
+              {rosterTeams.length === 0 ? (
+                <div className="text-center py-12 border rounded-lg">
+                  <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No {label} teams yet</h3>
+                  <p className="text-gray-600">Players will appear here once assigned to {label.toLowerCase()} teams.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {rosterTeams.map(({ team, players }, teamIdx) => (
+                    <div key={team.id} className="rounded-lg border bg-white shadow-sm">
+                      {/* Team header */}
+                      <div className="flex items-center justify-between rounded-t-lg bg-gray-50 px-4 py-2.5 border-b">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-400">#{teamIdx + 1}</span>
+                          <span className="font-semibold text-sm text-gray-900">{team.name}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{players.length}{team.maxPlayers != null ? ` / ${team.maxPlayers}` : ''} players</span>
+                      </div>
+                      {/* Players list */}
+                      {players.length === 0 ? (
+                        <p className="px-4 py-3 text-xs text-gray-400">No players assigned yet.</p>
+                      ) : (
+                        <ul className="divide-y">
+                          {players.map((p) => (
+                            <li key={p.id} className="flex items-center justify-between px-4 py-2">
+                              <div className="flex items-center gap-1.5 text-sm">
+                                {p.isCaptain && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
+                                <span className={p.isCaptain ? 'font-medium' : ''}>{p.name}</span>
+                              </div>
+                              <Badge variant="outline" className="capitalize text-[10px]">{p.level}</Badge>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* Create Team Modal */}
