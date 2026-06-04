@@ -474,7 +474,10 @@ export default function TournamentDetailPage() {
                 </div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {teams.filter(t => teamsCatFilter === 'all' || t.category === teamsCatFilter).map(team => {
+                  {teams
+                    .filter(t => teamsCatFilter === 'all' || t.category === teamsCatFilter)
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+                    .map(team => {
                     const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
                     const captain = participants.find(p => p.id === team.captainId);
                     return (
