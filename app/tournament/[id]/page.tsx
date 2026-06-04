@@ -566,7 +566,10 @@ export default function TournamentDetailPage() {
                   <p className="text-slate-400">Pools will appear once they are created</p>
                 </div>
               ) : (
-                pools.filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter).map(pool => {
+                pools
+                  .filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter)
+                  .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+                  .map(pool => {
                   const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18') || pool.category.includes('under-');
                   const isTeamCategory = pool.category.includes('team') && !pool.category.includes('doubles') && !isKidsCategory;
                   return (
@@ -583,7 +586,13 @@ export default function TournamentDetailPage() {
                         </span>
                       </div>
                       <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {pool.teams.map((itemId, idx) => {
+                        {[...pool.teams]
+                          .sort((a, b) => {
+                            const nameA = isTeamCategory ? (teams.find(t => t.id === a)?.name ?? '') : (participants.find(p => p.id === a)?.name ?? '');
+                            const nameB = isTeamCategory ? (teams.find(t => t.id === b)?.name ?? '') : (participants.find(p => p.id === b)?.name ?? '');
+                            return nameA.localeCompare(nameB, undefined, { numeric: true });
+                          })
+                          .map((itemId, idx) => {
                           if (isTeamCategory) {
                             const team = teams.find(t => t.id === itemId);
                             return (
