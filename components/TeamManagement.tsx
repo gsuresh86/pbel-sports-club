@@ -207,6 +207,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           id: reg.id,
           name: reg.name,
           level: reg.expertiseLevel,
+          phone: reg.phone,
           isCaptain: reg.id === team.captainId,
         })).sort((a, b) =>
           (SKILL_RANK[a.level] ?? 4) - (SKILL_RANK[b.level] ?? 4) ||
@@ -464,11 +465,18 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                         <ul className="divide-y">
                           {players.map((p) => (
                             <li key={p.id} className="flex items-center justify-between px-4 py-2">
-                              <div className="flex items-center gap-1.5 text-sm">
+                              <div className="flex items-center gap-1.5 text-sm min-w-0">
                                 {p.isCaptain && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
-                                <span className={p.isCaptain ? 'font-medium' : ''}>{p.name}</span>
+                                <span className={`truncate ${p.isCaptain ? 'font-medium' : ''}`}>{p.name}</span>
                               </div>
-                              <Badge variant="outline" className="capitalize text-[10px]">{p.level}</Badge>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {p.phone && (
+                                  <a href={`tel:${p.phone}`} className="text-xs text-gray-500 hover:text-gray-700 tabular-nums">
+                                    {p.phone}
+                                  </a>
+                                )}
+                                <Badge variant="outline" className="capitalize text-[10px]">{p.level}</Badge>
+                              </div>
                             </li>
                           ))}
                         </ul>
