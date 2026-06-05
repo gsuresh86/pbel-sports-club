@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { doc, updateDoc, setDoc, collection, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, deleteDoc, collection, getDocs, query, where, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import Image from 'next/image';
@@ -65,6 +65,7 @@ import {
   Camera,
   Loader2,
   Check,
+  Trash2,
 } from 'lucide-react';
 
 const TSHIRT_SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
@@ -348,6 +349,75 @@ export default function TournamentDetailsPage() {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [participants]);
   
+  // Edit match dialog
+  const [editMatchOpen, setEditMatchOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
+  const [editMatchForm, setEditMatchForm] = useState({
+    round: '',
+    matchNumber: '',
+    player1Id: '',
+    player2Id: '',
+    scheduledTime: '',
+    venue: '',
+    court: '',
+    referee: '',
+    status: 'scheduled' as Match['status'],
+    notes: '',
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
+  });
+  const [savingMatch, setSavingMatch] = useState(false);
+
+  const openEditMatch = (match: Match) => {
+    setEditingMatch(match);
+    setEditMatchForm({
+      round: match.round,
+      matchNumber: String(match.matchNumber),
+      player1Id: match.player1Id,
+      player2Id: match.player2Id,
+      scheduledTime: new Date(match.scheduledTime).toISOString().slice(0, 16),
+      venue: match.venue,
+      court: match.court ?? '',
+      referee: match.referee ?? '',
+      status: match.status,
+      notes: match.notes ?? '',
+      matchFormat: (match as any).matchFormat ?? 'best-of-3',
+    });
+    setEditMatchOpen(true);
+  };
+
+  const saveEditMatch = async () => {
+    if (!editingMatch) return;
+    const p1 = participants.find(p => p.id === editMatchForm.player1Id);
+    const p2 = participants.find(p => p.id === editMatchForm.player2Id);
+    if (!p1 || !p2) { alert({ title: 'Error', description: 'Select valid players', variant: 'error' }); return; }
+    setSavingMatch(true);
+    try {
+      await updateDoc(doc(db, 'matches', editingMatch.id), {
+        round: editMatchForm.round,
+        matchNumber: parseInt(editMatchForm.matchNumber),
+        player1Id: p1.id,
+        player1Name: p1.name,
+        player2Id: p2.id,
+        player2Name: p2.name,
+        scheduledTime: new Date(editMatchForm.scheduledTime),
+        venue: editMatchForm.venue,
+        court: editMatchForm.court || null,
+        referee: editMatchForm.referee || null,
+        status: editMatchForm.status,
+        notes: editMatchForm.notes || null,
+        matchFormat: editMatchForm.matchFormat,
+        updatedAt: new Date(),
+      });
+      invalidateTournament(tournamentId);
+      setEditMatchOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to save match', variant: 'error' });
+    } finally {
+      setSavingMatch(false);
+    }
+  };
+
   // Edit drawer states
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Registration | null>(null);
@@ -515,6 +585,17 @@ export default function TournamentDetailsPage() {
   const openEditDrawer = (participant: Registration) => {
     setSelectedParticipant(participant);
     setEditDrawerOpen(true);
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm('Delete this match? This cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'matches', matchId));
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to delete match', variant: 'error' });
+    }
   };
 
   const exportParticipants = () => {
@@ -1390,9 +1471,31 @@ export default function TournamentDetailsPage() {
 
           {/* Matches Tab */}
           <TabsContent value="matches" className="space-y-4 sm:space-y-6">
-            <div>
-              <h3 className="text-base font-semibold sm:text-lg">Matches ({totalMatches})</h3>
-              <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-semibold sm:text-lg">Matches ({totalMatches})</h3>
+                <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
+              </div>
+              {totalMatches > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-shrink-0 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                  onClick={async () => {
+                    if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                    try {
+                      await Promise.all((matches ?? []).map(m => deleteDoc(doc(db, 'matches', m.id))));
+                      invalidateTournament(tournamentId);
+                    } catch (e) {
+                      console.error(e);
+                      alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              )}
             </div>
 
             <Card>
@@ -1408,12 +1511,11 @@ export default function TournamentDetailsPage() {
                         <TableHead className="text-xs sm:text-sm">Score</TableHead>
                         <TableHead className="text-xs sm:text-sm">Status</TableHead>
                         <TableHead className="text-xs sm:text-sm">Time</TableHead>
-                        <TableHead className="text-xs sm:text-sm">Venue</TableHead>
                         <TableHead className="text-right text-xs sm:text-sm w-24">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(matches || []).map((match) => (
+                      {[...(matches || [])].sort((a, b) => a.matchNumber - b.matchNumber).map((match) => (
                         <TableRow key={match.id}>
                           <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
                           <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
@@ -1438,7 +1540,6 @@ export default function TournamentDetailsPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
-                          <TableCell className="text-xs sm:text-sm py-2 max-w-[60px] sm:max-w-none truncate">{match.venue}</TableCell>
                           <TableCell className="text-right py-2">
                             <div className="flex flex-col gap-1 sm:flex-row sm:gap-2 sm:justify-end">
                               {match.status === 'scheduled' && (
@@ -1482,6 +1583,22 @@ export default function TournamentDetailsPage() {
                                   {match.status === 'scheduled' ? 'Score' : match.status === 'live' ? 'Update' : 'View'}
                                 </Button>
                               </Link>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs touch-manipulation"
+                                onClick={() => openEditMatch(match)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteMatch(match.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1643,6 +1760,107 @@ export default function TournamentDetailsPage() {
             <PoolAssignment tournament={tournament} user={user!} />
           </TabsContent>
         </Tabs>
+
+        {/* Edit Match Dialog */}
+        <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Match</DialogTitle>
+              <DialogDescription>Update match details</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Round</Label>
+                  <Input value={editMatchForm.round} onChange={e => setEditMatchForm(f => ({ ...f, round: e.target.value }))} placeholder="e.g. Quarter Final" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Match #</Label>
+                  <Input type="number" value={editMatchForm.matchNumber} onChange={e => setEditMatchForm(f => ({ ...f, matchNumber: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Player 1</Label>
+                  <Select value={editMatchForm.player1Id} onValueChange={v => setEditMatchForm(f => ({ ...f, player1Id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
+                    <SelectContent>
+                      {participants.filter(p => p.registrationStatus === 'approved').map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Player 2</Label>
+                  <Select value={editMatchForm.player2Id} onValueChange={v => setEditMatchForm(f => ({ ...f, player2Id: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
+                    <SelectContent>
+                      {participants.filter(p => p.registrationStatus === 'approved').map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Scheduled Time</Label>
+                  <Input type="datetime-local" value={editMatchForm.scheduledTime} onChange={e => setEditMatchForm(f => ({ ...f, scheduledTime: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Status</Label>
+                  <Select value={editMatchForm.status} onValueChange={(v: Match['status']) => setEditMatchForm(f => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="live">Live</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="postponed">Postponed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Venue</Label>
+                  <Input value={editMatchForm.venue} onChange={e => setEditMatchForm(f => ({ ...f, venue: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Court</Label>
+                  <Input value={editMatchForm.court} onChange={e => setEditMatchForm(f => ({ ...f, court: e.target.value }))} placeholder="e.g. Court 1" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Referee</Label>
+                  <Input value={editMatchForm.referee} onChange={e => setEditMatchForm(f => ({ ...f, referee: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Match Format</Label>
+                  <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3') => setEditMatchForm(f => ({ ...f, matchFormat: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single-set">Single set</SelectItem>
+                      <SelectItem value="best-of-3">Best of 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Notes</Label>
+                <Input value={editMatchForm.notes} onChange={e => setEditMatchForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditMatchOpen(false)}>Cancel</Button>
+                <Button onClick={saveEditMatch} disabled={savingMatch}>
+                  {savingMatch ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Add Admin Dialog */}
         {isFullAdmin && (
