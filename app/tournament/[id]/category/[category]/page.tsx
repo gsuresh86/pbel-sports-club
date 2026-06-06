@@ -111,17 +111,17 @@ function DoublesCard({ registration }: { registration: Registration }) {
   const partnerName = registration.partnerName ?? '';
   const partnerPhoto = registration.partnerProfilePhotoUrl;
   return (
-    <div className="rounded-2xl overflow-hidden border border-white/5 bg-slate-900 hover:border-yellow-400/20 hover:-translate-y-1 transition-all duration-200 shadow hover:shadow-xl">
+    <div className="rounded-xl overflow-hidden border border-white/5 bg-slate-900 hover:border-yellow-400/20 hover:-translate-y-1 transition-all duration-200 shadow hover:shadow-xl">
       {/* Two avatars side by side */}
-      <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 p-5 flex items-end justify-center gap-3">
+      <div className="relative bg-gradient-to-b from-slate-800 to-slate-900 p-3 flex items-end justify-center gap-2">
         {/* Decorative lines */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent" />
         </div>
 
-        <div className="flex flex-col items-center gap-1.5 z-10">
-          <Avatar name={registration.name} photoUrl={registration.profilePhotoUrl} size="lg" />
-          <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[72px] truncate">
+        <div className="flex flex-col items-center gap-1 z-10">
+          <Avatar name={registration.name} photoUrl={registration.profilePhotoUrl} size="md" />
+          <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[56px] truncate">
             {registration.name.split(' ')[0]}
           </p>
           {(registration.tower || registration.flatNumber) && (
@@ -132,16 +132,16 @@ function DoublesCard({ registration }: { registration: Registration }) {
         </div>
 
         {/* VS divider */}
-        <div className="flex flex-col items-center gap-1 pb-6 z-10">
-          <div className="w-px h-8 bg-white/20" />
-          <span className="text-[9px] font-black text-white/40 uppercase">pair</span>
-          <div className="w-px h-8 bg-white/20" />
+        <div className="flex flex-col items-center gap-0.5 pb-4 z-10">
+          <div className="w-px h-5 bg-white/20" />
+          <span className="text-[8px] font-black text-white/40 uppercase">pair</span>
+          <div className="w-px h-5 bg-white/20" />
         </div>
 
         {hasPartner ? (
-          <div className="flex flex-col items-center gap-1.5 z-10">
-            <Avatar name={partnerName} photoUrl={partnerPhoto} size="lg" />
-            <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[72px] truncate">
+          <div className="flex flex-col items-center gap-1 z-10">
+            <Avatar name={partnerName} photoUrl={partnerPhoto} size="md" />
+            <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[56px] truncate">
               {partnerName.split(' ')[0]}
             </p>
             {(registration.partnerTower || registration.partnerFlatNumber) ? (
@@ -151,9 +151,9 @@ function DoublesCard({ registration }: { registration: Registration }) {
             ) : null}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-1.5 z-10 opacity-30">
-            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center">
-              <Users className="h-8 w-8 text-white/30" />
+          <div className="flex flex-col items-center gap-1 z-10 opacity-30">
+            <div className="w-12 h-12 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center">
+              <Users className="h-5 w-5 text-white/30" />
             </div>
             <p className="text-[10px] text-slate-500 uppercase">TBD</p>
           </div>
@@ -161,12 +161,12 @@ function DoublesCard({ registration }: { registration: Registration }) {
       </div>
 
       {/* Names strip */}
-      <div className="px-4 py-2.5 border-t border-white/5 text-center">
-        <p className="text-xs font-bold text-white truncate">
+      <div className="px-2 py-2 border-t border-white/5 text-center">
+        <p className="text-[11px] font-bold text-white truncate">
           {registration.name}{hasPartner ? ` & ${partnerName}` : ''}
         </p>
         {(registration.tower || registration.flatNumber) && (
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-[9px] text-slate-500 mt-0.5">
             {registration.tower}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
           </p>
         )}
@@ -427,7 +427,7 @@ export default function CategoryPage() {
                 {isDoubles ? 'Pairs' : 'Players'} — {label}
               </h2>
               {isDoubles ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                   {catPlayers.map(reg => (
                     <DoublesCard key={reg.id} registration={reg} />
                   ))}
