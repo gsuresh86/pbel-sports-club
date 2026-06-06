@@ -73,31 +73,31 @@ function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: b
   const grad = CARD_GRADIENTS[player.name.charCodeAt(0) % CARD_GRADIENTS.length];
 
   return (
-    <div className="group relative rounded-xl overflow-hidden border border-white/5 shadow hover:shadow-xl transition-all duration-200 hover:-translate-y-1 bg-slate-900">
+    <div className="group relative rounded-lg overflow-hidden border border-white/5 shadow hover:shadow-xl transition-all duration-200 hover:-translate-y-1 bg-slate-900">
       <div className={`relative bg-gradient-to-b ${grad} overflow-hidden`} style={{ aspectRatio: '3/4' }}>
         {player.profilePhotoUrl ? (
           <Image src={player.profilePhotoUrl} alt={player.name} fill className="object-cover object-top" />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <div className="w-20 h-20 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-3xl font-bold">
+            <div className="w-14 h-14 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-white text-xl font-bold">
               {initials}
             </div>
           </div>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" />
         {isCaptain && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 bg-yellow-400 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-            <Star className="h-2.5 w-2.5 fill-black" /> C
+          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-yellow-400 text-black text-[8px] font-black px-1 py-0.5 rounded-full uppercase tracking-wide">
+            <Star className="h-2 w-2 fill-black" /> C
           </div>
         )}
         {(player.tower || player.flatNumber) && (
-          <p className="absolute bottom-1.5 left-0 right-0 text-center text-[10px] text-white/70 font-medium">
+          <p className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-white/70 font-medium">
             {player.tower}{player.flatNumber ? ` - ${player.flatNumber}` : ''}
           </p>
         )}
       </div>
-      <div className="px-2 py-2 text-center">
-        <p className="text-xs font-black uppercase tracking-wide text-white leading-tight truncate" title={player.name}>
+      <div className="px-1.5 py-1.5 text-center">
+        <p className="text-[11px] font-black uppercase tracking-wide text-white leading-tight truncate" title={player.name}>
           {player.name}
         </p>
       </div>
@@ -381,7 +381,7 @@ export default function CategoryPage() {
                   {players.length === 0 ? (
                     <p className="text-slate-500 text-sm italic px-2">No players assigned yet</p>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                       {players.map((player) => (
                         <PlayerCard key={player.id} player={player} isCaptain={player.id === team.captainId} />
                       ))}
@@ -433,7 +433,7 @@ export default function CategoryPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                   {catPlayers.map(player => (
                     <PlayerCard key={player.id} player={player} />
                   ))}
