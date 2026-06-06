@@ -87,6 +87,10 @@ function formatCategoryLabel(category: string) {
   return category.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Underline tab-bar styling for the detail tabs (overrides the default segmented/pill look)
+const TAB_TRIGGER_CLASS =
+  '-mb-px flex-shrink-0 rounded-none border-0 border-b-2 border-transparent bg-transparent px-3 py-2 text-xs font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none sm:flex-1 sm:text-sm';
+
 type UniquePlayerRow = {
   name: string;
   phone: string;
@@ -717,15 +721,15 @@ export default function TournamentDetailsPage() {
         {/* Detailed Tabs - horizontal scroll on mobile */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="-mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto">
-            <TabsList className="inline-flex h-9 w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-8 flex-nowrap gap-0 p-1 rounded-lg bg-muted">
-              <TabsTrigger value="overview" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Overview</TabsTrigger>
-              <TabsTrigger value="participants" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Registrations</TabsTrigger>
-              <TabsTrigger value="players" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Players</TabsTrigger>
-              <TabsTrigger value="teams" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Teams</TabsTrigger>
-              <TabsTrigger value="pools" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Pools</TabsTrigger>
-              <TabsTrigger value="spin-wheel" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Spin Wheel</TabsTrigger>
-              <TabsTrigger value="matches" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Matches</TabsTrigger>
-              <TabsTrigger value="results" className="flex-shrink-0 px-3 text-xs sm:text-sm sm:flex-1">Results</TabsTrigger>
+            <TabsList className="inline-flex h-auto w-max min-w-full sm:min-w-0 sm:w-full sm:grid sm:grid-cols-8 flex-nowrap gap-0 p-0 rounded-none bg-transparent border-b border-border">
+              <TabsTrigger value="overview" className={TAB_TRIGGER_CLASS}>Overview</TabsTrigger>
+              <TabsTrigger value="participants" className={TAB_TRIGGER_CLASS}>Registrations</TabsTrigger>
+              <TabsTrigger value="players" className={TAB_TRIGGER_CLASS}>Players</TabsTrigger>
+              <TabsTrigger value="teams" className={TAB_TRIGGER_CLASS}>Teams</TabsTrigger>
+              <TabsTrigger value="pools" className={TAB_TRIGGER_CLASS}>Pools</TabsTrigger>
+              <TabsTrigger value="spin-wheel" className={TAB_TRIGGER_CLASS}>Spin Wheel</TabsTrigger>
+              <TabsTrigger value="matches" className={TAB_TRIGGER_CLASS}>Matches</TabsTrigger>
+              <TabsTrigger value="results" className={TAB_TRIGGER_CLASS}>Results</TabsTrigger>
             </TabsList>
           </div>
 
