@@ -85,7 +85,7 @@ export default function ResultsPage() {
             const map = groupToStats.get(round)!;
             const rows = Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.pd - a.pd);
             return (
-              <Card key={round}>
+              <Card key={round} className="rounded-none">
                 <CardHeader className="p-4 pb-2 sm:p-6">
                   <CardTitle className="text-sm font-semibold sm:text-base">
                     {tournamentShort ? `${tournamentShort} - ${round}` : round}

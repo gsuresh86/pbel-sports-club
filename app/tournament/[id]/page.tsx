@@ -30,6 +30,8 @@ export default function TournamentDetailPage() {
   const [poolsCatFilter, setPoolsCatFilter] = useState<string>('all');
   const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
   const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
+  const [matchSearch, setMatchSearch] = useState('');
+  const [matchDateFilter, setMatchDateFilter] = useState('');
 
   useEffect(() => {
     if (tournamentId) {
@@ -130,15 +132,24 @@ export default function TournamentDetailPage() {
   ] as const;
 
   const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+  const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
 
   // Unfiltered — used by overview tab
   const allScheduledMatches = matches.filter(m => m.status === 'scheduled');
 
+  const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+  const toISTDate = (d: Date) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+
   const fixturesFiltered = matches.filter(m => {
     if (matchRoundFilter !== 'all' && m.round !== matchRoundFilter) return false;
-    if (matchStatusFilter === 'live') return m.status === 'live';
-    if (matchStatusFilter === 'scheduled') return m.status === 'scheduled';
-    if (matchStatusFilter === 'completed') return m.status === 'completed';
+    if (matchStatusFilter === 'live') { if (m.status !== 'live') return false; }
+    else if (matchStatusFilter === 'scheduled') { if (m.status !== 'scheduled') return false; }
+    else if (matchStatusFilter === 'completed') { if (m.status !== 'completed') return false; }
+    if (matchSearch) {
+      const q = matchSearch.toLowerCase();
+      if (![m.player1Name, m.player2Name, m.round].some(s => s.toLowerCase().includes(q))) return false;
+    }
+    if (matchDateFilter && toISTDate(new Date(m.scheduledTime)) !== matchDateFilter) return false;
     return true;
   });
 
@@ -426,38 +437,61 @@ export default function TournamentDetailPage() {
             <div className="space-y-6">
               {/* Filters */}
               {matches.length > 0 && (
-                <div className="flex flex-wrap gap-2 items-center">
-                  {matchDistinctRounds.length > 1 && (
+                <div className="space-y-2">
+                  {/* Search + date — first row */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <div className="relative flex-1 min-w-[160px] max-w-xs">
+                      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <input
+                        type="text"
+                        value={matchSearch}
+                        onChange={e => setMatchSearch(e.target.value)}
+                        placeholder="Search player / team…"
+                        className="w-full bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
+                      />
+                    </div>
+                    <input
+                      type="date"
+                      value={matchDateFilter}
+                      onChange={e => setMatchDateFilter(e.target.value)}
+                      title="Filter by date (IST)"
+                      className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                    />
+                  </div>
+                  {/* Selects + count — second row */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {matchDistinctRounds.length > 1 && (
+                      <select
+                        value={matchRoundFilter}
+                        onChange={e => setMatchRoundFilter(e.target.value)}
+                        className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                      >
+                        <option value="all">All Rounds</option>
+                        {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    )}
                     <select
-                      value={matchRoundFilter}
-                      onChange={e => setMatchRoundFilter(e.target.value)}
+                      value={matchStatusFilter}
+                      onChange={e => setMatchStatusFilter(e.target.value as typeof matchStatusFilter)}
                       className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
                     >
-                      <option value="all">All Rounds</option>
-                      {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}
+                      <option value="all">All Matches</option>
+                      <option value="live">Live</option>
+                      <option value="scheduled">Upcoming</option>
+                      <option value="completed">Completed</option>
                     </select>
-                  )}
-                  <select
-                    value={matchStatusFilter}
-                    onChange={e => setMatchStatusFilter(e.target.value as typeof matchStatusFilter)}
-                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                  >
-                    <option value="all">All Matches</option>
-                    <option value="live">Live</option>
-                    <option value="scheduled">Upcoming</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                  {(matchRoundFilter !== 'all' || matchStatusFilter !== 'all') && (
-                    <button
-                      onClick={() => { setMatchRoundFilter('all'); setMatchStatusFilter('all'); }}
-                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      Clear
-                    </button>
-                  )}
-                  <span className="text-xs text-slate-500 ml-auto">
-                    {fixturesFiltered.length} of {matches.length} match{matches.length === 1 ? '' : 'es'}
-                  </span>
+                    {(matchRoundFilter !== 'all' || matchStatusFilter !== 'all' || matchSearch || matchDateFilter) && (
+                      <button
+                        onClick={() => { setMatchRoundFilter('all'); setMatchStatusFilter('all'); setMatchSearch(''); setMatchDateFilter(''); }}
+                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                    <span className="text-xs text-slate-500 ml-auto">
+                      {fixturesFiltered.length} of {matches.length} match{matches.length === 1 ? '' : 'es'}
+                    </span>
+                  </div>
                 </div>
               )}
               {/* Live */}

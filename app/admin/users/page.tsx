@@ -531,15 +531,15 @@ export default function UserManagementPage() {
         </div>
 
         {/* Users Table */}
-        <Card>
+        <Card className="rounded-none">
           <CardHeader>
             <CardTitle>Users ({filteredUsers.length})</CardTitle>
             <CardDescription>
               Manage user accounts and tournament access permissions
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[calc(100dvh-20rem)]">
               <Table>
                 <TableHeader>
                   <TableRow>

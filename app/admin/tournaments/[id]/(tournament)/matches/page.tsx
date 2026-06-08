@@ -25,7 +25,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
-import { Activity, Edit, FilterX, Play, Search, Square, Swords, Trash2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Activity, ArrowDown, ArrowUp, ArrowUpDown,
+  Edit, FilterX, Play, Search, Square, Swords, Trash2, X,
+} from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -63,6 +67,16 @@ function formatDate(date: Date) {
   });
 }
 
+function formatDateShort(date: Date) {
+  return new Date(date).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  });
+}
+
+type SortKey = 'matchNumber' | 'round' | 'status' | 'scheduledTime';
+
 export default function MatchesPage() {
   const { user } = useAuth();
   const params = useParams();
@@ -83,17 +97,14 @@ export default function MatchesPage() {
   const teams = teamsData;
 
   const teamIds = new Set(teams.map(t => t.id));
-
-  // pool name → category, for the category filter
   const poolNameToCategory = new Map(poolsData.map(p => [p.name, p.category]));
-
   const totalMatches = matches.length;
 
   const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>(''); // YYYY-MM-DD in IST
+  const [dateFilter, setDateFilter] = useState<string>('');
 
   const distinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
   const distinctCategories = Array.from(
@@ -116,20 +127,44 @@ export default function MatchesPage() {
   const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter;
   const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setDateFilter(''); };
 
-  // Sort by scheduled time (ascending), falling back to match number for ties
+  // Sorting
+  const [sortKey, setSortKey] = useState<SortKey>('scheduledTime');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="inline h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="inline h-3 w-3 ml-1" />
+      : <ArrowDown className="inline h-3 w-3 ml-1" />;
+  };
+
   const sortedMatches = [...filteredMatches].sort((a, b) => {
-    const timeA = a.scheduledTime ? new Date(a.scheduledTime).getTime() : 0;
-    const timeB = b.scheduledTime ? new Date(b.scheduledTime).getTime() : 0;
-    if (timeA !== timeB) return timeA - timeB;
-    return a.matchNumber - b.matchNumber;
+    let cmp = 0;
+    switch (sortKey) {
+      case 'matchNumber': cmp = a.matchNumber - b.matchNumber; break;
+      case 'round': cmp = a.round.localeCompare(b.round); break;
+      case 'status': cmp = a.status.localeCompare(b.status); break;
+      case 'scheduledTime': {
+        const tA = a.scheduledTime ? new Date(a.scheduledTime).getTime() : 0;
+        const tB = b.scheduledTime ? new Date(b.scheduledTime).getTime() : 0;
+        cmp = tA - tB;
+        break;
+      }
+    }
+    if (cmp === 0) cmp = a.matchNumber - b.matchNumber;
+    return sortDir === 'asc' ? cmp : -cmp;
   });
 
-  // Multi-select state
+  // Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<Match['status'] | ''>('');
   const [bulkWorking, setBulkWorking] = useState(false);
 
-  // Keep selection in sync with what's currently visible
   const visibleIds = sortedMatches.map(m => m.id);
   const selectedVisible = visibleIds.filter(id => selectedIds.has(id));
   const allVisibleSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
@@ -145,11 +180,8 @@ export default function MatchesPage() {
   const toggleSelectAll = () => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (allVisibleSelected) {
-        visibleIds.forEach(id => next.delete(id));
-      } else {
-        visibleIds.forEach(id => next.add(id));
-      }
+      if (allVisibleSelected) visibleIds.forEach(id => next.delete(id));
+      else visibleIds.forEach(id => next.add(id));
       return next;
     });
   };
@@ -187,6 +219,53 @@ export default function MatchesPage() {
       alert({ title: 'Error', description: 'Failed to delete matches', variant: 'error' });
     } finally {
       setBulkWorking(false);
+    }
+  };
+
+  // Match action handlers
+  const handleStartMatch = async (match: Match) => {
+    try {
+      await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
+      await setDoc(doc(db, 'liveScores', match.id), {
+        matchId: match.id,
+        tournamentId: match.tournamentId,
+        player1Name: match.player1Name,
+        player2Name: match.player2Name,
+        currentSet: 1,
+        player1Sets: 0,
+        player2Sets: 0,
+        player1CurrentScore: 0,
+        player2CurrentScore: 0,
+        isLive: true,
+        lastUpdated: new Date(),
+      });
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
+    }
+  };
+
+  const handleStopMatch = async (match: Match) => {
+    if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
+    try {
+      await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
+      await deleteDoc(doc(db, 'liveScores', match.id));
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
+    }
+  };
+
+  const handleDeleteMatch = async (matchId: string) => {
+    if (!confirm('Delete this match? This cannot be undone.')) return;
+    try {
+      await deleteDoc(doc(db, 'matches', matchId));
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to delete match', variant: 'error' });
     }
   };
 
@@ -267,18 +346,16 @@ export default function MatchesPage() {
     }
   };
 
-  const handleDeleteMatch = async (matchId: string) => {
-    if (!confirm('Delete this match? This cannot be undone.')) return;
-    try {
-      await deleteDoc(doc(db, 'matches', matchId));
-      invalidateTournament(tournamentId);
-    } catch (e) {
-      console.error(e);
-      alert({ title: 'Error', description: 'Failed to delete match', variant: 'error' });
-    }
-  };
-
   if (!tournament) return null;
+
+  // Reusable score display
+  const renderScore = (match: Match) => {
+    if (match.status === 'completed')
+      return <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>;
+    if (match.status === 'live' && match.sets?.length)
+      return <span className="text-green-600 text-xs">{match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}</span>;
+    return <span className="text-gray-400">-</span>;
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -293,11 +370,7 @@ export default function MatchesPage() {
           <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => setGenDrawerOpen(true)}
-          >
+          <Button size="sm" className="h-8 text-xs" onClick={() => setGenDrawerOpen(true)}>
             <Swords className="h-3.5 w-3.5 mr-1" />
             Generate
           </Button>
@@ -325,90 +398,86 @@ export default function MatchesPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search players, rounds…"
-            className="h-8 pl-7 pr-3 w-48 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+      <div className="space-y-2">
+        {/* Search + clear — full width on mobile */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 md:flex-none">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search players, rounds…"
+              className="h-8 pl-7 pr-3 w-full md:w-48 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          {anyFilterActive && (
+            <button
+              onClick={clearFilters}
+              title="Clear all filters"
+              className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+            >
+              <FilterX className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-
-        {/* Round / Pool */}
-        <Select value={roundFilter} onValueChange={setRoundFilter}>
-          <SelectTrigger className="h-8 w-36 text-xs">
-            <SelectValue placeholder="Round / Pool" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rounds</SelectItem>
-            {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        {/* Category */}
-        {distinctCategories.length > 0 && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue placeholder="Category" />
+        {/* Filter selects — 2-col grid on mobile, row on larger */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <Select value={roundFilter} onValueChange={setRoundFilter}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Round / Pool" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {distinctCategories.map(c => (
-                <SelectItem key={c} value={c}>
-                  {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">All Rounds</SelectItem>
+              {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
             </SelectContent>
           </Select>
-        )}
 
-        {/* Status */}
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 w-32 text-xs">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="not-scheduled">Not scheduled</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="live">Live</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-            <SelectItem value="postponed">Postponed</SelectItem>
-          </SelectContent>
-        </Select>
+          {distinctCategories.length > 0 && (
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {distinctCategories.map(c => (
+                  <SelectItem key={c} value={c}>
+                    {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-        {/* Date (IST) */}
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
-          title="Filter by date (IST)"
-          className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
-        />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="not-scheduled">Not scheduled</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="postponed">Postponed</SelectItem>
+            </SelectContent>
+          </Select>
 
-        {/* Clear filters icon button */}
-        {anyFilterActive && (
-          <button
-            onClick={clearFilters}
-            title="Clear all filters"
-            className="h-8 w-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
-          >
-            <FilterX className="h-3.5 w-3.5" />
-          </button>
-        )}
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            title="Filter by date (IST)"
+            className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
       </div>
 
       {/* Bulk action bar */}
       {selectedVisible.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
-          <span className="text-xs font-medium text-blue-900">
-            {selectedVisible.length} selected
-          </span>
+          <span className="text-xs font-medium text-blue-900">{selectedVisible.length} selected</span>
           <Select
             value={bulkStatus}
             onValueChange={(v: Match['status']) => { setBulkStatus(v); applyBulkStatus(v); }}
@@ -445,25 +514,136 @@ export default function MatchesPage() {
 
       <Card className="rounded-none">
         <CardContent className="p-0">
-          <div className="overflow-auto max-h-[calc(100vh-16rem)] -mx-4 sm:mx-0">
-            <Table className="min-w-[680px]">
+
+          {/* ── Mobile card list (hidden md+) ── */}
+          <div className="md:hidden divide-y divide-gray-100">
+            {sortedMatches.map((match) => (
+              <div
+                key={match.id}
+                className={cn(
+                  'px-3 py-3 space-y-2',
+                  selectedIds.has(match.id) && 'bg-blue-50',
+                )}
+              >
+                {/* Top row */}
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    className="mt-0.5 flex-shrink-0"
+                    checked={selectedIds.has(match.id)}
+                    onCheckedChange={() => toggleSelect(match.id)}
+                    aria-label={`Select match ${match.matchNumber}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs text-gray-500 font-medium">
+                        #{match.matchNumber} · {match.round}
+                      </span>
+                      <Badge className={`text-[10px] px-1.5 ${getMatchStatusColor(match.status)}`}>
+                        {getMatchStatusLabel(match.status)}
+                      </Badge>
+                    </div>
+                    {/* Players */}
+                    <div className="mt-1 text-sm font-medium leading-snug">
+                      <span>{match.player1Name}</span>
+                      <span className="text-gray-400 font-normal mx-1.5">vs</span>
+                      <span>{match.player2Name}</span>
+                    </div>
+                    {/* Score + time */}
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-500">{formatDateShort(new Date(match.scheduledTime))}</span>
+                      <span className="text-xs">{renderScore(match)}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Action buttons */}
+                <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
+                  {match.status === 'scheduled' && (
+                    <Button
+                      size="sm"
+                      className="h-9 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                      onClick={() => handleStartMatch(match)}
+                    >
+                      <Play className="h-3.5 w-3.5 mr-1" />
+                      Start
+                    </Button>
+                  )}
+                  {match.status === 'live' && (
+                    <Button
+                      size="sm"
+                      className="h-9 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
+                      onClick={() => handleStopMatch(match)}
+                    >
+                      <Square className="h-3.5 w-3.5 mr-1" />
+                      Stop
+                    </Button>
+                  )}
+                  {(match.status === 'scheduled' || match.status === 'live') && (
+                    <Link href={`/admin/matches/${match.id}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
+                        <Swords className="h-3.5 w-3.5 mr-1" />
+                        {match.status === 'scheduled' ? 'Score' : 'Update'}
+                      </Button>
+                    </Link>
+                  )}
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
+                    onClick={() => openEditMatch(match)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="sm" variant="ghost"
+                    className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteMatch(match.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Desktop table (hidden below md) ── */}
+          <div className="hidden md:block overflow-auto max-h-[calc(100vh-16rem)]">
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8 sticky top-0 bg-white z-10">
+                  <TableHead className="w-8">
                     <Checkbox
                       checked={allVisibleSelected}
                       onCheckedChange={toggleSelectAll}
                       aria-label="Select all matches"
                     />
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Match #</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Round</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 1</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 2</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Score</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Time</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm w-24 sticky top-0 bg-white z-10">Actions</TableHead>
+                  <TableHead
+                    className="text-xs cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => toggleSort('matchNumber')}
+                  >
+                    Match # <SortIcon col="matchNumber" />
+                  </TableHead>
+                  <TableHead
+                    className="text-xs cursor-pointer select-none"
+                    onClick={() => toggleSort('round')}
+                  >
+                    Round <SortIcon col="round" />
+                  </TableHead>
+                  <TableHead className="text-xs">Player 1</TableHead>
+                  <TableHead className="text-xs">Player 2</TableHead>
+                  <TableHead className="text-xs">Score</TableHead>
+                  <TableHead
+                    className="text-xs cursor-pointer select-none"
+                    onClick={() => toggleSort('status')}
+                  >
+                    Status <SortIcon col="status" />
+                  </TableHead>
+                  <TableHead
+                    className="text-xs cursor-pointer select-none whitespace-nowrap"
+                    onClick={() => toggleSort('scheduledTime')}
+                  >
+                    Time <SortIcon col="scheduledTime" />
+                  </TableHead>
+                  <TableHead className="text-right text-xs w-28">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -476,93 +656,60 @@ export default function MatchesPage() {
                         aria-label={`Select match ${match.matchNumber}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player1Name}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player2Name}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2">
-                      {match.status === 'completed' ? (
-                        <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>
-                      ) : match.status === 'live' && match.sets?.length ? (
-                        <span className="text-green-600 text-xs sm:text-sm">
-                          {match.sets.map((s) => `${s.player1Score}-${s.player2Score}`).join(', ')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
+                    <TableCell className="font-medium text-xs py-2">#{match.matchNumber}</TableCell>
+                    <TableCell className="text-xs py-2">{match.round}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{match.player1Name}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{match.player2Name}</TableCell>
+                    <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
                     <TableCell className="py-2">
-                      <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
+                      <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>
+                        {getMatchStatusLabel(match.status)}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
+                    <TableCell className="text-xs py-2 whitespace-nowrap">{formatDate(new Date(match.scheduledTime))}</TableCell>
                     <TableCell className="text-right py-2">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:gap-2 sm:justify-end">
+                      <div className="flex items-center justify-end gap-1">
                         {match.status === 'scheduled' && (
                           <Button
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-xs touch-manipulation"
-                            onClick={async () => {
-                              try {
-                                await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
-                                await setDoc(doc(db, 'liveScores', match.id), {
-                                  matchId: match.id,
-                                  tournamentId: match.tournamentId,
-                                  player1Name: match.player1Name,
-                                  player2Name: match.player2Name,
-                                  currentSet: 1,
-                                  player1Sets: 0,
-                                  player2Sets: 0,
-                                  player1CurrentScore: 0,
-                                  player2CurrentScore: 0,
-                                  isLive: true,
-                                  lastUpdated: new Date(),
-                                });
-                                invalidateTournament(tournamentId);
-                              } catch (e) {
-                                console.error(e);
-                                alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
-                              }
-                            }}
+                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                            onClick={() => handleStartMatch(match)}
                           >
-                            <Play className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Start</span>
+                            <Play className="h-3 w-3 mr-1" />
+                            Start
                           </Button>
                         )}
                         {match.status === 'live' && (
                           <Button
                             size="sm"
-                            className="bg-orange-500 hover:bg-orange-600 text-xs touch-manipulation"
-                            onClick={async () => {
-                              if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
-                              try {
-                                await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
-                                await deleteDoc(doc(db, 'liveScores', match.id));
-                                invalidateTournament(tournamentId);
-                              } catch (e) {
-                                console.error(e);
-                                alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
-                              }
-                            }}
+                            className="h-7 px-2 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
+                            onClick={() => handleStopMatch(match)}
                           >
-                            <Square className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Stop</span>
+                            <Square className="h-3 w-3 mr-1" />
+                            Stop
                           </Button>
                         )}
-                        <Link href={`/admin/matches/${match.id}`} className="inline-block">
-                          <Button size="sm" variant="outline" className="w-full sm:w-auto text-xs touch-manipulation">
-                            <Swords className="h-4 w-4 sm:mr-1" />
-                            {match.status === 'scheduled' ? 'Score' : match.status === 'live' ? 'Update' : 'View'}
-                          </Button>
-                        </Link>
-                        <Button size="sm" variant="ghost" className="text-xs touch-manipulation" onClick={() => openEditMatch(match)}>
-                          <Edit className="h-4 w-4" />
+                        {(match.status === 'scheduled' || match.status === 'live') && (
+                          <Link href={`/admin/matches/${match.id}`} className="inline-block">
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
+                              <Swords className="h-3 w-3 mr-1" />
+                              {match.status === 'scheduled' ? 'Score' : 'Update'}
+                            </Button>
+                          </Link>
+                        )}
+                        <Button
+                          size="sm" variant="ghost"
+                          className="h-7 w-7 p-0 text-xs touch-manipulation"
+                          onClick={() => openEditMatch(match)}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           size="sm" variant="ghost"
-                          className="text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
                           onClick={() => handleDeleteMatch(match.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -571,6 +718,8 @@ export default function MatchesPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Empty state */}
           {filteredMatches.length === 0 && (
             <div className="text-center py-8">
               <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
