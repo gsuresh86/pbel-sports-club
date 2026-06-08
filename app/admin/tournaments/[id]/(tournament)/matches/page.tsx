@@ -308,18 +308,18 @@ export default function MatchesPage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="overflow-auto max-h-[calc(100vh-16rem)] -mx-4 sm:mx-0">
             <Table className="min-w-[680px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs sm:text-sm">Match #</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Round</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Player 1</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Player 2</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Score</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Time</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm w-24">Actions</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Match #</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Round</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 1</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 2</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Score</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Status</TableHead>
+                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Time</TableHead>
+                  <TableHead className="text-right text-xs sm:text-sm w-24 sticky top-0 bg-white z-10">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
