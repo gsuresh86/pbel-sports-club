@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Activity, Edit, FilterX, Play, Search, Swords, Trash2 } from 'lucide-react';
+import { Activity, Edit, FilterX, Play, Search, Square, Swords, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -375,6 +375,26 @@ export default function MatchesPage() {
                           >
                             <Play className="h-4 w-4 sm:mr-1" />
                             <span className="hidden sm:inline">Start</span>
+                          </Button>
+                        )}
+                        {match.status === 'live' && (
+                          <Button
+                            size="sm"
+                            className="bg-orange-500 hover:bg-orange-600 text-xs touch-manipulation"
+                            onClick={async () => {
+                              if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
+                              try {
+                                await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
+                                await deleteDoc(doc(db, 'liveScores', match.id));
+                                invalidateTournament(tournamentId);
+                              } catch (e) {
+                                console.error(e);
+                                alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
+                              }
+                            }}
+                          >
+                            <Square className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Stop</span>
                           </Button>
                         )}
                         <Link href={`/admin/matches/${match.id}`} className="inline-block">
