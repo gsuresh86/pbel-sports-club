@@ -24,6 +24,10 @@ import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { Activity, Edit, Play, Swords, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+const toISTLocal = (date: Date) => new Date(date.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
+const fromISTLocal = (value: string) => new Date(new Date(value + ':00Z').getTime() - IST_OFFSET_MS);
+
 const isAdminRole = (role: string) =>
   role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
 
@@ -39,9 +43,10 @@ function getMatchStatusColor(status: string) {
 }
 
 function formatDate(date: Date) {
-  return new Date(date).toLocaleDateString('en-US', {
+  return new Date(date).toLocaleString('en-IN', {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
   });
 }
 
@@ -86,7 +91,7 @@ export default function MatchesPage() {
       matchNumber: String(match.matchNumber),
       player1Id: match.player1Id,
       player2Id: match.player2Id,
-      scheduledTime: new Date(match.scheduledTime).toISOString().slice(0, 16),
+      scheduledTime: toISTLocal(new Date(match.scheduledTime)),
       venue: match.venue,
       court: match.court ?? '',
       referee: match.referee ?? '',
@@ -111,7 +116,7 @@ export default function MatchesPage() {
         player1Name: p1.name,
         player2Id: p2.id,
         player2Name: p2.name,
-        scheduledTime: new Date(editMatchForm.scheduledTime),
+        scheduledTime: fromISTLocal(editMatchForm.scheduledTime),
         venue: editMatchForm.venue,
         court: editMatchForm.court || null,
         referee: editMatchForm.referee || null,
@@ -322,7 +327,7 @@ export default function MatchesPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label>Scheduled Time</Label>
+                <Label>Scheduled Time (IST)</Label>
                 <Input type="datetime-local" value={editMatchForm.scheduledTime} onChange={(e) => setEditMatchForm((f) => ({ ...f, scheduledTime: e.target.value }))} />
               </div>
               <div className="space-y-1">

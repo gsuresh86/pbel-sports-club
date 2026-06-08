@@ -3,6 +3,19 @@
 import { useState } from 'react';
 import { collection, getDocs, updateDoc, doc, query, orderBy, addDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+// IST = UTC+5:30
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+/** UTC Date → "YYYY-MM-DDTHH:mm" string in IST, for datetime-local inputs */
+function toISTLocal(date: Date): string {
+  return new Date(date.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/** "YYYY-MM-DDTHH:mm" string treated as IST → UTC Date */
+function fromISTLocal(value: string): Date {
+  return new Date(new Date(value + ':00Z').getTime() - IST_OFFSET_MS);
+}
 import {
   useTournamentTeams,
   useTournamentPools,
@@ -17,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Team, Pool, Registration, Tournament, CategoryType, Match } from '@/types';
 import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X, Swords, Trophy, Award } from 'lucide-react';
-import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog'; // ConfirmDialogComponent still rendered
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -34,7 +47,7 @@ interface PoolAssignmentProps {
 }
 
 export default function PoolAssignment({ tournament, user }: PoolAssignmentProps) {
-  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
+  const { ConfirmDialogComponent } = useConfirmDialog();
   const { alert, AlertDialogComponent } = useAlertDialog();
   const invalidateTournament = useInvalidateTournament();
   const { data: teams = [], isLoading: teamsLoading } = useTournamentTeams(tournament.id);
@@ -56,6 +69,19 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const [selectedPlayersForPool, setSelectedPlayersForPool] = useState<string[]>([]);
   const [editingPoolName, setEditingPoolName] = useState<string | null>(null);
   const [editingPoolNameValue, setEditingPoolNameValue] = useState<string>('');
+
+  // Single match generation state
+  const [singleMatchDialogPool, setSingleMatchDialogPool] = useState<Pool | null>(null);
+  const [singleMatchP1, setSingleMatchP1] = useState<string>('');
+  const [singleMatchP2, setSingleMatchP2] = useState<string>('');
+  const [singleMatchScheduledTime, setSingleMatchScheduledTime] = useState<string>('');
+  const [creatingSingleMatch, setCreatingSingleMatch] = useState(false);
+
+  // Generate matches dialog (round-robin, category or per-pool)
+  const [genDialogOpen, setGenDialogOpen] = useState(false);
+  const [genDialogPool, setGenDialogPool] = useState<Pool | null>(null); // null = all pools in category
+  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30' });
+  const [generating, setGenerating] = useState(false);
 
   const assignTeamToPool = async (teamId: string, poolId: string) => {
     try {
@@ -331,50 +357,44 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     });
   };
 
-  /** Generate round-robin matches for all pools in the selected category (works with one or many pools) */
-  const runGenerateMatchesFromPools = async () => {
-    if (!selectedCategory) {
-      alert({ title: 'Select category', description: 'Please select a category first.', variant: 'error' });
-      return;
-    }
-    const categoryPools = getCategoryPools();
-    if (categoryPools.length === 0) {
-      alert({ title: 'No pools', description: 'Create and fill at least one pool for this category first.', variant: 'error' });
-      return;
-    }
+  const openGenerateDialog = (pool: Pool | null) => {
+    setGenDialogPool(pool);
+    const defaultStart = tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '';
+    setGenForm({ startDateTime: defaultStart, intervalMinutes: '30' });
+    setGenDialogOpen(true);
+  };
 
+  const runGenerateMatches = async () => {
+    if (!genForm.startDateTime) {
+      alert({ title: 'Missing date', description: 'Please enter a start date and time (IST).', variant: 'error' });
+      return;
+    }
+    setGenerating(true);
     try {
-      let totalCreated = 0;
-      const scheduledTime = tournament.startDate ? new Date(tournament.startDate) : new Date();
+      const pools = genDialogPool ? [genDialogPool] : getCategoryPools();
+      const startTime = fromISTLocal(genForm.startDateTime);
+      const intervalMs = Math.max(0, parseInt(genForm.intervalMinutes) || 0) * 60 * 1000;
       const venue = tournament.venue || 'TBD';
+      let matchIndex = 0;
+      let totalCreated = 0;
 
-      for (const pool of categoryPools) {
+      for (const pool of pools) {
         const items = isTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
-        if (items.length < 2) {
-          continue; // skip pool with 0 or 1 participant
-        }
-
+        if (items.length < 2) continue;
         const roundLabel = pool.name || `Pool ${pool.id.slice(0, 6)}`;
         let matchNumber = 1;
 
         for (let i = 0; i < items.length; i++) {
           for (let j = i + 1; j < items.length; j++) {
-            const a = items[i];
-            const b = items[j];
-            const player1Id = 'id' in a ? a.id : (a as Registration).id;
-            const player1Name = 'name' in a ? a.name : (a as Registration).name;
-            const player2Id = 'id' in b ? b.id : (b as Registration).id;
-            const player2Name = 'name' in b ? b.name : (b as Registration).name;
-
             await addDoc(collection(db, 'matches'), {
               tournamentId: tournament.id,
               round: roundLabel,
               matchNumber,
-              player1Id,
-              player1Name,
-              player2Id,
-              player2Name,
-              scheduledTime,
+              player1Id: items[i].id,
+              player1Name: items[i].name,
+              player2Id: items[j].id,
+              player2Name: items[j].name,
+              scheduledTime: new Date(startTime.getTime() + matchIndex * intervalMs),
               venue,
               status: 'scheduled',
               sets: [],
@@ -383,32 +403,23 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
               createdBy: user.id,
             });
             matchNumber++;
+            matchIndex++;
             totalCreated++;
           }
         }
       }
 
       if (totalCreated === 0) {
-        alert({
-          title: 'No matches created',
-          description: 'Each pool needs at least 2 ' + (isTeamCategory() ? 'teams' : 'players') + ' to generate matches.',
-          variant: 'error',
-        });
+        alert({ title: 'No matches created', description: `Each pool needs at least 2 ${isTeamCategory() ? 'teams' : 'players'}.`, variant: 'error' });
       } else {
         invalidateTournament(tournament.id);
-        alert({
-          title: 'Matches generated',
-          description: `Created ${totalCreated} round-robin match(es) for ${categoryPools.length} pool(s).`,
-          variant: 'success',
-        });
+        setGenDialogOpen(false);
+        alert({ title: 'Matches generated', description: `Created ${totalCreated} match${totalCreated === 1 ? '' : 'es'}.`, variant: 'success' });
       }
     } catch (err) {
-      console.error('Error generating matches:', err);
-      alert({
-        title: 'Error',
-        description: err instanceof Error ? err.message : 'Failed to generate matches.',
-        variant: 'error',
-      });
+      alert({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to generate matches.', variant: 'error' });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -417,17 +428,67 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       alert({ title: 'Select category', description: 'Please select a category first.', variant: 'error' });
       return;
     }
-    const categoryPools = getCategoryPools();
-    if (categoryPools.length === 0) {
+    if (getCategoryPools().length === 0) {
       alert({ title: 'No pools', description: 'Create and fill at least one pool for this category first.', variant: 'error' });
       return;
     }
-    confirm({
-      title: 'Generate matches',
-      description: `Generate round-robin matches for ${categoryPools.length} pool(s) in this category? Each pool will have every ${isTeamCategory() ? 'team' : 'player'} play every other once.`,
-      confirmText: 'Generate',
-      onConfirm: runGenerateMatchesFromPools,
-    });
+    openGenerateDialog(null);
+  };
+
+  const generateMatchesForPool = (pool: Pool) => {
+    const items = isTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
+    if (items.length < 2) {
+      alert({ title: 'Not enough participants', description: `Pool needs at least 2 ${isTeamCategory() ? 'teams' : 'players'}.`, variant: 'error' });
+      return;
+    }
+    openGenerateDialog(pool);
+  };
+
+  /** Create a single match between two participants in a pool */
+  const createSingleMatch = async () => {
+    if (!singleMatchDialogPool || !singleMatchP1 || !singleMatchP2 || singleMatchP1 === singleMatchP2) {
+      alert({ title: 'Invalid selection', description: 'Pick two different participants.', variant: 'error' });
+      return;
+    }
+    if (!singleMatchScheduledTime) {
+      alert({ title: 'Missing time', description: 'Please enter a scheduled date and time (IST).', variant: 'error' });
+      return;
+    }
+    setCreatingSingleMatch(true);
+    try {
+      const pool = singleMatchDialogPool;
+      const items = isTeamCategory() ? getPoolTeams(pool) : getPoolPlayers(pool);
+      const a = items.find((x) => x.id === singleMatchP1);
+      const b = items.find((x) => x.id === singleMatchP2);
+      if (!a || !b) return;
+      const existingCount = matches.filter((m) => m.round === pool.name).length;
+      await addDoc(collection(db, 'matches'), {
+        tournamentId: tournament.id,
+        round: pool.name || `Pool ${pool.id.slice(0, 6)}`,
+        matchNumber: existingCount + 1,
+        player1Id: a.id,
+        player1Name: a.name,
+        player2Id: b.id,
+        player2Name: b.name,
+        scheduledTime: fromISTLocal(singleMatchScheduledTime),
+        venue: tournament.venue || 'TBD',
+        status: 'scheduled',
+        sets: [],
+        matchFormat: (tournament as any).matchFormat || 'best-of-3',
+        updatedAt: new Date(),
+        createdBy: user.id,
+      });
+      invalidateTournament(tournament.id);
+      setSingleMatchDialogPool(null);
+      setSingleMatchP1('');
+      setSingleMatchP2('');
+      setSingleMatchScheduledTime('');
+      alert({ title: 'Match created', description: `${a.name} vs ${b.name} added.`, variant: 'success' });
+    } catch (err) {
+      alert({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to create match.', variant: 'error' });
+    } finally {
+      setCreatingSingleMatch(false);
+    }
   };
 
   const openEditPool = (pool: Pool) => {
@@ -825,6 +886,35 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             )}
                           </div>
                         </div>
+
+                        {/* Per-pool match actions */}
+                        {items.length >= 2 && (
+                          <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => generateMatchesForPool(pool)}
+                            >
+                              <Swords className="h-3.5 w-3.5" />
+                              Round-robin
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => {
+                                setSingleMatchDialogPool(pool);
+                                setSingleMatchP1('');
+                                setSingleMatchP2('');
+                                setSingleMatchScheduledTime(tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '');
+                              }}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Single match
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -895,6 +985,59 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
         </>
       )}
       
+      {/* Single Match Dialog */}
+      <Dialog open={!!singleMatchDialogPool} onOpenChange={(open) => { if (!open) { setSingleMatchDialogPool(null); setSingleMatchP1(''); setSingleMatchP2(''); setSingleMatchScheduledTime(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add single match — {singleMatchDialogPool?.name}</DialogTitle>
+            <DialogDescription>Pick two {isTeamCategory() ? 'teams' : 'players'} to create one match.</DialogDescription>
+          </DialogHeader>
+          {singleMatchDialogPool && (() => {
+            const items = isTeamCategory() ? getPoolTeams(singleMatchDialogPool) : getPoolPlayers(singleMatchDialogPool);
+            return (
+              <div className="space-y-4 py-2">
+                <div className="space-y-1">
+                  <Label>{isTeamCategory() ? 'Team' : 'Player'} 1</Label>
+                  <Select value={singleMatchP1} onValueChange={setSingleMatchP1}>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      {items.map((x) => (
+                        <SelectItem key={x.id} value={x.id} disabled={x.id === singleMatchP2}>{x.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>{isTeamCategory() ? 'Team' : 'Player'} 2</Label>
+                  <Select value={singleMatchP2} onValueChange={setSingleMatchP2}>
+                    <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      {items.map((x) => (
+                        <SelectItem key={x.id} value={x.id} disabled={x.id === singleMatchP1}>{x.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Scheduled Time (IST)</Label>
+                  <Input
+                    type="datetime-local"
+                    value={singleMatchScheduledTime}
+                    onChange={(e) => setSingleMatchScheduledTime(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" onClick={() => setSingleMatchDialogPool(null)}>Cancel</Button>
+                  <Button onClick={createSingleMatch} disabled={!singleMatchP1 || !singleMatchP2 || singleMatchP1 === singleMatchP2 || !singleMatchScheduledTime || creatingSingleMatch}>
+                    {creatingSingleMatch ? 'Creating…' : 'Create match'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Pool Dialog */}
       <Dialog open={editPoolOpen} onOpenChange={setEditPoolOpen}>
         <DialogContent className="max-w-2xl">
@@ -995,6 +1138,59 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Matches Dialog */}
+      <Dialog open={genDialogOpen} onOpenChange={(open) => { if (!open) setGenDialogOpen(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              Generate round-robin matches
+              {genDialogPool ? ` — ${genDialogPool.name}` : getCategoryPools().length > 0 ? ` — All pools (${getCategoryPools().length})` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Set the start time and interval between consecutive matches. All times are in IST (India Standard Time, UTC+5:30).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>Start Date &amp; Time (IST)</Label>
+              <Input
+                type="datetime-local"
+                value={genForm.startDateTime}
+                onChange={(e) => setGenForm(f => ({ ...f, startDateTime: e.target.value }))}
+              />
+              <p className="text-xs text-gray-500">First match will be scheduled at this time</p>
+            </div>
+            <div className="space-y-1">
+              <Label>Interval between matches (minutes)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="5"
+                value={genForm.intervalMinutes}
+                onChange={(e) => setGenForm(f => ({ ...f, intervalMinutes: e.target.value }))}
+                placeholder="e.g. 30"
+              />
+              <p className="text-xs text-gray-500">Gap between consecutive match start times (0 = same time for all)</p>
+            </div>
+            {genDialogPool ? (() => {
+              const n = (isTeamCategory() ? getPoolTeams(genDialogPool) : getPoolPlayers(genDialogPool)).length;
+              const pairs = n * (n - 1) / 2;
+              return <p className="text-sm text-gray-600">Will create <strong>{pairs}</strong> round-robin match{pairs === 1 ? '' : 'es'} for <strong>{genDialogPool.name}</strong>.</p>;
+            })() : (
+              <p className="text-sm text-gray-600">
+                Will create round-robin matches for <strong>{getCategoryPools().length}</strong> pool(s) in this category.
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={() => setGenDialogOpen(false)}>Cancel</Button>
+              <Button onClick={runGenerateMatches} disabled={!genForm.startDateTime || generating}>
+                {generating ? 'Generating…' : 'Generate'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
