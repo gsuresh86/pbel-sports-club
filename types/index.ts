@@ -64,8 +64,8 @@ export interface Tournament {
   registrationOpen: boolean;
   isPublic?: boolean; // Tournament visibility for public page
   banner?: string; // URL to the uploaded banner image
-  /** Match format: single set (1 set wins) or best of 3 (first to 2 sets) */
-  matchFormat?: 'single-set' | 'best-of-3';
+  /** Match format: single set (1 set wins), best of 3 (first to 2 sets), or 30pt single set */
+  matchFormat?: 'single-set' | 'best-of-3' | 'single-set-30';
   /** Registration form field visibility toggles (default: true for backwards compatibility) */
   showTowerAndFlat?: boolean;
   showEmergencyContact?: boolean;
@@ -200,8 +200,8 @@ export interface Match {
   status: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed';
   winner?: string;
   notes?: string;
-  /** Override tournament default: single set (1 set wins) or best of 3 (first to 2 sets) */
-  matchFormat?: 'single-set' | 'best-of-3';
+  /** Override tournament default: single set (1 set wins), best of 3 (first to 2 sets), or 30pt single set */
+  matchFormat?: 'single-set' | 'best-of-3' | 'single-set-30';
   updatedAt: Date;
   createdBy: string;
 }

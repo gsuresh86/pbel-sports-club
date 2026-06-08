@@ -80,7 +80,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   // Generate matches dialog (round-robin, category or per-pool)
   const [genDialogOpen, setGenDialogOpen] = useState(false);
   const [genDialogPool, setGenDialogPool] = useState<Pool | null>(null); // null = all pools in category
-  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30' });
+  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30', matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'single-set-30' });
   const [generating, setGenerating] = useState(false);
 
   const assignTeamToPool = async (teamId: string, poolId: string) => {
@@ -360,7 +360,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const openGenerateDialog = (pool: Pool | null) => {
     setGenDialogPool(pool);
     const defaultStart = tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '';
-    setGenForm({ startDateTime: defaultStart, intervalMinutes: '30' });
+    const defaultFormat = ((tournament as any).matchFormat as 'single-set' | 'best-of-3' | 'single-set-30') || 'best-of-3';
+    setGenForm({ startDateTime: defaultStart, intervalMinutes: '30', matchFormat: defaultFormat });
     setGenDialogOpen(true);
   };
 
@@ -398,7 +399,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
               venue,
               status: 'scheduled',
               sets: [],
-              matchFormat: (tournament as any).matchFormat || 'best-of-3',
+              matchFormat: genForm.matchFormat,
               updatedAt: new Date(),
               createdBy: user.id,
             });
@@ -1022,6 +1023,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                   <Label>Scheduled Time (IST)</Label>
                   <Input
                     type="datetime-local"
+                    step="60"
                     value={singleMatchScheduledTime}
                     onChange={(e) => setSingleMatchScheduledTime(e.target.value)}
                   />
@@ -1158,6 +1160,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
               <Label>Start Date &amp; Time (IST)</Label>
               <Input
                 type="datetime-local"
+                step="60"
                 value={genForm.startDateTime}
                 onChange={(e) => setGenForm(f => ({ ...f, startDateTime: e.target.value }))}
               />
@@ -1174,6 +1177,17 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 placeholder="e.g. 30"
               />
               <p className="text-xs text-gray-500">Gap between consecutive match start times (0 = same time for all)</p>
+            </div>
+            <div className="space-y-1">
+              <Label>Match Format</Label>
+              <Select value={genForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'single-set-30') => setGenForm(f => ({ ...f, matchFormat: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single-set">Single set (21pt)</SelectItem>
+                  <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                  <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {genDialogPool ? (() => {
               const n = (isTeamCategory() ? getPoolTeams(genDialogPool) : getPoolPlayers(genDialogPool)).length;

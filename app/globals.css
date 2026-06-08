@@ -153,6 +153,12 @@
   }
 }
 
+/* Ensure Radix portal wrappers (Select, Dialog, Popover, etc.) always float
+   above any custom fixed panels (z-52) we render in the app. */
+[data-radix-popper-content-wrapper] {
+  z-index: 60 !important;
+}
+
 @keyframes professional-glow {
   0%, 100% {
     box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);

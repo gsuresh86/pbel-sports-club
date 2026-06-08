@@ -23,7 +23,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Activity, Edit, FilterX, Play, Search, Square, Swords, Trash2 } from 'lucide-react';
+import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
+import { Activity, Edit, FilterX, Play, Search, Square, Swords, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -118,9 +119,10 @@ export default function MatchesPage() {
     referee: '',
     status: 'scheduled' as Match['status'],
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'single-set-30',
   });
   const [savingMatch, setSavingMatch] = useState(false);
+  const [genDrawerOpen, setGenDrawerOpen] = useState(false);
 
   const openEditMatch = (match: Match) => {
     setEditingMatch(match);
@@ -206,26 +208,36 @@ export default function MatchesPage() {
           </h3>
           <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
         </div>
-        {totalMatches > 0 && (
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Button
             size="sm"
-            variant="outline"
-            className="h-8 flex-shrink-0 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-            onClick={async () => {
-              if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-              try {
-                await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
-                invalidateTournament(tournamentId);
-              } catch (e) {
-                console.error(e);
-                alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-              }
-            }}
+            className="h-8 text-xs"
+            onClick={() => setGenDrawerOpen(true)}
           >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Clear All
+            <Swords className="h-3.5 w-3.5 mr-1" />
+            Generate
           </Button>
-        )}
+          {totalMatches > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+              onClick={async () => {
+                if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                try {
+                  await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
+                  invalidateTournament(tournamentId);
+                } catch (e) {
+                  console.error(e);
+                  alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Clear All
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -306,7 +318,7 @@ export default function MatchesPage() {
         )}
       </div>
 
-      <Card>
+      <Card className="rounded-none">
         <CardContent className="p-0">
           <div className="overflow-auto max-h-[calc(100vh-16rem)] -mx-4 sm:mx-0">
             <Table className="min-w-[680px]">
@@ -426,7 +438,7 @@ export default function MatchesPage() {
               {totalMatches === 0 ? (
                 <>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
-                  <p className="text-gray-600">Generate matches from the Pools tab.</p>
+                  <p className="text-gray-600">Click <strong>Generate</strong> to create matches from pools.</p>
                 </>
               ) : (
                 <>
@@ -438,6 +450,34 @@ export default function MatchesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Generate Matches Panel */}
+      {genDrawerOpen && (
+        <>
+          {/* Backdrop — z-[51]: covers left-nav sidebar (z-50) so only the panel is lit */}
+          <div
+            className="fixed inset-0 z-[51] bg-black/40"
+            onClick={() => setGenDrawerOpen(false)}
+          />
+          {/* Panel — z-[52]: above backdrop; Radix portals forced to z-[60] via globals.css */}
+          <div className="fixed inset-y-0 right-0 z-[52] flex w-full max-w-4xl flex-col bg-white shadow-2xl">
+            <div className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3">
+              <h2 className="text-base font-semibold">Generate Matches</h2>
+              <button
+                onClick={() => setGenDrawerOpen(false)}
+                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {tournament && user && (
+                <GenerateMatchesPanel tournament={tournament} user={user} />
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Edit Match Dialog */}
       <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
@@ -498,7 +538,7 @@ export default function MatchesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Scheduled Time (IST)</Label>
-                <Input type="datetime-local" value={editMatchForm.scheduledTime} onChange={(e) => setEditMatchForm((f) => ({ ...f, scheduledTime: e.target.value }))} />
+                <Input type="datetime-local" step="60" value={editMatchForm.scheduledTime} onChange={(e) => setEditMatchForm((f) => ({ ...f, scheduledTime: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
@@ -531,11 +571,12 @@ export default function MatchesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Match Format</Label>
-                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
+                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="single-set">Single set</SelectItem>
+                    <SelectItem value="single-set">Single set (21pt)</SelectItem>
                     <SelectItem value="best-of-3">Best of 3</SelectItem>
+                    <SelectItem value="single-set-30">30pt Single set</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

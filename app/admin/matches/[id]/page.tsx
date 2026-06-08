@@ -34,7 +34,7 @@ export default function LiveScoringPage() {
   const [directSet1, setDirectSet1] = useState<string>(''); // e.g. "21-19"
   const [directSet2, setDirectSet2] = useState<string>('');
   const [directSet3, setDirectSet3] = useState<string>('');
-  const [tournamentMatchFormat, setTournamentMatchFormat] = useState<'single-set' | 'best-of-3'>('best-of-3');
+  const [tournamentMatchFormat, setTournamentMatchFormat] = useState<'single-set' | 'best-of-3' | 'single-set-30'>('best-of-3');
 
   const canAccessAdmin = user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin';
 
@@ -75,8 +75,8 @@ export default function LiveScoringPage() {
           try {
             const tourSnap = await getDoc(doc(db, 'tournaments', matchData.tournamentId));
             if (tourSnap.exists()) {
-              const tourFormat = tourSnap.data().matchFormat as 'single-set' | 'best-of-3' | undefined;
-              setTournamentMatchFormat(tourFormat === 'single-set' || tourFormat === 'best-of-3' ? tourFormat : 'best-of-3');
+              const tourFormat = tourSnap.data().matchFormat as 'single-set' | 'best-of-3' | 'single-set-30' | undefined;
+              setTournamentMatchFormat(tourFormat === 'single-set' || tourFormat === 'best-of-3' || tourFormat === 'single-set-30' ? tourFormat : 'best-of-3');
             }
           } catch {
             // keep default best-of-3
@@ -164,7 +164,7 @@ export default function LiveScoringPage() {
     }
   };
 
-  const MAX_POINTS_PER_SET = 30; // Badminton/table tennis can go past 21 in deuce
+  const MAX_POINTS_PER_SET = tournamentMatchFormat === 'single-set-30' ? 39 : 30;
 
   const updateScore = async (player: 'player1' | 'player2', increment: boolean = true) => {
     if (!match || match.status !== 'live') return;
@@ -239,7 +239,7 @@ export default function LiveScoringPage() {
     }
   };
 
-  const MIN_SET_SCORE = 21;
+  const MIN_SET_SCORE = tournamentMatchFormat === 'single-set-30' ? 30 : 21;
   const MIN_LEAD = 2;
 
   const canCloseSet = (p1: number, p2: number) =>
@@ -253,7 +253,7 @@ export default function LiveScoringPage() {
       alert(`Score must reach at least ${MIN_SET_SCORE} with a ${MIN_LEAD}-point lead (e.g. 21-19) to close the set.`);
       return;
     }
-    const setsToWin = tournamentMatchFormat === 'single-set' ? 1 : 2;
+    const setsToWin = (tournamentMatchFormat === 'single-set' || tournamentMatchFormat === 'single-set-30') ? 1 : 2;
     try {
       setUpdating(true);
       const newP1Sets = p1Score > p2Score ? player1Sets + 1 : player1Sets;
@@ -330,7 +330,7 @@ export default function LiveScoringPage() {
   const submitDirectScore = async () => {
     if (!match) return;
     // Honour tournament match format for scoring
-    const setsToWin = tournamentMatchFormat === 'single-set' ? 1 : 2;
+    const setsToWin = (tournamentMatchFormat === 'single-set' || tournamentMatchFormat === 'single-set-30') ? 1 : 2;
     const p1 = parseInt(directSetsP1, 10) || 0;
     const p2 = parseInt(directSetsP2, 10) || 0;
     if (p1 < 0 || p2 < 0 || p1 > 3 || p2 > 3) {
@@ -446,7 +446,7 @@ export default function LiveScoringPage() {
                     <span>{match.venue}</span>
                     {match.court && <span>Court: {match.court}</span>}
                     <Badge variant="secondary">
-                      {tournamentMatchFormat === 'single-set' ? 'Single set' : 'Best of 3'}
+                      {tournamentMatchFormat === 'single-set-30' ? '30pt Single set' : tournamentMatchFormat === 'single-set' ? 'Single set (21pt)' : 'Best of 3 (21pt)'}
                     </Badge>
                   </div>
                 </CardDescription>
@@ -608,9 +608,9 @@ export default function LiveScoringPage() {
                   Reset Set
                 </Button>
               </div>
-              {!canCloseSet(player1Score, player2Score) && (player1Score >= 20 || player2Score >= 20) && (
+              {!canCloseSet(player1Score, player2Score) && (player1Score >= MIN_SET_SCORE - 1 || player2Score >= MIN_SET_SCORE - 1) && (
                 <p className="text-center text-xs text-gray-500 mt-2">
-                  Reach {MIN_SET_SCORE}+ with a {MIN_LEAD}-point lead (e.g. 21-19) to enable Close set
+                  Reach {MIN_SET_SCORE}+ with a {MIN_LEAD}-point lead (e.g. {MIN_SET_SCORE}-{MIN_SET_SCORE - 2}) to enable Close set
                 </p>
               )}
             </CardContent>
@@ -626,9 +626,9 @@ export default function LiveScoringPage() {
                 Set score directly
               </CardTitle>
               <CardDescription>
-                {tournamentMatchFormat === 'single-set'
-                  ? 'Single set: enter 1-0 or 0-1. Optionally add set score (e.g. 21-19).'
-                  : 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add set scores like 21-19, 18-21.'}
+                {tournamentMatchFormat === 'best-of-3'
+                  ? 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add set scores like 21-19, 18-21.'
+                  : `Single set: enter 1-0 or 0-1. Optionally add set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}).`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -661,11 +661,11 @@ export default function LiveScoringPage() {
                 </div>
                 <div>
                   <Label className="text-sm text-gray-600">
-                    {tournamentMatchFormat === 'single-set' ? 'Optional set score (e.g. 21-19)' : 'Optional set scores (e.g. 21-19, 18-21, 21-15)'}
+                    {tournamentMatchFormat === 'best-of-3' ? `Optional set scores (e.g. 21-19, 18-21, 21-15)` : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
                   </Label>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <Input
-                      placeholder="Set 1: 21-19"
+                      placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
                       value={directSet1}
                       onChange={(e) => setDirectSet1(e.target.value)}
                       className="max-w-[120px]"
@@ -709,7 +709,7 @@ export default function LiveScoringPage() {
                 Edit score
               </CardTitle>
               <CardDescription>
-                Change the result below and click Update score. Same format rules apply (single set: 1-0 or 0-1; best of 3: 2-0 or 2-1).
+                Change the result below and click Update score. Same format rules apply ({tournamentMatchFormat === 'best-of-3' ? 'best of 3: 2-0 or 2-1' : `single set: 1-0 or 0-1`}).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -742,11 +742,11 @@ export default function LiveScoringPage() {
                 </div>
                 <div>
                   <Label className="text-sm text-gray-600">
-                    {tournamentMatchFormat === 'single-set' ? 'Optional set score (e.g. 21-19)' : 'Optional set scores (e.g. 21-19, 18-21, 21-15)'}
+                    {tournamentMatchFormat === 'best-of-3' ? `Optional set scores (e.g. 21-19, 18-21, 21-15)` : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
                   </Label>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <Input
-                      placeholder="Set 1: 21-19"
+                      placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
                       value={directSet1}
                       onChange={(e) => setDirectSet1(e.target.value)}
                       className="max-w-[120px]"
