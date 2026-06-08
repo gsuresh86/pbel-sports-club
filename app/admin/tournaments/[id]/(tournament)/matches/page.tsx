@@ -10,6 +10,7 @@ import {
   useTournamentRegistrations,
   useTournamentMatches,
   useTournamentTeams,
+  useTournamentPools,
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Activity, Edit, Filter, Play, Swords, Trash2 } from 'lucide-react';
+import { Activity, Edit, FilterX, Play, Search, Swords, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -62,6 +63,7 @@ export default function MatchesPage() {
   const { data: registrationsData = [] } = useTournamentRegistrations(tournamentId, { enabled: queriesEnabled });
   const { data: matchesData = [] } = useTournamentMatches(tournamentId, { enabled: queriesEnabled });
   const { data: teamsData = [] } = useTournamentTeams(tournamentId, { enabled: queriesEnabled });
+  const { data: poolsData = [] } = useTournamentPools(tournamentId, { enabled: queriesEnabled });
   const invalidateTournament = useInvalidateTournament();
 
   const tournament = tournamentData ?? null;
@@ -70,16 +72,38 @@ export default function MatchesPage() {
   const teams = teamsData;
 
   const teamIds = new Set(teams.map(t => t.id));
+
+  // pool name → category, for the category filter
+  const poolNameToCategory = new Map(poolsData.map(p => [p.name, p.category]));
+
   const totalMatches = matches.length;
 
+  const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>(''); // YYYY-MM-DD in IST
 
   const distinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
-  const filteredMatches = matches.filter(m =>
-    (roundFilter === 'all' || m.round === roundFilter) &&
-    (statusFilter === 'all' || m.status === statusFilter),
-  );
+  const distinctCategories = Array.from(
+    new Set(poolsData.map(p => p.category).filter(Boolean))
+  ).sort() as string[];
+
+  const q = search.toLowerCase();
+  const filteredMatches = matches.filter(m => {
+    if (q && ![m.player1Name, m.player2Name, m.round].some(s => s.toLowerCase().includes(q))) return false;
+    if (roundFilter !== 'all' && m.round !== roundFilter) return false;
+    if (categoryFilter !== 'all' && poolNameToCategory.get(m.round) !== categoryFilter) return false;
+    if (statusFilter !== 'all' && m.status !== statusFilter) return false;
+    if (dateFilter) {
+      const matchDate = toISTLocal(new Date(m.scheduledTime)).slice(0, 10);
+      if (matchDate !== dateFilter) return false;
+    }
+    return true;
+  });
+
+  const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter;
+  const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setDateFilter(''); };
 
   const [editMatchOpen, setEditMatchOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -174,72 +198,112 @@ export default function MatchesPage() {
     <div className="space-y-4 sm:space-y-6">
       {AlertDialogComponent}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-base font-semibold sm:text-lg">
             Matches ({filteredMatches.length}{filteredMatches.length !== totalMatches ? ` of ${totalMatches}` : ''})
           </h3>
           <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Round filter */}
-          {distinctRounds.length > 1 && (
-            <Select value={roundFilter} onValueChange={setRoundFilter}>
-              <SelectTrigger className="h-8 w-40 text-xs">
-                <Filter className="h-3 w-3 mr-1" />
-                <SelectValue placeholder="Round / Pool" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Rounds</SelectItem>
-                {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          {/* Status filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 w-36 text-xs">
-              <SelectValue placeholder="Status" />
+        {totalMatches > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 flex-shrink-0 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+            onClick={async () => {
+              if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+              try {
+                await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
+                invalidateTournament(tournamentId);
+              } catch (e) {
+                console.error(e);
+                alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            Clear All
+          </Button>
+        )}
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search players, rounds…"
+            className="h-8 pl-7 pr-3 w-48 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        {/* Round / Pool */}
+        <Select value={roundFilter} onValueChange={setRoundFilter}>
+          <SelectTrigger className="h-8 w-36 text-xs">
+            <SelectValue placeholder="Round / Pool" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Rounds</SelectItem>
+            {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        {/* Category */}
+        {distinctCategories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="live">Live</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="postponed">Postponed</SelectItem>
+              <SelectItem value="all">All Categories</SelectItem>
+              {distinctCategories.map(c => (
+                <SelectItem key={c} value={c}>
+                  {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          {(roundFilter !== 'all' || statusFilter !== 'all') && (
-            <button
-              className="text-xs text-gray-500 hover:text-gray-800 underline"
-              onClick={() => { setRoundFilter('all'); setStatusFilter('all'); }}
-            >
-              Clear filters
-            </button>
-          )}
-          {/* separator */}
-          {totalMatches > 0 && <span className="text-gray-300 select-none">|</span>}
-          {totalMatches > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-              onClick={async () => {
-                if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-                try {
-                  await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
-                  invalidateTournament(tournamentId);
-                } catch (e) {
-                  console.error(e);
-                  alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-                }
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Clear All
-            </Button>
-          )}
-        </div>
+        )}
+
+        {/* Status */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-32 text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="live">Live</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="postponed">Postponed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Date (IST) */}
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={e => setDateFilter(e.target.value)}
+          title="Filter by date (IST)"
+          className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
+        />
+
+        {/* Clear filters icon button */}
+        {anyFilterActive && (
+          <button
+            onClick={clearFilters}
+            title="Clear all filters"
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+          >
+            <FilterX className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <Card>
@@ -347,7 +411,7 @@ export default function MatchesPage() {
               ) : (
                 <>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No matches match your filters</h3>
-                  <button className="text-sm text-blue-600 hover:underline" onClick={() => { setRoundFilter('all'); setStatusFilter('all'); }}>Clear filters</button>
+                  <button className="text-sm text-blue-600 hover:underline" onClick={clearFilters}>Clear filters</button>
                 </>
               )}
             </div>
