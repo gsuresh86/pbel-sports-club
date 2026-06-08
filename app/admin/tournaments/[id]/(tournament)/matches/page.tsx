@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
-import { Activity, Edit, Play, Swords, Trash2 } from 'lucide-react';
+import { Activity, Edit, Filter, Play, Swords, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -66,6 +66,15 @@ export default function MatchesPage() {
   const participants = registrationsData;
   const matches = matchesData;
   const totalMatches = matches.length;
+
+  const [roundFilter, setRoundFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const distinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+  const filteredMatches = matches.filter(m =>
+    (roundFilter === 'all' || m.round === roundFilter) &&
+    (statusFilter === 'all' || m.status === statusFilter),
+  );
 
   const [editMatchOpen, setEditMatchOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -152,31 +161,72 @@ export default function MatchesPage() {
     <div className="space-y-4 sm:space-y-6">
       {AlertDialogComponent}
 
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-base font-semibold sm:text-lg">Matches ({totalMatches})</h3>
+          <h3 className="text-base font-semibold sm:text-lg">
+            Matches ({filteredMatches.length}{filteredMatches.length !== totalMatches ? ` of ${totalMatches}` : ''})
+          </h3>
           <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
         </div>
-        {totalMatches > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-shrink-0 text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-            onClick={async () => {
-              if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-              try {
-                await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
-                invalidateTournament(tournamentId);
-              } catch (e) {
-                console.error(e);
-                alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-              }
-            }}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Clear All
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Round filter */}
+          {distinctRounds.length > 1 && (
+            <Select value={roundFilter} onValueChange={setRoundFilter}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <Filter className="h-3 w-3 mr-1" />
+                <SelectValue placeholder="Round / Pool" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Rounds</SelectItem>
+                {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+          {/* Status filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="postponed">Postponed</SelectItem>
+            </SelectContent>
+          </Select>
+          {(roundFilter !== 'all' || statusFilter !== 'all') && (
+            <button
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+              onClick={() => { setRoundFilter('all'); setStatusFilter('all'); }}
+            >
+              Clear filters
+            </button>
+          )}
+          {/* separator */}
+          {totalMatches > 0 && <span className="text-gray-300 select-none">|</span>}
+          {totalMatches > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+              onClick={async () => {
+                if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                try {
+                  await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
+                  invalidateTournament(tournamentId);
+                } catch (e) {
+                  console.error(e);
+                  alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                }
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Clear All
+            </Button>
+          )}
+        </div>
       </div>
 
       <Card>
@@ -196,7 +246,7 @@ export default function MatchesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...matches].sort((a, b) => a.matchNumber - b.matchNumber).map((match) => (
+                {[...filteredMatches].sort((a, b) => a.matchNumber - b.matchNumber).map((match) => (
                   <TableRow key={match.id}>
                     <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
                     <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
@@ -273,11 +323,20 @@ export default function MatchesPage() {
               </TableBody>
             </Table>
           </div>
-          {matches.length === 0 && (
+          {filteredMatches.length === 0 && (
             <div className="text-center py-8">
               <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
-              <p className="text-gray-600">Matches will appear here once the tournament bracket is generated.</p>
+              {totalMatches === 0 ? (
+                <>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
+                  <p className="text-gray-600">Generate matches from the Pools tab.</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No matches match your filters</h3>
+                  <button className="text-sm text-blue-600 hover:underline" onClick={() => { setRoundFilter('all'); setStatusFilter('all'); }}>Clear filters</button>
+                </>
+              )}
             </div>
           )}
         </CardContent>

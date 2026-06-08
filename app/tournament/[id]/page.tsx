@@ -28,6 +28,8 @@ export default function TournamentDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
   const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
   const [poolsCatFilter, setPoolsCatFilter] = useState<string>('all');
+  const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
+  const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
 
   useEffect(() => {
     if (tournamentId) {
@@ -127,9 +129,22 @@ export default function TournamentDetailPage() {
     { id: 'pools',   label: `Pools (${pools.length})`, icon: Users2 },
   ] as const;
 
-  const liveMatches = matches.filter(m => m.status === 'live');
-  const scheduledMatches = matches.filter(m => m.status === 'scheduled');
-  const completedMatches = matches.filter(m => m.status === 'completed');
+  const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+
+  // Unfiltered — used by overview tab
+  const allScheduledMatches = matches.filter(m => m.status === 'scheduled');
+
+  const fixturesFiltered = matches.filter(m => {
+    if (matchRoundFilter !== 'all' && m.round !== matchRoundFilter) return false;
+    if (matchStatusFilter === 'live') return m.status === 'live';
+    if (matchStatusFilter === 'scheduled') return m.status === 'scheduled';
+    if (matchStatusFilter === 'completed') return m.status === 'completed';
+    return true;
+  });
+
+  const liveMatches = fixturesFiltered.filter(m => m.status === 'live');
+  const scheduledMatches = fixturesFiltered.filter(m => m.status === 'scheduled');
+  const completedMatches = fixturesFiltered.filter(m => m.status === 'completed');
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -377,9 +392,9 @@ export default function TournamentDetailPage() {
                       {/* Progress bar */}
                       {matches.length > 0 && (
                         <div className="mt-3 h-2 bg-white/5 rounded-full overflow-hidden flex">
-                          <div className="h-full bg-green-500 transition-all" style={{ width: `${(completedMatches.length / matches.length) * 100}%` }} />
-                          <div className="h-full bg-red-500 transition-all" style={{ width: `${(liveMatches.length / matches.length) * 100}%` }} />
-                          <div className="h-full bg-blue-500 transition-all" style={{ width: `${(scheduledMatches.length / matches.length) * 100}%` }} />
+                          <div className="h-full bg-green-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'completed').length / matches.length) * 100}%` }} />
+                          <div className="h-full bg-red-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'live').length / matches.length) * 100}%` }} />
+                          <div className="h-full bg-blue-500 transition-all" style={{ width: `${(allScheduledMatches.length / matches.length) * 100}%` }} />
                         </div>
                       )}
                     </div>
@@ -388,7 +403,7 @@ export default function TournamentDetailPage() {
               </div>
 
               {/* Upcoming fixtures preview */}
-              {scheduledMatches.length > 0 && (
+              {allScheduledMatches.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -397,7 +412,7 @@ export default function TournamentDetailPage() {
                     <button onClick={() => setActiveTab('matches')} className="text-xs text-yellow-400 hover:underline">View all →</button>
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {scheduledMatches.slice(0, 6).map(m => (
+                    {allScheduledMatches.slice(0, 6).map(m => (
                       <MatchCard key={m.id} match={m} tournamentId={tournamentId} />
                     ))}
                   </div>
@@ -409,6 +424,42 @@ export default function TournamentDetailPage() {
           {/* MATCHES ──────────────────────────────────────────── */}
           {activeTab === 'matches' && (
             <div className="space-y-6">
+              {/* Filters */}
+              {matches.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                  {matchDistinctRounds.length > 1 && (
+                    <select
+                      value={matchRoundFilter}
+                      onChange={e => setMatchRoundFilter(e.target.value)}
+                      className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                    >
+                      <option value="all">All Rounds</option>
+                      {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  )}
+                  <select
+                    value={matchStatusFilter}
+                    onChange={e => setMatchStatusFilter(e.target.value as typeof matchStatusFilter)}
+                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                  >
+                    <option value="all">All Matches</option>
+                    <option value="live">Live</option>
+                    <option value="scheduled">Upcoming</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                  {(matchRoundFilter !== 'all' || matchStatusFilter !== 'all') && (
+                    <button
+                      onClick={() => { setMatchRoundFilter('all'); setMatchStatusFilter('all'); }}
+                      className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-500 ml-auto">
+                    {fixturesFiltered.length} of {matches.length} match{matches.length === 1 ? '' : 'es'}
+                  </span>
+                </div>
+              )}
               {/* Live */}
               {liveMatches.length > 0 && (
                 <section>
@@ -438,10 +489,14 @@ export default function TournamentDetailPage() {
                   </div>
                 </section>
               )}
-              {matches.length === 0 && (
+              {fixturesFiltered.length === 0 && (
                 <div className="text-center py-24">
                   <Activity className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">No matches scheduled yet</p>
+                  {matches.length === 0 ? (
+                    <p className="text-slate-400">No matches scheduled yet</p>
+                  ) : (
+                    <p className="text-slate-400">No matches match your filters</p>
+                  )}
                 </div>
               )}
             </div>
