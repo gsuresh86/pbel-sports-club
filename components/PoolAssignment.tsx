@@ -397,7 +397,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
               player2Name: items[j].name,
               scheduledTime: new Date(startTime.getTime() + matchIndex * intervalMs),
               venue,
-              status: 'scheduled',
+              status: 'not-scheduled',
               sets: [],
               matchFormat: genForm.matchFormat,
               updatedAt: new Date(),

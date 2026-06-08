@@ -62,13 +62,13 @@ export default function TournamentDetailPage() {
     try {
       const q = query(collection(db, 'matches'), where('tournamentId', '==', tournamentId), orderBy('scheduledTime', 'asc'));
       const snap = await getDocs(q);
-      setMatches(snap.docs.map(d => ({
+      setMatches((snap.docs.map(d => ({
         id: d.id, ...d.data(),
         scheduledTime: d.data().scheduledTime?.toDate(),
         actualStartTime: d.data().actualStartTime?.toDate(),
         actualEndTime: d.data().actualEndTime?.toDate(),
         updatedAt: d.data().updatedAt?.toDate(),
-      })) as Match[]);
+      })) as Match[]).filter(m => m.status !== 'not-scheduled'));
     } catch (e) { console.error(e); }
   };
 

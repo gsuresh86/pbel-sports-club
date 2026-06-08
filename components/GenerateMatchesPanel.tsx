@@ -143,7 +143,7 @@ export default function GenerateMatchesPanel({ tournament, user }: Props) {
               player2Name: items[j].name,
               scheduledTime: new Date(startTime.getTime() + matchIndex * intervalMs),
               venue: tournament.venue || 'TBD',
-              status: 'scheduled',
+              status: 'not-scheduled',
               sets: [],
               matchFormat: form.matchFormat,
               updatedAt: new Date(),

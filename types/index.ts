@@ -197,7 +197,7 @@ export interface Match {
   venue: string;
   court?: string;
   referee?: string;
-  status: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed';
+  status: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed';
   winner?: string;
   notes?: string;
   /** Override tournament default: single set (1 set wins), best of 3 (first to 2 sets), or 30pt single set */

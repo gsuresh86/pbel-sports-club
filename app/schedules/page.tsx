@@ -26,12 +26,12 @@ export default function SchedulesPage() {
         getDocs(collection(db, 'tournaments')),
       ]);
 
-      const matchesData = matchesSnapshot.docs.map(doc => ({
+      const matchesData = (matchesSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         scheduledTime: doc.data().scheduledTime?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
-      })) as Match[];
+      })) as Match[]).filter(m => m.status !== 'not-scheduled');
 
       const tournamentsData = tournamentsSnapshot.docs.map(doc => ({
         id: doc.id,

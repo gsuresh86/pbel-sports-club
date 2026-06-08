@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
@@ -39,11 +40,20 @@ function getMatchStatusColor(status: string) {
     case 'completed': return 'bg-green-100 text-green-800';
     case 'live': return 'bg-red-100 text-red-800';
     case 'scheduled': return 'bg-blue-100 text-blue-800';
+    case 'not-scheduled': return 'bg-gray-100 text-gray-600';
     case 'cancelled': return 'bg-gray-100 text-gray-800';
     case 'postponed': return 'bg-yellow-100 text-yellow-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 }
+
+function getMatchStatusLabel(status: string) {
+  return status === 'not-scheduled' ? 'Not scheduled' : status;
+}
+
+const MATCH_STATUSES: Match['status'][] = [
+  'not-scheduled', 'scheduled', 'live', 'completed', 'cancelled', 'postponed',
+];
 
 function formatDate(date: Date) {
   return new Date(date).toLocaleString('en-IN', {
@@ -105,6 +115,80 @@ export default function MatchesPage() {
 
   const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter;
   const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setDateFilter(''); };
+
+  // Sort by scheduled time (ascending), falling back to match number for ties
+  const sortedMatches = [...filteredMatches].sort((a, b) => {
+    const timeA = a.scheduledTime ? new Date(a.scheduledTime).getTime() : 0;
+    const timeB = b.scheduledTime ? new Date(b.scheduledTime).getTime() : 0;
+    if (timeA !== timeB) return timeA - timeB;
+    return a.matchNumber - b.matchNumber;
+  });
+
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<Match['status'] | ''>('');
+  const [bulkWorking, setBulkWorking] = useState(false);
+
+  // Keep selection in sync with what's currently visible
+  const visibleIds = sortedMatches.map(m => m.id);
+  const selectedVisible = visibleIds.filter(id => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        visibleIds.forEach(id => next.delete(id));
+      } else {
+        visibleIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const applyBulkStatus = async (status: Match['status']) => {
+    if (selectedVisible.length === 0) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all(selectedVisible.map(id =>
+        updateDoc(doc(db, 'matches', id), { status, updatedAt: new Date() })
+      ));
+      invalidateTournament(tournamentId);
+      setBulkStatus('');
+      clearSelection();
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to update matches', variant: 'error' });
+    } finally {
+      setBulkWorking(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedVisible.length === 0) return;
+    if (!confirm(`Delete ${selectedVisible.length} selected match${selectedVisible.length === 1 ? '' : 'es'}? This cannot be undone.`)) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all(selectedVisible.map(id => deleteDoc(doc(db, 'matches', id))));
+      invalidateTournament(tournamentId);
+      clearSelection();
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to delete matches', variant: 'error' });
+    } finally {
+      setBulkWorking(false);
+    }
+  };
 
   const [editMatchOpen, setEditMatchOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -289,6 +373,7 @@ export default function MatchesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="not-scheduled">Not scheduled</SelectItem>
             <SelectItem value="scheduled">Scheduled</SelectItem>
             <SelectItem value="live">Live</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
@@ -318,12 +403,59 @@ export default function MatchesPage() {
         )}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedVisible.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+          <span className="text-xs font-medium text-blue-900">
+            {selectedVisible.length} selected
+          </span>
+          <Select
+            value={bulkStatus}
+            onValueChange={(v: Match['status']) => { setBulkStatus(v); applyBulkStatus(v); }}
+            disabled={bulkWorking}
+          >
+            <SelectTrigger className="h-8 w-40 text-xs bg-white">
+              <SelectValue placeholder="Set status…" />
+            </SelectTrigger>
+            <SelectContent>
+              {MATCH_STATUSES.map(s => (
+                <SelectItem key={s} value={s}>{getMatchStatusLabel(s)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+            onClick={bulkDelete}
+            disabled={bulkWorking}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            Delete
+          </Button>
+          <button
+            onClick={clearSelection}
+            disabled={bulkWorking}
+            className="text-xs text-gray-500 hover:text-gray-800 hover:underline"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <Card className="rounded-none">
         <CardContent className="p-0">
           <div className="overflow-auto max-h-[calc(100vh-16rem)] -mx-4 sm:mx-0">
             <Table className="min-w-[680px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8 sticky top-0 bg-white z-10">
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all matches"
+                    />
+                  </TableHead>
                   <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Match #</TableHead>
                   <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Round</TableHead>
                   <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 1</TableHead>
@@ -335,8 +467,15 @@ export default function MatchesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...filteredMatches].sort((a, b) => a.matchNumber - b.matchNumber).map((match) => (
-                  <TableRow key={match.id}>
+                {sortedMatches.map((match) => (
+                  <TableRow key={match.id} data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
+                    <TableCell className="py-2">
+                      <Checkbox
+                        checked={selectedIds.has(match.id)}
+                        onCheckedChange={() => toggleSelect(match.id)}
+                        aria-label={`Select match ${match.matchNumber}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
                     <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
                     <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player1Name}</TableCell>
@@ -353,7 +492,7 @@ export default function MatchesPage() {
                       )}
                     </TableCell>
                     <TableCell className="py-2">
-                      <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>{match.status}</Badge>
+                      <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
                     </TableCell>
                     <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
                     <TableCell className="text-right py-2">
@@ -545,6 +684,7 @@ export default function MatchesPage() {
                 <Select value={editMatchForm.status} onValueChange={(v: Match['status']) => setEditMatchForm((f) => ({ ...f, status: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="not-scheduled">Not scheduled</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
                     <SelectItem value="live">Live</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>

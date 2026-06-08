@@ -39,7 +39,7 @@ export default function ManageMatchesPage() {
     venue: '',
     court: '',
     referee: '',
-    status: 'scheduled' as 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed',
+    status: 'scheduled' as 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed',
     notes: '',
     matchFormat: 'best-of-3' as 'single-set' | 'best-of-3',
   });
@@ -227,7 +227,7 @@ export default function ManageMatchesPage() {
     }
   };
 
-  const handleStatusChange = async (matchId: string, newStatus: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => {
+  const handleStatusChange = async (matchId: string, newStatus: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => {
     try {
       const updateData: Partial<Match> = {
         status: newStatus,
@@ -508,11 +508,12 @@ export default function ManageMatchesPage() {
                   </div>
                   <div>
                     <Label htmlFor="status">Status</Label>
-                    <Select value={formData.status} onValueChange={(value: 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => setFormData({ ...formData, status: value })}>
+                    <Select value={formData.status} onValueChange={(value: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => setFormData({ ...formData, status: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="not-scheduled">Not scheduled</SelectItem>
                         <SelectItem value="scheduled">Scheduled</SelectItem>
                         <SelectItem value="live">Live</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>

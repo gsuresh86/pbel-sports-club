@@ -570,11 +570,15 @@ export default function TournamentDetailsPage() {
       case 'completed': return 'bg-green-100 text-green-800';
       case 'live': return 'bg-red-100 text-red-800';
       case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'not-scheduled': return 'bg-gray-100 text-gray-600';
       case 'cancelled': return 'bg-gray-100 text-gray-800';
       case 'postponed': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const getMatchStatusLabel = (status: string) =>
+    status === 'not-scheduled' ? 'Not scheduled' : status;
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -1540,7 +1544,7 @@ export default function TournamentDetailsPage() {
                           </TableCell>
                           <TableCell className="py-2">
                             <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>
-                              {match.status}
+                              {getMatchStatusLabel(match.status)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
@@ -1817,6 +1821,7 @@ export default function TournamentDetailsPage() {
                   <Select value={editMatchForm.status} onValueChange={(v: Match['status']) => setEditMatchForm(f => ({ ...f, status: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="not-scheduled">Not scheduled</SelectItem>
                       <SelectItem value="scheduled">Scheduled</SelectItem>
                       <SelectItem value="live">Live</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
