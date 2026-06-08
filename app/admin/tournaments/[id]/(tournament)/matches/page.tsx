@@ -9,6 +9,7 @@ import {
   useTournament,
   useTournamentRegistrations,
   useTournamentMatches,
+  useTournamentTeams,
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
@@ -60,11 +61,15 @@ export default function MatchesPage() {
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const { data: registrationsData = [] } = useTournamentRegistrations(tournamentId, { enabled: queriesEnabled });
   const { data: matchesData = [] } = useTournamentMatches(tournamentId, { enabled: queriesEnabled });
+  const { data: teamsData = [] } = useTournamentTeams(tournamentId, { enabled: queriesEnabled });
   const invalidateTournament = useInvalidateTournament();
 
   const tournament = tournamentData ?? null;
   const participants = registrationsData;
   const matches = matchesData;
+  const teams = teamsData;
+
+  const teamIds = new Set(teams.map(t => t.id));
   const totalMatches = matches.length;
 
   const [roundFilter, setRoundFilter] = useState<string>('all');
@@ -113,18 +118,26 @@ export default function MatchesPage() {
 
   const saveEditMatch = async () => {
     if (!editingMatch) return;
-    const p1 = participants.find((p) => p.id === editMatchForm.player1Id);
-    const p2 = participants.find((p) => p.id === editMatchForm.player2Id);
-    if (!p1 || !p2) { alert({ title: 'Error', description: 'Select valid players', variant: 'error' }); return; }
+    const isTeamMatch = teamIds.has(editingMatch.player1Id) || teamIds.has(editingMatch.player2Id);
+    const lookup1 = isTeamMatch
+      ? teams.find((t) => t.id === editMatchForm.player1Id)
+      : participants.find((p) => p.id === editMatchForm.player1Id);
+    const lookup2 = isTeamMatch
+      ? teams.find((t) => t.id === editMatchForm.player2Id)
+      : participants.find((p) => p.id === editMatchForm.player2Id);
+    if (!lookup1 || !lookup2) {
+      alert({ title: 'Error', description: `Select valid ${isTeamMatch ? 'teams' : 'players'}`, variant: 'error' });
+      return;
+    }
     setSavingMatch(true);
     try {
       await updateDoc(doc(db, 'matches', editingMatch.id), {
         round: editMatchForm.round,
         matchNumber: parseInt(editMatchForm.matchNumber),
-        player1Id: p1.id,
-        player1Name: p1.name,
-        player2Id: p2.id,
-        player2Name: p2.name,
+        player1Id: lookup1.id,
+        player1Name: lookup1.name,
+        player2Id: lookup2.id,
+        player2Name: lookup2.name,
         scheduledTime: fromISTLocal(editMatchForm.scheduledTime),
         venue: editMatchForm.venue,
         court: editMatchForm.court || null,
@@ -360,30 +373,44 @@ export default function MatchesPage() {
                 <Input type="number" value={editMatchForm.matchNumber} onChange={(e) => setEditMatchForm((f) => ({ ...f, matchNumber: e.target.value }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Player 1</Label>
-                <Select value={editMatchForm.player1Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
-                  <SelectContent>
-                    {participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Player 2</Label>
-                <Select value={editMatchForm.player2Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select player" /></SelectTrigger>
-                  <SelectContent>
-                    {participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            {(() => {
+              const isTeamMatch = editingMatch
+                ? teamIds.has(editingMatch.player1Id) || teamIds.has(editingMatch.player2Id)
+                : false;
+              const label1 = isTeamMatch ? 'Team 1' : 'Player 1';
+              const label2 = isTeamMatch ? 'Team 2' : 'Player 2';
+              const placeholder = isTeamMatch ? 'Select team' : 'Select player';
+              return (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>{label1}</Label>
+                    <Select value={editMatchForm.player1Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}>
+                      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+                      <SelectContent>
+                        {isTeamMatch
+                          ? teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                          : participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>{label2}</Label>
+                    <Select value={editMatchForm.player2Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}>
+                      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+                      <SelectContent>
+                        {isTeamMatch
+                          ? teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                          : participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
+                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Scheduled Time (IST)</Label>
