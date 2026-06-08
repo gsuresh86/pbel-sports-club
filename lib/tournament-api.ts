@@ -76,6 +76,13 @@ export async function fetchTournament(tournamentId: string): Promise<Tournament 
   return toTournament(snap.data(), snap.id);
 }
 
+export async function fetchTournaments(assignedIds?: string[]): Promise<Tournament[]> {
+  const snap = await getDocs(query(collection(db, 'tournaments'), orderBy('createdAt', 'desc')));
+  const all = snap.docs.map(d => toTournament(d.data() as Record<string, unknown>, d.id));
+  if (assignedIds) return all.filter(t => assignedIds.includes(t.id));
+  return all;
+}
+
 export async function fetchTournamentRegistrations(
   tournamentId: string
 ): Promise<Registration[]> {

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import {
   fetchTournament,
+  fetchTournaments,
   fetchTournamentRegistrations,
   fetchTournamentMatches,
   fetchTournamentTeams,
@@ -11,6 +12,14 @@ import {
   updateTournament,
   type TournamentUpdatePayload,
 } from '@/lib/tournament-api';
+
+export function useTournaments(options?: { assignedIds?: string[]; enabled?: boolean }) {
+  return useQuery({
+    queryKey: queryKeys.tournaments.list(),
+    queryFn: () => fetchTournaments(options?.assignedIds),
+    enabled: options?.enabled !== false,
+  });
+}
 
 export function useTournament(tournamentId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
