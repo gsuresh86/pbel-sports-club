@@ -25,7 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Match } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
-import { Activity, Edit, FilterX, Play, Search, Square, Swords, Trash2, X } from 'lucide-react';
+import { Activity, ArrowUpDown, Edit, FilterX, Play, Search, Square, Swords, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -116,12 +116,17 @@ export default function MatchesPage() {
   const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter;
   const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setDateFilter(''); };
 
-  // Sort by scheduled time (ascending), falling back to match number for ties
+  // Sorting
+  const [sortKey, setSortKey] = useState<'time-asc' | 'time-desc' | 'number-asc' | 'number-desc'>('time-asc');
+  const getTime = (m: Match) => (m.scheduledTime ? new Date(m.scheduledTime).getTime() : 0);
   const sortedMatches = [...filteredMatches].sort((a, b) => {
-    const timeA = a.scheduledTime ? new Date(a.scheduledTime).getTime() : 0;
-    const timeB = b.scheduledTime ? new Date(b.scheduledTime).getTime() : 0;
-    if (timeA !== timeB) return timeA - timeB;
-    return a.matchNumber - b.matchNumber;
+    switch (sortKey) {
+      case 'time-desc': return getTime(b) - getTime(a) || b.matchNumber - a.matchNumber;
+      case 'number-asc': return a.matchNumber - b.matchNumber || getTime(a) - getTime(b);
+      case 'number-desc': return b.matchNumber - a.matchNumber || getTime(b) - getTime(a);
+      case 'time-asc':
+      default: return getTime(a) - getTime(b) || a.matchNumber - b.matchNumber;
+    }
   });
 
   // Multi-select state
@@ -278,6 +283,96 @@ export default function MatchesPage() {
     }
   };
 
+  const startMatch = async (match: Match) => {
+    try {
+      await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
+      await setDoc(doc(db, 'liveScores', match.id), {
+        matchId: match.id,
+        tournamentId: match.tournamentId,
+        player1Name: match.player1Name,
+        player2Name: match.player2Name,
+        currentSet: 1,
+        player1Sets: 0,
+        player2Sets: 0,
+        player1CurrentScore: 0,
+        player2CurrentScore: 0,
+        isLive: true,
+        lastUpdated: new Date(),
+      });
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
+    }
+  };
+
+  const stopMatch = async (match: Match) => {
+    if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
+    try {
+      await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
+      await deleteDoc(doc(db, 'liveScores', match.id));
+      invalidateTournament(tournamentId);
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
+    }
+  };
+
+  const renderMatchActions = (match: Match) => (
+    <div className="flex flex-wrap gap-1 sm:flex-nowrap sm:gap-2 sm:justify-end">
+      {match.status === 'scheduled' && (
+        <Button
+          size="sm"
+          className="bg-green-600 hover:bg-green-700 text-xs touch-manipulation"
+          onClick={() => startMatch(match)}
+        >
+          <Play className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Start</span>
+        </Button>
+      )}
+      {match.status === 'live' && (
+        <Button
+          size="sm"
+          className="bg-orange-500 hover:bg-orange-600 text-xs touch-manipulation"
+          onClick={() => stopMatch(match)}
+        >
+          <Square className="h-4 w-4 sm:mr-1" />
+          <span className="hidden sm:inline">Stop</span>
+        </Button>
+      )}
+      <Link href={`/admin/matches/${match.id}`} className="inline-block">
+        <Button size="sm" variant="outline" className="text-xs touch-manipulation">
+          <Swords className="h-4 w-4 sm:mr-1" />
+          {match.status === 'scheduled' ? 'Score' : match.status === 'live' ? 'Update' : 'View'}
+        </Button>
+      </Link>
+      <Button size="sm" variant="ghost" className="text-xs touch-manipulation" onClick={() => openEditMatch(match)}>
+        <Edit className="h-4 w-4" />
+      </Button>
+      <Button
+        size="sm" variant="ghost"
+        className="text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+        onClick={() => handleDeleteMatch(match.id)}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
+  const renderMatchScore = (match: Match) => {
+    if (match.status === 'completed') {
+      return <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>;
+    }
+    if (match.status === 'live' && match.sets?.length) {
+      return (
+        <span className="text-green-600 text-xs sm:text-sm">
+          {match.sets.map((s) => `${s.player1Score}-${s.player2Score}`).join(', ')}
+        </span>
+      );
+    }
+    return <span className="text-gray-400">-</span>;
+  };
+
   if (!tournament) return null;
 
   return (
@@ -391,6 +486,20 @@ export default function MatchesPage() {
           className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring w-36"
         />
 
+        {/* Sort */}
+        <Select value={sortKey} onValueChange={(v: typeof sortKey) => setSortKey(v)}>
+          <SelectTrigger className="h-8 w-40 text-xs">
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1 text-gray-400" />
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="time-asc">Time (earliest)</SelectItem>
+            <SelectItem value="time-desc">Time (latest)</SelectItem>
+            <SelectItem value="number-asc">Match # (low→high)</SelectItem>
+            <SelectItem value="number-desc">Match # (high→low)</SelectItem>
+          </SelectContent>
+        </Select>
+
         {/* Clear filters icon button */}
         {anyFilterActive && (
           <button
@@ -445,8 +554,9 @@ export default function MatchesPage() {
 
       <Card className="rounded-none">
         <CardContent className="p-0">
-          <div className="overflow-auto max-h-[calc(100vh-16rem)] -mx-4 sm:mx-0">
-            <Table className="min-w-[680px]">
+          {/* Desktop / tablet table view */}
+          <div className="hidden sm:block overflow-auto max-h-[calc(100vh-16rem)]">
+            <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8 sticky top-0 bg-white z-10">
@@ -456,14 +566,14 @@ export default function MatchesPage() {
                       aria-label="Select all matches"
                     />
                   </TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Match #</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Round</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 1</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Player 2</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Score</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Status</TableHead>
-                  <TableHead className="text-xs sm:text-sm sticky top-0 bg-white z-10">Time</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm w-24 sticky top-0 bg-white z-10">Actions</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Match #</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Round</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Player 1</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Player 2</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Score</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Status</TableHead>
+                  <TableHead className="text-sm sticky top-0 bg-white z-10">Time</TableHead>
+                  <TableHead className="text-right text-sm w-24 sticky top-0 bg-white z-10">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -476,101 +586,63 @@ export default function MatchesPage() {
                         aria-label={`Select match ${match.matchNumber}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-xs sm:text-sm py-2">#{match.matchNumber}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player1Name}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 max-w-[80px] sm:max-w-none truncate">{match.player2Name}</TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2">
-                      {match.status === 'completed' ? (
-                        <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>
-                      ) : match.status === 'live' && match.sets?.length ? (
-                        <span className="text-green-600 text-xs sm:text-sm">
-                          {match.sets.map((s) => `${s.player1Score}-${s.player2Score}`).join(', ')}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </TableCell>
+                    <TableCell className="font-medium text-sm py-2">#{match.matchNumber}</TableCell>
+                    <TableCell className="text-sm py-2">{match.round}</TableCell>
+                    <TableCell className="text-sm py-2">{match.player1Name}</TableCell>
+                    <TableCell className="text-sm py-2">{match.player2Name}</TableCell>
+                    <TableCell className="text-sm py-2">{renderMatchScore(match)}</TableCell>
                     <TableCell className="py-2">
-                      <Badge className={`text-[10px] sm:text-xs ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
+                      <Badge className={`text-xs ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
                     </TableCell>
-                    <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
-                    <TableCell className="text-right py-2">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:gap-2 sm:justify-end">
-                        {match.status === 'scheduled' && (
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-xs touch-manipulation"
-                            onClick={async () => {
-                              try {
-                                await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
-                                await setDoc(doc(db, 'liveScores', match.id), {
-                                  matchId: match.id,
-                                  tournamentId: match.tournamentId,
-                                  player1Name: match.player1Name,
-                                  player2Name: match.player2Name,
-                                  currentSet: 1,
-                                  player1Sets: 0,
-                                  player2Sets: 0,
-                                  player1CurrentScore: 0,
-                                  player2CurrentScore: 0,
-                                  isLive: true,
-                                  lastUpdated: new Date(),
-                                });
-                                invalidateTournament(tournamentId);
-                              } catch (e) {
-                                console.error(e);
-                                alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });
-                              }
-                            }}
-                          >
-                            <Play className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Start</span>
-                          </Button>
-                        )}
-                        {match.status === 'live' && (
-                          <Button
-                            size="sm"
-                            className="bg-orange-500 hover:bg-orange-600 text-xs touch-manipulation"
-                            onClick={async () => {
-                              if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
-                              try {
-                                await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
-                                await deleteDoc(doc(db, 'liveScores', match.id));
-                                invalidateTournament(tournamentId);
-                              } catch (e) {
-                                console.error(e);
-                                alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
-                              }
-                            }}
-                          >
-                            <Square className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Stop</span>
-                          </Button>
-                        )}
-                        <Link href={`/admin/matches/${match.id}`} className="inline-block">
-                          <Button size="sm" variant="outline" className="w-full sm:w-auto text-xs touch-manipulation">
-                            <Swords className="h-4 w-4 sm:mr-1" />
-                            {match.status === 'scheduled' ? 'Score' : match.status === 'live' ? 'Update' : 'View'}
-                          </Button>
-                        </Link>
-                        <Button size="sm" variant="ghost" className="text-xs touch-manipulation" onClick={() => openEditMatch(match)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost"
-                          className="text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDeleteMatch(match.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableCell className="text-sm py-2 whitespace-nowrap">{formatDate(match.scheduledTime)}</TableCell>
+                    <TableCell className="text-right py-2">{renderMatchActions(match)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile card view */}
+          <div className="sm:hidden divide-y divide-gray-100 max-h-[calc(100vh-15rem)] overflow-auto">
+            {sortedMatches.map((match) => (
+              <div
+                key={match.id}
+                className={`flex gap-3 p-3 ${selectedIds.has(match.id) ? 'bg-blue-50' : 'bg-white'}`}
+              >
+                <Checkbox
+                  checked={selectedIds.has(match.id)}
+                  onCheckedChange={() => toggleSelect(match.id)}
+                  aria-label={`Select match ${match.matchNumber}`}
+                  className="mt-1 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-semibold text-gray-900">#{match.matchNumber}</span>
+                      <span className="truncate text-xs text-gray-500">{match.round}</span>
+                    </div>
+                    <Badge className={`shrink-0 text-[10px] ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
+                  </div>
+
+                  <div className="mt-1.5 flex items-center gap-2 text-sm font-medium text-gray-900">
+                    <span className="min-w-0 flex-1 truncate text-right">{match.player1Name}</span>
+                    <span className="shrink-0 text-xs text-gray-400">vs</span>
+                    <span className="min-w-0 flex-1 truncate">{match.player2Name}</span>
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-center gap-1.5 text-xs">
+                    <span className="text-gray-400">Score:</span>
+                    {renderMatchScore(match)}
+                  </div>
+
+                  <div className="mt-1.5 text-center text-xs text-gray-500">{formatDate(match.scheduledTime)}</div>
+
+                  <div className="mt-2">{renderMatchActions(match)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {filteredMatches.length === 0 && (
             <div className="text-center py-8">
               <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
