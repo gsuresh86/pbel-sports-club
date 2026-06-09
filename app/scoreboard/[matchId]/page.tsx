@@ -6,7 +6,7 @@ import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot } from '
 import { db } from '@/lib/firebase';
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
-import { toTournament } from '@/lib/tournament-api';
+import { fetchTournamentRegistrations, toTournament } from '@/lib/tournament-api';
 import { getMatchLiveDisplayNames } from '@/lib/utils';
 import { Match, Tournament, LiveScore, Registration } from '@/types';
 
@@ -148,18 +148,9 @@ function ScoreboardPageInner() {
     let cancelled = false;
     (async () => {
       try {
-        const snap = await getDocs(
-          collection(db, 'tournaments', effectiveTournamentId, 'registrations'),
-        );
+        const regs = await fetchTournamentRegistrations(effectiveTournamentId);
         if (cancelled) return;
-        setRegistrations(
-          snap.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-            createdAt: d.data().createdAt?.toDate(),
-            updatedAt: d.data().updatedAt?.toDate(),
-          })) as Registration[],
-        );
+        setRegistrations(regs);
       } catch {
         if (!cancelled) setRegistrations([]);
       }

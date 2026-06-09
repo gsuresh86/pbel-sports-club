@@ -16,8 +16,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import PoolPointsTable from '@/components/public/PoolPointsTable';
-import { isTeamCategory } from '@/lib/poolStandings';
+import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -31,7 +30,6 @@ export default function TournamentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
   const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
-  const [poolsCatFilter, setPoolsCatFilter] = useState<string>('all');
   const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
   const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
   const [matchSearch, setMatchSearch] = useState('');
@@ -420,6 +418,24 @@ export default function TournamentDetailPage() {
                 </div>
               </div>
 
+              {pools.length > 0 && (
+                <Link
+                  href={`/tournament/${tournamentId}/standings`}
+                  className="flex items-center justify-between bg-slate-900 hover:bg-slate-800/80 border border-white/5 hover:border-yellow-400/30 rounded-2xl px-6 py-5 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center">
+                      <Users2 className="h-5 w-5 text-yellow-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">View Standings</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">{pools.length} pool{pools.length !== 1 ? 's' : ''} · Live points table</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-slate-500 group-hover:text-yellow-400 transition-colors" />
+                </Link>
+              )}
+
               {/* Upcoming fixtures preview */}
               {allScheduledMatches.length > 0 && (
                 <div>
@@ -637,53 +653,15 @@ export default function TournamentDetailPage() {
           )}
 
           {/* POOLS ────────────────────────────────────────────── */}
-          {activeTab === 'pools' && (
-            <div className="space-y-6">
-              {pools.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={poolsCatFilter}
-                    onChange={e => setPoolsCatFilter(e.target.value)}
-                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                  >
-                    <option value="all">All Categories</option>
-                    {tournament.categories?.map(cat => (
-                      <option key={cat} value={cat}>{cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
-                    ))}
-                  </select>
-                  {poolsCatFilter !== 'all' && (
-                    <button onClick={() => setPoolsCatFilter('all')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">Clear</button>
-                  )}
-                </div>
-              )}
-              {pools.length === 0 ? (
-                <div className="text-center py-24">
-                  <Users2 className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400">Pools will appear once they are created</p>
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {pools
-                    .filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter)
-                    .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, undefined, { numeric: true }))
-                    .map(pool => {
-                      const isTeamCat = isTeamCategory(pool.category);
-                      const isDoubles = pool.category.includes('doubles');
-                      return (
-                        <PoolPointsTable
-                          key={pool.id}
-                          pool={pool}
-                          matches={matches}
-                          isTeamCat={isTeamCat}
-                          teams={teams}
-                          participants={participants}
-                          isDoubles={isDoubles}
-                        />
-                      );
-                    })}
-                </div>
-              )}
-            </div>
+          {activeTab === 'pools' && tournament && (
+            <TournamentStandingsView
+              tournament={tournament}
+              pools={pools}
+              matches={matches}
+              teams={teams}
+              participants={participants}
+              showFullPageLink
+            />
           )}
         </div>
 

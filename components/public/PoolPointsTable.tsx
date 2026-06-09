@@ -22,6 +22,11 @@ function entityLabel(isTeamCat: boolean, isDoubles?: boolean) {
   return 'Player';
 }
 
+const stickyCell =
+  'sticky left-0 z-10 bg-slate-900 after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-white/10';
+const stickyCellSecond =
+  'sticky left-8 z-10 bg-slate-900 after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-white/10';
+
 function PoolPointsTableInner({ rows, label }: { rows: PoolStandingRow[]; label: string }) {
   if (rows.every(r => r.played === 0)) {
     return (
@@ -32,37 +37,47 @@ function PoolPointsTableInner({ rows, label }: { rows: PoolStandingRow[]; label:
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs sm:text-sm">
+    <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
+      <table className="w-full min-w-[340px] text-[10px] sm:text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[10px]">
-            <th className="text-left font-bold px-4 py-2.5 w-8">#</th>
-            <th className="text-left font-bold px-2 py-2.5">{label}</th>
-            <th className="text-center font-bold px-2 py-2.5 w-10" title="Played">P</th>
-            <th className="text-center font-bold px-2 py-2.5 w-10 text-green-400" title="Won">W</th>
-            <th className="text-center font-bold px-2 py-2.5 w-10 text-red-400" title="Lost">L</th>
-            <th className="text-center font-bold px-2 py-2.5 w-10 text-amber-400" title="Points">Pts</th>
-            <th className="text-center font-bold px-2 py-2.5 w-12 hidden sm:table-cell" title="Points for">PF</th>
-            <th className="text-center font-bold px-2 py-2.5 w-12 hidden sm:table-cell" title="Points against">PA</th>
-            <th className="text-center font-bold px-4 py-2.5 w-14 text-sky-400" title="Net run rate (points for ÷ points against)">NRR</th>
+          <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[9px] sm:text-[10px]">
+            <th className={`text-left font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-8 ${stickyCell}`}>#</th>
+            <th className={`text-left font-bold px-1.5 sm:px-2 py-2 sm:py-2.5 min-w-[88px] max-w-[120px] sm:max-w-none ${stickyCellSecond}`}>
+              {label}
+            </th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Played">P</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-green-400" title="Won">W</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-red-400" title="Lost">L</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9 text-amber-400" title="Standings points (2 per win)">Pts</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Point Given">PG</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points Taken">PT</th>
+            <th className="text-center font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-12 text-sky-400" title="Net run rate (PG ÷ PT)">NRR</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
-          {rows.map((row, idx) => (
-            <tr key={row.id} className={idx === 0 && row.played > 0 ? 'bg-yellow-400/5' : ''}>
-              <td className="px-4 py-2.5 text-slate-500 font-bold">{idx + 1}</td>
-              <td className="px-2 py-2.5 font-semibold text-white truncate max-w-[140px] sm:max-w-none">{row.name}</td>
-              <td className="px-2 py-2.5 text-center text-slate-300">{row.played}</td>
-              <td className="px-2 py-2.5 text-center font-semibold text-green-400">{row.won}</td>
-              <td className="px-2 py-2.5 text-center font-semibold text-red-400">{row.lost}</td>
-              <td className="px-2 py-2.5 text-center font-bold text-amber-400">{row.points}</td>
-              <td className="px-2 py-2.5 text-center text-slate-400 hidden sm:table-cell">{row.pointsFor}</td>
-              <td className="px-2 py-2.5 text-center text-slate-400 hidden sm:table-cell">{row.pointsAgainst}</td>
-              <td className={`px-4 py-2.5 text-center font-semibold ${row.nrr >= 1 ? 'text-sky-400' : 'text-slate-400'}`}>
-                {formatNrr(row.nrr)}
-              </td>
-            </tr>
-          ))}
+          {rows.map((row, idx) => {
+            const isLeader = idx === 0 && row.played > 0;
+            const rowBg = isLeader ? 'bg-yellow-400/5' : 'bg-slate-900';
+            return (
+              <tr key={row.id} className={isLeader ? 'bg-yellow-400/5' : ''}>
+                <td className={`px-1.5 sm:px-4 py-2 sm:py-2.5 text-slate-500 font-bold tabular-nums ${stickyCell} ${rowBg}`}>
+                  {idx + 1}
+                </td>
+                <td className={`px-1.5 sm:px-2 py-2 sm:py-2.5 font-semibold text-white truncate min-w-[88px] max-w-[120px] sm:max-w-none ${stickyCellSecond} ${rowBg}`}>
+                  {row.name}
+                </td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-300 tabular-nums">{row.played}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-green-400 tabular-nums">{row.won}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-red-400 tabular-nums">{row.lost}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-bold text-amber-400 tabular-nums">{row.points}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsFor}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsAgainst}</td>
+                <td className={`px-1.5 sm:px-4 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.nrr >= 1 ? 'text-sky-400' : 'text-slate-400'}`}>
+                  {formatNrr(row.nrr)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -87,9 +102,9 @@ export default function PoolPointsTable({
 
   return (
     <div className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600/20 to-indigo-500/10 px-5 py-3 border-b border-white/5 flex items-center justify-between gap-3">
-        <div>
-          <h4 className="font-black text-white">{pool.name}</h4>
+      <div className="bg-gradient-to-r from-purple-600/20 to-indigo-500/10 px-4 sm:px-5 py-3 border-b border-white/5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="font-black text-white truncate">{pool.name}</h4>
           <p className="text-xs text-slate-400 mt-0.5">
             Points table · {pool.teams.length} {isTeamCat ? 'teams' : isDoubles ? 'pairs' : 'players'}
           </p>

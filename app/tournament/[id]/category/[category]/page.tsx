@@ -5,11 +5,10 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Tournament, Registration, Team, Pool, Match } from '@/types';
-import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import PoolPointsTable from '@/components/public/PoolPointsTable';
-import { isTeamCategory as isTeamCategoryForStandings } from '@/lib/poolStandings';
+import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function fmtCategory(cat: string) {
@@ -237,7 +236,6 @@ export default function CategoryPage() {
   const catPools = pools.filter(p => p.category === categorySlug);
   const isCatTeam = isTeamCategory(categorySlug);
   const isDoubles = isDoublesCategory(categorySlug);
-  const isTeamStandings = isTeamCategoryForStandings(categorySlug);
   const label = fmtCategory(categorySlug);
   const poolsAvailable = catPools.length > 0;
 
@@ -349,33 +347,29 @@ export default function CategoryPage() {
           )
         )}
 
-        {isCatTeam && activeSection === 'points' && (
+        {isCatTeam && activeSection === 'points' && tournament && (
           <section>
-            <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-2 flex items-center gap-2">
-              <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
-            </h2>
-            <p className="text-xs text-slate-500 mb-5">
-              Team ties: W/L from rubbers won (first to 3). NRR = total rubber points scored ÷ points conceded.
-            </p>
-            {catPools.length === 0 ? (
-              <div className="text-center py-16">
-                <Users2 className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400">No pools created for this category yet</p>
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {catPools.map(pool => (
-                  <PoolPointsTable
-                    key={pool.id}
-                    pool={pool}
-                    matches={matches}
-                    isTeamCat={isTeamStandings}
-                    teams={teams}
-                    participants={participants}
-                  />
-                ))}
-              </div>
-            )}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+              <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold flex items-center gap-2">
+                <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
+              </h2>
+              <Link
+                href={`/tournament/${tournamentId}/standings?category=${categorySlug}`}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View all standings
+              </Link>
+            </div>
+            <TournamentStandingsView
+              tournament={tournament}
+              pools={pools}
+              matches={matches}
+              teams={teams}
+              participants={participants}
+              initialCategory={categorySlug}
+              hideCategoryFilter
+            />
           </section>
         )}
 
@@ -409,27 +403,29 @@ export default function CategoryPage() {
           )
         )}
 
-        {!isCatTeam && poolsAvailable && activeSection === 'points' && (
+        {!isCatTeam && poolsAvailable && activeSection === 'points' && tournament && (
           <section>
-            <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-2 flex items-center gap-2">
-              <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
-            </h2>
-            <p className="text-xs text-slate-500 mb-5">
-              {isDoubles ? 'Pairs' : 'Players'}: 2 pts per win. NRR = total set points scored ÷ points conceded.
-            </p>
-            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {catPools.map(pool => (
-                <PoolPointsTable
-                  key={pool.id}
-                  pool={pool}
-                  matches={matches}
-                  isTeamCat={false}
-                  teams={teams}
-                  participants={participants}
-                  isDoubles={isDoubles}
-                />
-              ))}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+              <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold flex items-center gap-2">
+                <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
+              </h2>
+              <Link
+                href={`/tournament/${tournamentId}/standings?category=${categorySlug}`}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View all standings
+              </Link>
             </div>
+            <TournamentStandingsView
+              tournament={tournament}
+              pools={pools}
+              matches={matches}
+              teams={teams}
+              participants={participants}
+              initialCategory={categorySlug}
+              hideCategoryFilter
+            />
           </section>
         )}
       </div>
