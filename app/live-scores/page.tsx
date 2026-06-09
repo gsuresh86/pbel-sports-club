@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LiveScore, Match, Tournament } from '@/types';
-import { Target, Clock, Trophy, Play, RefreshCw } from 'lucide-react';
+import { Target, Clock, Trophy, Play, RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LiveScoresPage() {
@@ -220,18 +220,26 @@ export default function LiveScoresPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
-                      <Link href={`/tournament/${liveScore.tournamentId}/live/${liveScore.matchId}`} className="flex-1">
-                        <Button className="w-full" size="sm">
-                          <Target className="h-4 w-4 mr-1" />
-                          View Details
+                    <div className="flex flex-col gap-2">
+                      <Link href={`/scoreboard/${liveScore.matchId}`} target="_blank" rel="noopener noreferrer">
+                        <Button className="w-full" size="sm" variant="default">
+                          <Monitor className="h-4 w-4 mr-1" />
+                          Scoreboard
                         </Button>
                       </Link>
-                      <Link href={`/tournament/${liveScore.tournamentId}`} className="flex-1">
-                        <Button variant="outline" className="w-full" size="sm">
-                          Tournament
-                        </Button>
-                      </Link>
+                      <div className="flex gap-2">
+                        <Link href={`/tournament/${liveScore.tournamentId}/live/${liveScore.matchId}`} className="flex-1">
+                          <Button className="w-full" size="sm" variant="outline">
+                            <Target className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                        </Link>
+                        <Link href={`/tournament/${liveScore.tournamentId}`} className="flex-1">
+                          <Button variant="outline" className="w-full" size="sm">
+                            Tournament
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -302,11 +310,11 @@ export default function LiveScoresPage() {
           </Card>
         )}
 
-        {/* Auto-refresh indicator */}
+        {/* Real-time indicator */}
         <div className="mt-8 text-center">
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            Auto-refreshing every 30 seconds
+            <RefreshCw className="h-4 w-4" />
+            Updates in real time
           </div>
         </div>
         </div>

@@ -10,8 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Match, LiveScore, MatchSet } from '@/types';
-import { Play, Pause, Trophy, Clock, Target, RefreshCw, Edit3 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LiveScoreHeader } from '@/components/scoring/LiveScoreHeader';
+import { RefereeScoreControls } from '@/components/scoring/RefereeScoreControls';
+import { Match, MatchSet } from '@/types';
+import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check } from 'lucide-react';
 
 export default function LiveScoringPage() {
   const params = useParams();
@@ -19,7 +22,6 @@ export default function LiveScoringPage() {
   const { user, loading: authLoading } = useAuth();
   const matchId = params.id as string;
   const [match, setMatch] = useState<Match | null>(null);
-  const [liveScore, setLiveScore] = useState<LiveScore | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [currentSet, setCurrentSet] = useState(1);
@@ -35,6 +37,7 @@ export default function LiveScoringPage() {
   const [directSet2, setDirectSet2] = useState<string>('');
   const [directSet3, setDirectSet3] = useState<string>('');
   const [tournamentMatchFormat, setTournamentMatchFormat] = useState<'single-set' | 'best-of-3' | 'single-set-30'>('best-of-3');
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const canAccessAdmin = user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin';
 
@@ -119,15 +122,29 @@ export default function LiveScoringPage() {
 
   const setupLiveScoreListener = () => {
     const liveScoreRef = doc(db, 'liveScores', matchId);
-    return onSnapshot(liveScoreRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setLiveScore({
-          ...data,
-          lastUpdated: data.lastUpdated?.toDate(),
-        } as LiveScore);
+    return onSnapshot(liveScoreRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.isLive) {
+          setPlayer1Score(data.player1CurrentScore ?? 0);
+          setPlayer2Score(data.player2CurrentScore ?? 0);
+          setPlayer1Sets(data.player1Sets ?? 0);
+          setPlayer2Sets(data.player2Sets ?? 0);
+          setCurrentSet(data.currentSet ?? 1);
+        }
       }
     });
+  };
+
+  const copyScoreboardUrl = async () => {
+    const url = `${window.location.origin}/scoreboard/${matchId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      alert(`Copy this URL for the TV scoreboard:\n${url}`);
+    }
   };
 
   const startMatch = async () => {
@@ -392,14 +409,32 @@ export default function LiveScoringPage() {
     }
   };
 
-  const resetSet = () => {
-    setPlayer1Score(0);
-    setPlayer2Score(0);
+  const resetSet = async () => {
+    if (!match || match.status !== 'live') return;
+    try {
+      setUpdating(true);
+      setPlayer1Score(0);
+      setPlayer2Score(0);
+      await updateDoc(doc(db, 'liveScores', matchId), {
+        player1CurrentScore: 0,
+        player2CurrentScore: 0,
+        lastUpdated: new Date(),
+        updatedBy: user?.id,
+      });
+    } catch (error) {
+      console.error('Error resetting set:', error);
+      alert('Failed to reset set scores');
+    } finally {
+      setUpdating(false);
+    }
   };
 
-  const getScoreDisplay = (score: number) => {
-    return score.toString().padStart(2, '0');
-  };
+  const formatLabel =
+    tournamentMatchFormat === 'single-set-30'
+      ? '30pt Single set'
+      : tournamentMatchFormat === 'single-set'
+        ? 'Single set (21pt)'
+        : 'Best of 3 (21pt)';
 
   if (loading || authLoading) {
     return (
@@ -426,35 +461,20 @@ export default function LiveScoringPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Match Header */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-6 w-6 text-blue-500" />
-                  {match.round} - Match {match.matchNumber}
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  <div className="flex items-center gap-4 text-sm flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {new Date(match.scheduledTime).toLocaleDateString()} at {new Date(match.scheduledTime).toLocaleTimeString()}
-                    </span>
-                    <span>{match.venue}</span>
-                    {match.court && <span>Court: {match.court}</span>}
-                    <Badge variant="secondary">
-                      {tournamentMatchFormat === 'single-set-30' ? '30pt Single set' : tournamentMatchFormat === 'single-set' ? 'Single set (21pt)' : 'Best of 3 (21pt)'}
-                    </Badge>
-                  </div>
-                </CardDescription>
-              </div>
-              <Badge className={`${match.status === 'live' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky top bar */}
+      <div className="sticky top-0 z-10 bg-white border-b shadow-sm px-3 py-3 sm:px-4">
+        <div className="max-w-4xl mx-auto flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Target className="h-5 w-5 text-blue-500 shrink-0" />
+              <h1 className="font-semibold text-sm sm:text-base truncate">
+                {match.round} · Match {match.matchNumber}
+              </h1>
+              <Badge className={`shrink-0 ${match.status === 'live' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
                 {match.status === 'live' ? (
                   <span className="flex items-center gap-1">
-                    <Play className="h-4 w-4" />
+                    <Play className="h-3 w-3" />
                     LIVE
                   </span>
                 ) : (
@@ -462,392 +482,394 @@ export default function LiveScoringPage() {
                 )}
               </Badge>
             </div>
-          </CardHeader>
-        </Card>
+            <p className="text-xs text-gray-500 mt-1 truncate">
+              {match.player1Name} vs {match.player2Name}
+              {match.court ? ` · Court ${match.court}` : ''}
+              {' · '}
+              {formatLabel}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex touch-manipulation"
+              onClick={copyScoreboardUrl}
+            >
+              {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="touch-manipulation"
+              asChild
+            >
+              <a href={`/scoreboard/${matchId}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Scoreboard</span>
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
 
-        {/* Live Score Display - single row */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-center">Live Score</CardTitle>
-            <CardDescription className="text-center">
-              {match.status === 'live' ? 'Match in progress' : 'Match not started'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 py-2">
-              {/* Player 1 name + score */}
-              <div className="text-center min-w-0 flex-1">
-                <h3 className="text-sm font-medium text-blue-600 truncate sm:text-base">{match.player1Name}</h3>
-                <div className="text-4xl font-bold text-blue-600 sm:text-5xl mt-1">
-                  {getScoreDisplay(player1Score)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Sets: {player1Sets}</div>
-              </div>
-              {/* Score separator */}
-              <div className="flex flex-col items-center justify-center shrink-0 px-2">
-                <span className="text-3xl font-bold text-gray-400 sm:text-4xl">–</span>
-                {!winner && (
-                  <span className="text-xs text-gray-500 mt-1">Set {currentSet}</span>
-                )}
-              </div>
-              {/* Player 2 name + score */}
-              <div className="text-center min-w-0 flex-1">
-                <h3 className="text-sm font-medium text-red-600 truncate sm:text-base">{match.player2Name}</h3>
-                <div className="text-4xl font-bold text-red-600 sm:text-5xl mt-1">
-                  {getScoreDisplay(player2Score)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Sets: {player2Sets}</div>
-              </div>
-            </div>
+      <div className="max-w-4xl mx-auto py-4 px-3 sm:py-6 sm:px-4 pb-36 sm:pb-8">
+        {/* Start match */}
+        {match.status === 'scheduled' && (
+          <div className="mb-6 text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              {new Date(match.scheduledTime).toLocaleDateString()} at{' '}
+              {new Date(match.scheduledTime).toLocaleTimeString()}
+              {match.venue ? ` · ${match.venue}` : ''}
+            </p>
+            <Button
+              onClick={startMatch}
+              disabled={updating}
+              className="w-full sm:w-auto min-h-14 text-lg touch-manipulation bg-green-600 hover:bg-green-700"
+            >
+              <Play className="h-5 w-5 mr-2" />
+              Start Match
+            </Button>
+          </div>
+        )}
 
-            {winner && (
-              <div className="text-center mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <Trophy className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                <h3 className="text-xl font-bold text-yellow-800">Match Winner: {winner}</h3>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Live score + controls */}
+        {(match.status === 'live' || match.status === 'completed') && (
+          <div className="mb-6 rounded-xl bg-white border shadow-sm p-4 sm:p-6">
+            <LiveScoreHeader
+              player1Name={match.player1Name}
+              player2Name={match.player2Name}
+              player1Score={player1Score}
+              player2Score={player2Score}
+              player1Sets={player1Sets}
+              player2Sets={player2Sets}
+              currentSet={currentSet}
+              isLive={match.status === 'live'}
+              winner={winner || undefined}
+              size="large"
+            />
+          </div>
+        )}
 
-        {/* Score Controls */}
         {match.status === 'live' && !winner && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Score Controls</CardTitle>
-              <CardDescription>Update the live score</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
-                {/* Player 1 Controls */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-center text-blue-600">{match.player1Name}</h3>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      onClick={() => updateScore('player1', false)}
-                      disabled={updating || player1Score === 0}
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                    >
-                      -1
-                    </Button>
-                    <div className="flex-1 min-w-0">
-                      <input
-                        type="range"
-                        min={0}
-                        max={MAX_POINTS_PER_SET}
-                        value={player1Score}
-                        onChange={(e) => setScoreTo('player1', parseInt(e.target.value, 10))}
-                        disabled={updating}
-                        className="w-full h-3 rounded-lg appearance-none cursor-pointer bg-blue-100 accent-blue-600 disabled:opacity-50"
-                      />
-                      <div className="text-xs text-center text-gray-500 mt-1">Drag: 0–{MAX_POINTS_PER_SET}</div>
-                    </div>
-                    <Button
-                      onClick={() => updateScore('player1', true)}
-                      disabled={updating}
-                      className="shrink-0 bg-blue-600 hover:bg-blue-700"
-                    >
-                      +1
-                    </Button>
-                  </div>
-                </div>
+          <>
+            <RefereeScoreControls
+              player1Name={match.player1Name}
+              player2Name={match.player2Name}
+              player1Score={player1Score}
+              player2Score={player2Score}
+              maxPoints={MAX_POINTS_PER_SET}
+              updating={updating}
+              onIncrement={(p) => updateScore(p, true)}
+              onDecrement={(p) => updateScore(p, false)}
+              onSetScore={setScoreTo}
+              className="mb-4"
+            />
 
-                {/* Player 2 Controls */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-center text-red-600">{match.player2Name}</h3>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      onClick={() => updateScore('player2', false)}
-                      disabled={updating || player2Score === 0}
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                    >
-                      -1
-                    </Button>
-                    <div className="flex-1 min-w-0">
-                      <input
-                        type="range"
-                        min={0}
-                        max={MAX_POINTS_PER_SET}
-                        value={player2Score}
-                        onChange={(e) => setScoreTo('player2', parseInt(e.target.value, 10))}
-                        disabled={updating}
-                        className="w-full h-3 rounded-lg appearance-none cursor-pointer bg-red-100 accent-red-600 disabled:opacity-50"
-                      />
-                      <div className="text-xs text-center text-gray-500 mt-1">Drag: 0–{MAX_POINTS_PER_SET}</div>
-                    </div>
-                    <Button
-                      onClick={() => updateScore('player2', true)}
-                      disabled={updating}
-                      className="shrink-0 bg-red-600 hover:bg-red-700"
-                    >
-                      +1
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-3 mt-6">
-                <Button
-                  onClick={closeSet}
-                  disabled={updating || !canCloseSet(player1Score, player2Score)}
-                  className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700"
-                >
-                  <Trophy className="h-4 w-4" />
-                  Close set ({player1Score}-{player2Score})
-                </Button>
-                <Button
-                  onClick={resetSet}
-                  disabled={updating}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Reset Set
-                </Button>
-              </div>
-              {!canCloseSet(player1Score, player2Score) && (player1Score >= MIN_SET_SCORE - 1 || player2Score >= MIN_SET_SCORE - 1) && (
-                <p className="text-center text-xs text-gray-500 mt-2">
-                  Reach {MIN_SET_SCORE}+ with a {MIN_LEAD}-point lead (e.g. {MIN_SET_SCORE}-{MIN_SET_SCORE - 2}) to enable Close set
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Set score directly - for scheduled or live matches */}
-        {(match.status === 'scheduled' || (match.status === 'live' && !winner)) && (
-          <Card className="mb-6 border-amber-200 bg-amber-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="h-5 w-5" />
-                Set score directly
-              </CardTitle>
-              <CardDescription>
-                {tournamentMatchFormat === 'best-of-3'
-                  ? 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add set scores like 21-19, 18-21.'
-                  : `Single set: enter 1-0 or 0-1. Optionally add set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}).`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="directSetsP1">{match.player1Name} – Sets won</Label>
-                    <Input
-                      id="directSetsP1"
-                      type="number"
-                      min={0}
-                      max={3}
-                      value={directSetsP1}
-                      onChange={(e) => setDirectSetsP1(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="directSetsP2">{match.player2Name} – Sets won</Label>
-                    <Input
-                      id="directSetsP2"
-                      type="number"
-                      min={0}
-                      max={3}
-                      value={directSetsP2}
-                      onChange={(e) => setDirectSetsP2(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-600">
-                    {tournamentMatchFormat === 'best-of-3' ? `Optional set scores (e.g. 21-19, 18-21, 21-15)` : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
-                  </Label>
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    <Input
-                      placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
-                      value={directSet1}
-                      onChange={(e) => setDirectSet1(e.target.value)}
-                      className="max-w-[120px]"
-                    />
-                    {tournamentMatchFormat === 'best-of-3' && (
-                      <>
-                        <Input
-                          placeholder="Set 2: 18-21"
-                          value={directSet2}
-                          onChange={(e) => setDirectSet2(e.target.value)}
-                          className="max-w-[120px]"
-                        />
-                        <Input
-                          placeholder="Set 3: 21-15"
-                          value={directSet3}
-                          onChange={(e) => setDirectSet3(e.target.value)}
-                          className="max-w-[120px]"
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  onClick={submitDirectScore}
-                  disabled={updating}
-                  className="w-full sm:w-auto"
-                >
-                  Save result
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Edit score - for completed matches */}
-        {match.status === 'completed' && (
-          <Card className="mb-6 border-blue-200 bg-blue-50/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="h-5 w-5" />
-                Edit score
-              </CardTitle>
-              <CardDescription>
-                Change the result below and click Update score. Same format rules apply ({tournamentMatchFormat === 'best-of-3' ? 'best of 3: 2-0 or 2-1' : `single set: 1-0 or 0-1`}).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="editDirectSetsP1">{match.player1Name} – Sets won</Label>
-                    <Input
-                      id="editDirectSetsP1"
-                      type="number"
-                      min={0}
-                      max={3}
-                      value={directSetsP1}
-                      onChange={(e) => setDirectSetsP1(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="editDirectSetsP2">{match.player2Name} – Sets won</Label>
-                    <Input
-                      id="editDirectSetsP2"
-                      type="number"
-                      min={0}
-                      max={3}
-                      value={directSetsP2}
-                      onChange={(e) => setDirectSetsP2(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-600">
-                    {tournamentMatchFormat === 'best-of-3' ? `Optional set scores (e.g. 21-19, 18-21, 21-15)` : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
-                  </Label>
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    <Input
-                      placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
-                      value={directSet1}
-                      onChange={(e) => setDirectSet1(e.target.value)}
-                      className="max-w-[120px]"
-                    />
-                    {tournamentMatchFormat === 'best-of-3' && (
-                      <>
-                        <Input
-                          placeholder="Set 2: 18-21"
-                          value={directSet2}
-                          onChange={(e) => setDirectSet2(e.target.value)}
-                          className="max-w-[120px]"
-                        />
-                        <Input
-                          placeholder="Set 3: 21-15"
-                          value={directSet3}
-                          onChange={(e) => setDirectSet3(e.target.value)}
-                          className="max-w-[120px]"
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  onClick={submitDirectScore}
-                  disabled={updating}
-                  className="w-full sm:w-auto"
-                >
-                  Update score
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Match Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Match Actions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 justify-center">
-              {match.status === 'scheduled' && (
-                <Button
-                  onClick={startMatch}
-                  disabled={updating}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                >
-                  <Play className="h-4 w-4" />
-                  Start Match
-                </Button>
-              )}
-              
-              {match.status === 'live' && !winner && (
-                <Button
-                  onClick={() => {
-                    const w = player1Sets > player2Sets ? match.player1Name : player2Sets > player1Sets ? match.player2Name : '';
-                    if (w) completeMatch(w, player1Sets, player2Sets);
-                    else alert('Use Set score directly to enter result, or complete the current set.');
-                  }}
-                  disabled={updating}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Pause className="h-4 w-4" />
-                  End Match
-                </Button>
-              )}
-              
+            {/* Desktop close/reset row */}
+            <div className="hidden sm:flex flex-wrap justify-center gap-3 mb-6">
               <Button
-                onClick={() => router.push(`/admin/tournaments/${match.tournamentId}?tab=matches`)}
-                variant="outline"
+                onClick={closeSet}
+                disabled={updating || !canCloseSet(player1Score, player2Score)}
+                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 touch-manipulation"
               >
-                Back to Matches
+                <Trophy className="h-4 w-4" />
+                Close set ({player1Score}-{player2Score})
+              </Button>
+              <Button
+                onClick={resetSet}
+                disabled={updating}
+                variant="outline"
+                className="flex items-center gap-2 touch-manipulation"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Reset Set
               </Button>
             </div>
-          </CardContent>
-        </Card>
+            {!canCloseSet(player1Score, player2Score) &&
+              (player1Score >= MIN_SET_SCORE - 1 || player2Score >= MIN_SET_SCORE - 1) && (
+                <p className="hidden sm:block text-center text-xs text-gray-500 mb-6">
+                  Reach {MIN_SET_SCORE}+ with a {MIN_LEAD}-point lead (e.g. {MIN_SET_SCORE}-
+                  {MIN_SET_SCORE - 2}) to enable Close set
+                </p>
+              )}
 
-        {/* Previous Sets */}
-        {match.sets && match.sets.length > 0 && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Previous Sets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {match.sets.map((set, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="font-medium">Set {set.setNumber}</span>
-                    <div className="flex items-center gap-4">
-                      <span className="text-blue-600 font-semibold">{set.player1Score}</span>
-                      <span className="text-gray-400">-</span>
-                      <span className="text-red-600 font-semibold">{set.player2Score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            {/* Mobile scoreboard URL hint */}
+            <div className="sm:hidden mb-4 flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1 touch-manipulation" onClick={copyScoreboardUrl}>
+                {copiedUrl ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                Copy TV URL
+              </Button>
+            </div>
+          </>
         )}
+
+        {/* Secondary sections */}
+        <Tabs defaultValue="more" className="mt-2">
+          <TabsList className="w-full grid grid-cols-2">
+            <TabsTrigger value="more">More</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="more" className="mt-4 space-y-4">
+            {/* Set score directly */}
+            {(match.status === 'scheduled' || (match.status === 'live' && !winner)) && (
+              <Card className="border-amber-200 bg-amber-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Edit3 className="h-5 w-5" />
+                    Set score directly
+                  </CardTitle>
+                  <CardDescription>
+                    {tournamentMatchFormat === 'best-of-3'
+                      ? 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add set scores like 21-19, 18-21.'
+                      : `Single set: enter 1-0 or 0-1. Optionally add set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}).`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="directSetsP1">{match.player1Name} – Sets won</Label>
+                        <Input
+                          id="directSetsP1"
+                          type="number"
+                          min={0}
+                          max={3}
+                          value={directSetsP1}
+                          onChange={(e) => setDirectSetsP1(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="directSetsP2">{match.player2Name} – Sets won</Label>
+                        <Input
+                          id="directSetsP2"
+                          type="number"
+                          min={0}
+                          max={3}
+                          value={directSetsP2}
+                          onChange={(e) => setDirectSetsP2(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-600">
+                        {tournamentMatchFormat === 'best-of-3'
+                          ? 'Optional set scores (e.g. 21-19, 18-21, 21-15)'
+                          : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
+                      </Label>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        <Input
+                          placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
+                          value={directSet1}
+                          onChange={(e) => setDirectSet1(e.target.value)}
+                          className="max-w-[120px]"
+                        />
+                        {tournamentMatchFormat === 'best-of-3' && (
+                          <>
+                            <Input
+                              placeholder="Set 2: 18-21"
+                              value={directSet2}
+                              onChange={(e) => setDirectSet2(e.target.value)}
+                              className="max-w-[120px]"
+                            />
+                            <Input
+                              placeholder="Set 3: 21-15"
+                              value={directSet3}
+                              onChange={(e) => setDirectSet3(e.target.value)}
+                              className="max-w-[120px]"
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button onClick={submitDirectScore} disabled={updating} className="w-full sm:w-auto">
+                      Save result
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Edit score - completed */}
+            {match.status === 'completed' && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Edit3 className="h-5 w-5" />
+                    Edit score
+                  </CardTitle>
+                  <CardDescription>
+                    Change the result below and click Update score. Same format rules apply (
+                    {tournamentMatchFormat === 'best-of-3' ? 'best of 3: 2-0 or 2-1' : 'single set: 1-0 or 0-1'}
+                    ).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="editDirectSetsP1">{match.player1Name} – Sets won</Label>
+                        <Input
+                          id="editDirectSetsP1"
+                          type="number"
+                          min={0}
+                          max={3}
+                          value={directSetsP1}
+                          onChange={(e) => setDirectSetsP1(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="editDirectSetsP2">{match.player2Name} – Sets won</Label>
+                        <Input
+                          id="editDirectSetsP2"
+                          type="number"
+                          min={0}
+                          max={3}
+                          value={directSetsP2}
+                          onChange={(e) => setDirectSetsP2(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-600">
+                        {tournamentMatchFormat === 'best-of-3'
+                          ? 'Optional set scores (e.g. 21-19, 18-21, 21-15)'
+                          : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
+                      </Label>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        <Input
+                          placeholder={`Set 1: ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}`}
+                          value={directSet1}
+                          onChange={(e) => setDirectSet1(e.target.value)}
+                          className="max-w-[120px]"
+                        />
+                        {tournamentMatchFormat === 'best-of-3' && (
+                          <>
+                            <Input
+                              placeholder="Set 2: 18-21"
+                              value={directSet2}
+                              onChange={(e) => setDirectSet2(e.target.value)}
+                              className="max-w-[120px]"
+                            />
+                            <Input
+                              placeholder="Set 3: 21-15"
+                              value={directSet3}
+                              onChange={(e) => setDirectSet3(e.target.value)}
+                              className="max-w-[120px]"
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Button onClick={submitDirectScore} disabled={updating} className="w-full sm:w-auto">
+                      Update score
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Match actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Match Actions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {match.status === 'live' && !winner && (
+                    <Button
+                      onClick={() => {
+                        const w =
+                          player1Sets > player2Sets
+                            ? match.player1Name
+                            : player2Sets > player1Sets
+                              ? match.player2Name
+                              : '';
+                        if (w) completeMatch(w, player1Sets, player2Sets);
+                        else
+                          alert(
+                            'Use Set score directly to enter result, or complete the current set.'
+                          );
+                      }}
+                      disabled={updating}
+                      variant="outline"
+                      className="flex items-center gap-2 touch-manipulation"
+                    >
+                      <Pause className="h-4 w-4" />
+                      End Match
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => router.push(`/admin/tournaments/${match.tournamentId}?tab=matches`)}
+                    variant="outline"
+                    className="touch-manipulation"
+                  >
+                    Back to Matches
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            {match.sets && match.sets.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Previous Sets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {match.sets.map((set, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                      >
+                        <span className="font-medium">Set {set.setNumber}</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-blue-600 font-semibold">{set.player1Score}</span>
+                          <span className="text-gray-400">-</span>
+                          <span className="text-red-600 font-semibold">{set.player2Score}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <p className="text-center text-gray-500 py-8 text-sm">No completed sets yet</p>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* Fixed bottom bar — mobile live scoring */}
+      {match.status === 'live' && !winner && (
+        <div className="fixed bottom-0 inset-x-0 z-20 sm:hidden bg-white border-t shadow-lg px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="flex gap-2">
+            <Button
+              onClick={closeSet}
+              disabled={updating || !canCloseSet(player1Score, player2Score)}
+              className="flex-1 min-h-12 touch-manipulation bg-amber-600 hover:bg-amber-700"
+            >
+              <Trophy className="h-4 w-4 mr-1" />
+              Close set
+            </Button>
+            <Button
+              onClick={resetSet}
+              disabled={updating}
+              variant="outline"
+              className="min-h-12 touch-manipulation px-4"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

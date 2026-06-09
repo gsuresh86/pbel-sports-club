@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Match, Tournament, LiveScore } from '@/types';
-import { Play, Clock, MapPin, Target, Trophy, Users, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Play, Clock, MapPin, Target, Trophy, Users, ArrowLeft, RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LiveMatchPage() {
@@ -174,7 +174,13 @@ export default function LiveMatchPage() {
             </Button>
           </Link>
         </div>
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 flex gap-2">
+          <Link href={`/scoreboard/${matchId}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="bg-black/30 border-white/40 text-white hover:bg-black/50">
+              <Monitor className="h-4 w-4 mr-2" />
+              Scoreboard
+            </Button>
+          </Link>
           <Badge className="bg-red-100 text-red-800 animate-pulse">
             <Play className="h-3 w-3 mr-1" />
             LIVE
@@ -334,11 +340,11 @@ export default function LiveMatchPage() {
             </CardContent>
           </Card>
 
-          {/* Auto-refresh indicator */}
+          {/* Real-time indicator */}
           <div className="mt-8 text-center">
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Auto-refreshing every second
+              <RefreshCw className="h-4 w-4" />
+              Updates in real time
             </div>
           </div>
         </div>

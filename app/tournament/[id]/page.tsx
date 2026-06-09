@@ -16,6 +16,8 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
+import PoolPointsTable from '@/components/public/PoolPointsTable';
+import { isTeamCategory } from '@/lib/poolStandings';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -130,7 +132,7 @@ export default function TournamentDetailPage() {
     { id: 'overview', label: 'Overview', icon: Trophy },
     { id: 'matches',  label: `Fixtures (${matches.length})`, icon: Activity },
     { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
-    { id: 'pools',   label: `Pools (${pools.length})`, icon: Users2 },
+    { id: 'pools',   label: `Points (${pools.length})`, icon: Users2 },
   ] as const;
 
   const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
@@ -660,70 +662,26 @@ export default function TournamentDetailPage() {
                   <p className="text-slate-400">Pools will appear once they are created</p>
                 </div>
               ) : (
-                pools
-                  .filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter)
-                  .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-                  .map(pool => {
-                  const isKidsCategory = pool.category.includes('kids-team-u13') || pool.category.includes('kids-team-u18') || pool.category.includes('under-');
-                  const isTeamCategory = pool.category.includes('team') && !pool.category.includes('doubles') && !isKidsCategory;
-                  return (
-                    <div key={pool.id} className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden">
-                      <div className="bg-gradient-to-r from-purple-500/20 to-indigo-500/10 px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                        <div>
-                          <h3 className="font-black text-white text-lg">{pool.name}</h3>
-                          <p className="text-xs text-slate-400 capitalize mt-0.5">
-                            {pool.category.replace(/-/g, ' ')} · max {pool.maxTeams} {isTeamCategory ? 'teams' : 'players'}
-                          </p>
-                        </div>
-                        <span className={`text-xs font-bold uppercase px-2.5 py-1 rounded-full ${pool.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
-                          {pool.status}
-                        </span>
-                      </div>
-                      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {[...pool.teams]
-                          .sort((a, b) => {
-                            const nameA = isTeamCategory ? (teams.find(t => t.id === a)?.name ?? '') : (participants.find(p => p.id === a)?.name ?? '');
-                            const nameB = isTeamCategory ? (teams.find(t => t.id === b)?.name ?? '') : (participants.find(p => p.id === b)?.name ?? '');
-                            return nameA.localeCompare(nameB, undefined, { numeric: true });
-                          })
-                          .map((itemId, idx) => {
-                          if (isTeamCategory) {
-                            const team = teams.find(t => t.id === itemId);
-                            return (
-                              <div key={idx} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2.5">
-                                <span className="w-6 h-6 rounded-full bg-purple-500/30 text-purple-300 text-xs font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                                <div>
-                                  <p className="text-sm font-semibold text-white">{team?.name ?? `Team ${idx + 1}`}</p>
-                                  {team && <p className="text-[10px] text-slate-400">{team.players.length} players</p>}
-                                </div>
-                              </div>
-                            );
-                          } else {
-                            const player = participants.find(p => p.id === itemId);
-                            const initials = player?.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() ?? '?';
-                            return (
-                              <div key={idx} className="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-2.5">
-                                {player?.profilePhotoUrl ? (
-                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/10">
-                                    <Image src={player.profilePhotoUrl} alt={player.name} width={32} height={32} className="object-cover" />
-                                  </div>
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
-                                )}
-                                <div>
-                                  <p className="text-sm font-semibold text-white">{player?.name ?? `Player ${idx + 1}`}</p>
-                                </div>
-                              </div>
-                            );
-                          }
-                        })}
-                        {pool.teams.length === 0 && (
-                          <p className="text-sm text-slate-500 italic col-span-full py-2 px-2">No {isTeamCategory ? 'teams' : 'players'} assigned yet</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {pools
+                    .filter(p => poolsCatFilter === 'all' || p.category === poolsCatFilter)
+                    .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name, undefined, { numeric: true }))
+                    .map(pool => {
+                      const isTeamCat = isTeamCategory(pool.category);
+                      const isDoubles = pool.category.includes('doubles');
+                      return (
+                        <PoolPointsTable
+                          key={pool.id}
+                          pool={pool}
+                          matches={matches}
+                          isTeamCat={isTeamCat}
+                          teams={teams}
+                          participants={participants}
+                          isDoubles={isDoubles}
+                        />
+                      );
+                    })}
+                </div>
               )}
             </div>
           )}
