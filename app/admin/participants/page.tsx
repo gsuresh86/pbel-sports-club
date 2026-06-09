@@ -940,8 +940,8 @@ export default function ManageRegistrationsPage() {
                 </div>
               </div>
             ) : (
-            <div className="registrations-table-scroll min-h-0 flex-1 rounded-md border">
-              <table className="w-max min-w-full caption-bottom text-sm [&_td]:py-1 [&_th]:h-9">
+            <div className="registrations-table-scroll min-h-0 flex-1 border">
+              <table className="w-max min-w-full caption-bottom text-sm [&_td]:py-1 [&_th]:h-8">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>

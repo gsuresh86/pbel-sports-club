@@ -163,7 +163,7 @@ export default function ParticipantsPage() {
       </div>
 
       {/* Table */}
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <Card className="rounded-none flex min-h-0 flex-1 flex-col overflow-hidden">
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           {filteredParticipants.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-8 text-center">

@@ -577,7 +577,7 @@ export default function LeadsManagementPage() {
         </Card>
 
         {/* Leads Table */}
-        <Card>
+        <Card className="rounded-none">
           <CardHeader>
             <CardTitle>Leads ({filteredLeads.length})</CardTitle>
             <CardDescription>Review and manage tournament registration requests</CardDescription>
@@ -589,7 +589,7 @@ export default function LeadsManagementPage() {
                 <p className="text-gray-600">No leads found</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[calc(100dvh-20rem)]">
                 <Table>
                   <TableHeader>
                     <TableRow>

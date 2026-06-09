@@ -763,6 +763,7 @@ export default function ManageTournamentsPage() {
           </div>
         ) : (
           <Card className="rounded-none">
+            <div className="overflow-auto max-h-[calc(100dvh-18rem)]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -867,6 +868,7 @@ export default function ManageTournamentsPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         )}
 

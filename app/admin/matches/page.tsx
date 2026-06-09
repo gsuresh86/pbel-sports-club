@@ -596,15 +596,15 @@ export default function ManageMatchesPage() {
         </Card>
 
         {/* Matches Table */}
-        <Card>
+        <Card className="rounded-none">
           <CardHeader>
             <CardTitle>Matches ({filteredMatches.length})</CardTitle>
             <CardDescription>
               Manage tournament matches and their status
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[calc(100dvh-20rem)]">
               <Table>
                 <TableHeader>
                   <TableRow>
