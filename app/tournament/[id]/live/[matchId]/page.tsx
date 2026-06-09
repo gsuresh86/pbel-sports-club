@@ -10,51 +10,24 @@ import { Button } from '@/components/ui/button';
 import { Match, Tournament, LiveScore } from '@/types';
 import { Play, Clock, MapPin, Target, Trophy, Users, ArrowLeft, RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import { getDisplaySides } from '@/lib/match-scoring';
+import { scoreboardPath } from '@/lib/tournament-banner';
 
 export default function LiveMatchPage() {
   const params = useParams();
   const tournamentId = params.id as string;
   const matchId = params.matchId as string;
-  
+
   const [match, setMatch] = useState<Match | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [liveScore, setLiveScore] = useState<LiveScore | null>(null);
   const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
-    if (tournamentId && matchId) {
-      loadData();
-      setupLiveScoreListener();
-    }
-  }, [tournamentId, matchId]);
+    if (!tournamentId || !matchId) return;
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLastUpdate(new Date());
-    }, 1000); // Update every second for real-time feel
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const [matchDoc, tournamentDoc] = await Promise.all([
-        getDoc(doc(db, 'matches', matchId)),
-        getDoc(doc(db, 'tournaments', tournamentId)),
-      ]);
-
-      if (matchDoc.exists()) {
-        const matchData = matchDoc.data();
-        setMatch({
-          id: matchDoc.id,
-          ...matchData,
-          scheduledTime: matchData.scheduledTime?.toDate(),
-          actualStartTime: matchData.actualStartTime?.toDate(),
-          actualEndTime: matchData.actualEndTime?.toDate(),
-          updatedAt: matchData.updatedAt?.toDate(),
-        } as Match);
-      }
-
+    const loadTournament = async () => {
+      const tournamentDoc = await getDoc(doc(db, 'tournaments', tournamentId));
       if (tournamentDoc.exists()) {
         const tournamentData = tournamentDoc.data();
         setTournament({
@@ -67,25 +40,41 @@ export default function LiveMatchPage() {
           updatedAt: tournamentData.updatedAt?.toDate(),
         } as Tournament);
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const setupLiveScoreListener = () => {
-    const liveScoreRef = doc(db, 'liveScores', matchId);
-    return onSnapshot(liveScoreRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
+    loadTournament();
+
+    const matchUnsub = onSnapshot(doc(db, 'matches', matchId), (matchDoc) => {
+      if (matchDoc.exists()) {
+        const matchData = matchDoc.data();
+        setMatch({
+          id: matchDoc.id,
+          ...matchData,
+          scheduledTime: matchData.scheduledTime?.toDate(),
+          actualStartTime: matchData.actualStartTime?.toDate(),
+          actualEndTime: matchData.actualEndTime?.toDate(),
+          updatedAt: matchData.updatedAt?.toDate(),
+        } as Match);
+      }
+      setLoading(false);
+    });
+
+    const liveUnsub = onSnapshot(doc(db, 'liveScores', matchId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
         setLiveScore({
           ...data,
           lastUpdated: data.lastUpdated?.toDate(),
+          matchCompletedAt: data.matchCompletedAt?.toDate(),
         } as LiveScore);
       }
     });
-  };
+
+    return () => {
+      matchUnsub();
+      liveUnsub();
+    };
+  }, [tournamentId, matchId]);
 
   const getSportIcon = (sport: string) => {
     switch (sport) {
@@ -96,44 +85,23 @@ export default function LiveMatchPage() {
     }
   };
 
-  const getSportBanner = (sport: string) => {
-    switch (sport) {
-      case 'badminton':
-        return 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
-      case 'table-tennis':
-        return 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
-      case 'volleyball':
-        return 'https://images.unsplash.com/photo-1612872087720-b8768760e99a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
-      default:
-        return 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=400&q=80';
-    }
-  };
-
-  const getScoreDisplay = (score: number) => {
-    return score.toString().padStart(2, '0');
-  };
-
-  const formatTime = (date: Date) => {
-    return new Date(date).toLocaleTimeString();
-  };
+  const formatTime = (date: Date) => new Date(date).toLocaleTimeString();
 
   const getMatchDuration = () => {
     if (!match?.actualStartTime) return 'Not started';
-    const start = new Date(match.actualStartTime);
-    const now = new Date();
-    const diff = now.getTime() - start.getTime();
+    const diff = Date.now() - new Date(match.actualStartTime).getTime();
     const minutes = Math.floor(diff / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const winner =
+    liveScore?.winnerName ?? (match?.status === 'completed' ? match.winner : undefined);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading match details...</p>
-        </div>
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900" />
       </div>
     );
   }
@@ -151,201 +119,187 @@ export default function LiveMatchPage() {
     );
   }
 
+  const sides = liveScore
+    ? getDisplaySides(
+        { player1Name: liveScore.player1Name, player2Name: liveScore.player2Name },
+        {
+          p1: liveScore.player1CurrentScore,
+          p2: liveScore.player2CurrentScore,
+          sets1: liveScore.player1Sets,
+          sets2: liveScore.player2Sets,
+        },
+        liveScore.sidesSwapped ?? false
+      )
+    : null;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sport Banner */}
-      <div className="relative h-64 w-full overflow-hidden">
-        <img
-          src={getSportBanner(tournament.sport)}
-          alt={`${tournament.sport} tournament`}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-          <div className="text-center text-white">
-            <h1 className="text-4xl font-bold mb-2">{tournament.name}</h1>
-            <p className="text-xl">{match.round} - Match #{match.matchNumber}</p>
-          </div>
-        </div>
-        <div className="absolute top-4 left-4">
+      <div className="bg-white border-b px-4 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <Link href={`/tournament/${tournamentId}`}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Tournament
+              Back
             </Button>
           </Link>
-        </div>
-        <div className="absolute top-4 right-4 flex gap-2">
-          <Link href={`/scoreboard/${matchId}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="bg-black/30 border-white/40 text-white hover:bg-black/50">
+          <div className="text-center min-w-0 flex-1">
+            <p className="text-sm text-gray-500 truncate">{tournament.name}</p>
+            <p className="font-semibold truncate">
+              {match.round} · Match #{match.matchNumber}
+            </p>
+          </div>
+          <Link href={scoreboardPath(matchId, tournamentId)} target="_blank" rel="noopener noreferrer">
+            <Button size="sm" className="bg-gray-900 hover:bg-gray-800">
               <Monitor className="h-4 w-4 mr-2" />
               Scoreboard
             </Button>
           </Link>
-          <Badge className="bg-red-100 text-red-800 animate-pulse">
-            <Play className="h-3 w-3 mr-1" />
-            LIVE
-          </Badge>
         </div>
       </div>
 
-      <div className="py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Match Info */}
-          <Card className="mb-6">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <span className="text-2xl">{getSportIcon(tournament.sport)}</span>
-                     {match.player1Name} vs {match.player2Name}
-                  </CardTitle>
-                  <CardDescription className="mt-2">
-                    <div className="flex items-center gap-4 text-sm">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {match.venue}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {match.scheduledTime?.toLocaleString()}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        {match.round}
-                      </span>
-                    </div>
-                  </CardDescription>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500 mb-1">Match Duration</div>
-                  <div className="text-lg font-mono">{getMatchDuration()}</div>
-                </div>
-              </div>
-            </CardHeader>
-          </Card>
+      <div className="py-6 px-4">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {winner && (
+            <div className="rounded-xl bg-yellow-50 border-2 border-yellow-300 p-6 text-center">
+              <Trophy className="h-10 w-10 text-yellow-500 mx-auto mb-3" />
+              <h2 className="text-2xl sm:text-3xl font-bold text-yellow-800">
+                Congratulations, {winner}!
+              </h2>
+            </div>
+          )}
 
-          {/* Live Score Display */}
-          {liveScore && (
-            <Card className="mb-6">
-              <CardHeader>
+          {liveScore && sides && (
+            <Card className="overflow-hidden">
+              <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5 text-red-500" />
                     Live Score
                   </CardTitle>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Last updated: {formatTime(liveScore.lastUpdated)}
-                  </div>
+                  {liveScore.isLive && !winner && (
+                    <Badge className="bg-red-100 text-red-800 animate-pulse">
+                      <Play className="h-3 w-3 mr-1" />
+                      LIVE
+                    </Badge>
+                  )}
                 </div>
+                <CardDescription className="flex items-center gap-2">
+                  <RefreshCw className="h-3 w-3" />
+                  Updated {formatTime(liveScore.lastUpdated)}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-8">
-                  {/* Player 1 */}
+                <div className="grid grid-cols-2 gap-4 sm:gap-8">
                   <div className="text-center">
-                    <div className="bg-blue-50 p-6 rounded-lg">
-                      <h3 className="text-xl font-semibold text-blue-600 mb-2">{liveScore.player1Name}</h3>
-                      <div className="text-6xl font-bold text-blue-600 mb-2">
-                        {getScoreDisplay(liveScore.player1CurrentScore)}
+                    <div
+                      className={`p-4 sm:p-6 rounded-lg ${
+                        sides.left.color === 'blue' ? 'bg-blue-50' : 'bg-red-50'
+                      }`}
+                    >
+                      <h3
+                        className={`text-lg sm:text-xl font-semibold mb-2 truncate ${
+                          sides.left.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                        }`}
+                      >
+                        {sides.left.name}
+                      </h3>
+                      <div
+                        className={`text-5xl sm:text-7xl font-bold tabular-nums ${
+                          sides.left.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                        }`}
+                      >
+                        {sides.left.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        Sets Won: {liveScore.player1Sets}
-                      </div>
+                      <div className="text-sm text-gray-600 mt-2">Sets: {sides.left.sets}</div>
                     </div>
                   </div>
-
-                  {/* Player 2 */}
                   <div className="text-center">
-                    <div className="bg-red-50 p-6 rounded-lg">
-                      <h3 className="text-xl font-semibold text-red-600 mb-2">{liveScore.player2Name}</h3>
-                      <div className="text-6xl font-bold text-red-600 mb-2">
-                        {getScoreDisplay(liveScore.player2CurrentScore)}
+                    <div
+                      className={`p-4 sm:p-6 rounded-lg ${
+                        sides.right.color === 'blue' ? 'bg-blue-50' : 'bg-red-50'
+                      }`}
+                    >
+                      <h3
+                        className={`text-lg sm:text-xl font-semibold mb-2 truncate ${
+                          sides.right.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                        }`}
+                      >
+                        {sides.right.name}
+                      </h3>
+                      <div
+                        className={`text-5xl sm:text-7xl font-bold tabular-nums ${
+                          sides.right.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                        }`}
+                      >
+                        {sides.right.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        Sets Won: {liveScore.player2Sets}
-                      </div>
+                      <div className="text-sm text-gray-600 mt-2">Sets: {sides.right.sets}</div>
                     </div>
                   </div>
                 </div>
-
-                {/* Current Set Info */}
-                <div className="text-center mt-6">
-                  <div className="bg-gray-100 p-4 rounded-lg inline-block">
-                    <div className="text-2xl font-bold text-gray-800">Set {liveScore.currentSet}</div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      {liveScore.isLive ? 'Match in Progress' : 'Match Paused'}
-                    </div>
+                {!winner && (
+                  <div className="text-center mt-6">
+                    <span className="inline-block bg-gray-100 px-4 py-2 rounded-lg text-lg font-semibold">
+                      Set {liveScore.currentSet}
+                    </span>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Match Status */}
-          <Card className="mb-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Match Status</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <span className="text-xl">{getSportIcon(tournament.sport)}</span>
+                {match.player1Name} vs {match.player2Name}
+              </CardTitle>
+              <CardDescription>
+                <span className="flex flex-wrap items-center gap-3 text-sm">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    {match.venue}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    {match.scheduledTime?.toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    {match.round}
+                  </span>
+                </span>
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Status</div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Status</div>
                   <Badge className={match.status === 'live' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                     {match.status}
                   </Badge>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Started</div>
-                  <div className="font-medium">
-                    {match.actualStartTime ? formatTime(match.actualStartTime) : 'Not started'}
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Started</div>
+                  <div className="text-sm font-medium">
+                    {match.actualStartTime ? formatTime(match.actualStartTime) : '—'}
                   </div>
                 </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">Duration</div>
-                  <div className="font-medium">{getMatchDuration()}</div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Duration</div>
+                  <div className="text-sm font-medium font-mono">{getMatchDuration()}</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Tournament Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
-                Tournament Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold mb-2">Tournament Details</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><strong>Name:</strong> {tournament.name}</p>
-                    <p><strong>Sport:</strong> {tournament.sport}</p>
-                    <p><strong>Venue:</strong> {tournament.venue}</p>
-                    <p><strong>Dates:</strong> {tournament.startDate.toLocaleDateString()} - {tournament.endDate.toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Match Details</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><strong>Round:</strong> {match.round}</p>
-                    <p><strong>Match Number:</strong> #{match.matchNumber}</p>
-                    <p><strong>Venue:</strong> {match.venue}</p>
-                    <p><strong>Scheduled:</strong> {match.scheduledTime?.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Real-time indicator */}
-          <div className="mt-8 text-center">
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <RefreshCw className="h-4 w-4" />
-              Updates in real time
-            </div>
+          <div className="text-center">
+            <Link href={scoreboardPath(matchId, tournamentId)} target="_blank" rel="noopener noreferrer">
+              <Button size="lg" variant="outline" className="gap-2">
+                <Monitor className="h-5 w-5" />
+                Open projector scoreboard
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

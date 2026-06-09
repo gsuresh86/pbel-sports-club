@@ -11,7 +11,7 @@ import {
 import { db } from '@/lib/firebase';
 import type { Tournament, Registration, Match, Team, Pool } from '@/types';
 
-function toTournament(data: Record<string, unknown>, id: string): Tournament {
+export function toTournament(data: Record<string, unknown>, id: string): Tournament {
   const toDate = (v: unknown) =>
     v != null && typeof (v as { toDate?: () => Date }).toDate === 'function'
       ? (v as { toDate: () => Date }).toDate()
@@ -165,3 +165,5 @@ export async function updateTournament(
 ): Promise<void> {
   await updateDoc(doc(db, 'tournaments', tournamentId), data as Record<string, unknown>);
 }
+
+export { cloneTournament, deleteTournament } from '@/lib/tournament-operations';

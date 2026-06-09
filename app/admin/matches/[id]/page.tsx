@@ -13,8 +13,20 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LiveScoreHeader } from '@/components/scoring/LiveScoreHeader';
 import { RefereeScoreControls } from '@/components/scoring/RefereeScoreControls';
-import { Match, MatchSet } from '@/types';
-import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check } from 'lucide-react';
+import { Match, MatchSet, Tournament } from '@/types';
+import {
+  resolveMatchFormat,
+  getSetsToWin,
+  getMaxPointsPerSet,
+  getMinSetScore,
+  canIncrementScore,
+  canCloseSet,
+  getSetWinnerName,
+  getFormatLabel,
+  type MatchFormat,
+} from '@/lib/match-scoring';
+import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check, ArrowLeft, ArrowLeftRight } from 'lucide-react';
+import { scoreboardPath } from '@/lib/tournament-banner';
 
 export default function LiveScoringPage() {
   const params = useParams();
@@ -36,19 +48,28 @@ export default function LiveScoringPage() {
   const [directSet1, setDirectSet1] = useState<string>(''); // e.g. "21-19"
   const [directSet2, setDirectSet2] = useState<string>('');
   const [directSet3, setDirectSet3] = useState<string>('');
-  const [tournamentMatchFormat, setTournamentMatchFormat] = useState<'single-set' | 'best-of-3' | 'single-set-30'>('best-of-3');
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [matchFormat, setMatchFormat] = useState<MatchFormat>('best-of-3');
+  const [sidesSwapped, setSidesSwapped] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
-  const canAccessAdmin = user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin';
+  const canAccessScoring =
+    user?.role === 'admin' ||
+    user?.role === 'super-admin' ||
+    user?.role === 'tournament-admin' ||
+    user?.role === 'referee';
+  const isReferee = user?.role === 'referee';
+  const isFullAdmin =
+    user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin';
 
   useEffect(() => {
-    if (!authLoading && (!user || !canAccessAdmin)) {
+    if (!authLoading && (!user || !canAccessScoring)) {
       router.push('/login');
-    } else if (user && canAccessAdmin && matchId) {
+    } else if (user && canAccessScoring && matchId) {
       loadMatch();
       setupLiveScoreListener();
     }
-  }, [user, authLoading, router, matchId, canAccessAdmin]);
+  }, [user, authLoading, router, matchId, canAccessScoring]);
 
   const loadMatch = async () => {
     try {
@@ -65,26 +86,36 @@ export default function LiveScoringPage() {
           actualEndTime: data.actualEndTime?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
         } as Match;
-        // Tournament-admin may only access matches for their assigned tournaments
-        if (user?.role === 'tournament-admin' && user.assignedTournaments?.length) {
+        const scopedRole = user?.role === 'tournament-admin' || user?.role === 'referee';
+        if (scopedRole && user.assignedTournaments?.length) {
           if (!user.assignedTournaments.includes(matchData.tournamentId)) {
-            router.push('/admin/tournaments');
+            router.push(isReferee ? '/login' : '/admin/tournaments');
             return;
           }
         }
         setMatch(matchData);
-        // Always load tournament match format so tournament setting is honoured for scoring
+        let loadedTournament: Tournament | null = null;
         if (matchData.tournamentId) {
           try {
             const tourSnap = await getDoc(doc(db, 'tournaments', matchData.tournamentId));
             if (tourSnap.exists()) {
-              const tourFormat = tourSnap.data().matchFormat as 'single-set' | 'best-of-3' | 'single-set-30' | undefined;
-              setTournamentMatchFormat(tourFormat === 'single-set' || tourFormat === 'best-of-3' || tourFormat === 'single-set-30' ? tourFormat : 'best-of-3');
+              const tourData = tourSnap.data();
+              loadedTournament = {
+                id: tourSnap.id,
+                ...tourData,
+                startDate: tourData.startDate?.toDate(),
+                endDate: tourData.endDate?.toDate(),
+                registrationDeadline: tourData.registrationDeadline?.toDate(),
+                createdAt: tourData.createdAt?.toDate(),
+                updatedAt: tourData.updatedAt?.toDate(),
+              } as Tournament;
+              setTournament(loadedTournament);
             }
           } catch {
-            // keep default best-of-3
+            // keep default
           }
         }
+        setMatchFormat(resolveMatchFormat(matchData, loadedTournament));
 
         // Initialize scores if match is live
         if (matchData.status === 'live') {
@@ -125,6 +156,8 @@ export default function LiveScoringPage() {
     return onSnapshot(liveScoreRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        setSidesSwapped(data.sidesSwapped ?? false);
+        if (data.winnerName) setWinner(data.winnerName);
         if (data.isLive) {
           setPlayer1Score(data.player1CurrentScore ?? 0);
           setPlayer2Score(data.player2CurrentScore ?? 0);
@@ -137,7 +170,7 @@ export default function LiveScoringPage() {
   };
 
   const copyScoreboardUrl = async () => {
-    const url = `${window.location.origin}/scoreboard/${matchId}`;
+    const url = `${window.location.origin}${scoreboardPath(matchId, match?.tournamentId)}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedUrl(true);
@@ -168,9 +201,11 @@ export default function LiveScoringPage() {
         player1Name: match!.player1Name,
         player2Name: match!.player2Name,
         isLive: true,
+        sidesSwapped: false,
         lastUpdated: new Date(),
         updatedBy: user?.id,
       });
+      setSidesSwapped(false);
       
       loadMatch();
     } catch (error) {
@@ -181,41 +216,105 @@ export default function LiveScoringPage() {
     }
   };
 
-  const MAX_POINTS_PER_SET = tournamentMatchFormat === 'single-set-30' ? 39 : 30;
+  const MAX_POINTS_PER_SET = getMaxPointsPerSet(matchFormat);
+  const MIN_SET_SCORE = getMinSetScore(matchFormat);
+  const setsToWin = getSetsToWin(matchFormat);
+
+  const writeLiveScore = async (overrides: {
+    p1: number;
+    p2: number;
+    sets1: number;
+    sets2: number;
+    set: number;
+    live?: boolean;
+  }) => {
+    if (!match) return;
+    await updateDoc(doc(db, 'liveScores', matchId), {
+      matchId,
+      tournamentId: match.tournamentId,
+      currentSet: overrides.set,
+      player1Sets: overrides.sets1,
+      player2Sets: overrides.sets2,
+      player1CurrentScore: overrides.p1,
+      player2CurrentScore: overrides.p2,
+      player1Name: match.player1Name,
+      player2Name: match.player2Name,
+      isLive: overrides.live !== false,
+      sidesSwapped,
+      lastUpdated: new Date(),
+      updatedBy: user?.id,
+    });
+  };
+
+  const applySetWin = async (p1Score: number, p2Score: number) => {
+    if (!match || match.status !== 'live' || winner) return;
+    const newP1Sets = p1Score > p2Score ? player1Sets + 1 : player1Sets;
+    const newP2Sets = p2Score > p1Score ? player2Sets + 1 : player2Sets;
+    setPlayer1Sets(newP1Sets);
+    setPlayer2Sets(newP2Sets);
+    const newSet: MatchSet = {
+      setNumber: currentSet,
+      player1Score: p1Score,
+      player2Score: p2Score,
+    };
+    const updatedSets = [...(match.sets || []), newSet];
+    setMatch({ ...match, sets: updatedSets });
+    await updateDoc(doc(db, 'matches', matchId), {
+      sets: updatedSets,
+      updatedAt: new Date(),
+    });
+    if (newP1Sets >= setsToWin || newP2Sets >= setsToWin) {
+      await completeMatch(getSetWinnerName(p1Score, p2Score, match), newP1Sets, newP2Sets);
+    } else {
+      setPlayer1Score(0);
+      setPlayer2Score(0);
+      setCurrentSet(currentSet + 1);
+      await writeLiveScore({
+        p1: 0,
+        p2: 0,
+        sets1: newP1Sets,
+        sets2: newP2Sets,
+        set: currentSet + 1,
+      });
+    }
+  };
 
   const updateScore = async (player: 'player1' | 'player2', increment: boolean = true) => {
-    if (!match || match.status !== 'live') return;
-    
+    if (!match || match.status !== 'live' || winner) return;
+
+    const curP1 = player1Score;
+    const curP2 = player2Score;
+    let newP1 = curP1;
+    let newP2 = curP2;
+
+    if (increment) {
+      if (player === 'player1') {
+        if (!canIncrementScore(curP1, curP2, matchFormat)) return;
+        newP1 = curP1 + 1;
+      } else {
+        if (!canIncrementScore(curP2, curP1, matchFormat)) return;
+        newP2 = curP2 + 1;
+      }
+    } else {
+      if (player === 'player1') newP1 = Math.max(0, curP1 - 1);
+      else newP2 = Math.max(0, curP2 - 1);
+    }
+
     try {
       setUpdating(true);
-      
-      const newScore = increment ? 
-        (player === 'player1' ? player1Score + 1 : player2Score + 1) :
-        Math.max(0, player === 'player1' ? player1Score - 1 : player2Score - 1);
-      
-      if (player === 'player1') {
-        setPlayer1Score(newScore);
-      } else {
-        setPlayer2Score(newScore);
+      setPlayer1Score(newP1);
+      setPlayer2Score(newP2);
+      await writeLiveScore({
+        p1: newP1,
+        p2: newP2,
+        sets1: player1Sets,
+        sets2: player2Sets,
+        set: currentSet,
+      });
+
+      if (increment && canCloseSet(newP1, newP2, matchFormat)) {
+        await applySetWin(newP1, newP2);
       }
-
-      // Update live score
-      const liveScoreData = {
-        matchId,
-        tournamentId: match.tournamentId,
-        currentSet,
-        player1Sets,
-        player2Sets,
-        player1CurrentScore: player === 'player1' ? newScore : player1Score,
-        player2CurrentScore: player === 'player2' ? newScore : player2Score,
-        player1Name: match.player1Name,
-        player2Name: match.player2Name,
-        isLive: true,
-        lastUpdated: new Date(),
-        updatedBy: user?.id,
-      };
-
-      await updateDoc(doc(db, 'liveScores', matchId), liveScoreData);
     } catch (error) {
       console.error('Error updating score:', error);
       alert('Failed to update score');
@@ -225,29 +324,24 @@ export default function LiveScoringPage() {
   };
 
   const setScoreTo = async (player: 'player1' | 'player2', value: number) => {
-    if (!match || match.status !== 'live') return;
+    if (!match || match.status !== 'live' || winner) return;
     const clamped = Math.max(0, Math.min(MAX_POINTS_PER_SET, value));
+    const newP1 = player === 'player1' ? clamped : player1Score;
+    const newP2 = player === 'player2' ? clamped : player2Score;
     try {
       setUpdating(true);
-      const newP1 = player === 'player1' ? clamped : player1Score;
-      const newP2 = player === 'player2' ? clamped : player2Score;
       setPlayer1Score(newP1);
       setPlayer2Score(newP2);
-      const liveScoreData = {
-        matchId,
-        tournamentId: match.tournamentId,
-        currentSet,
-        player1Sets,
-        player2Sets,
-        player1CurrentScore: newP1,
-        player2CurrentScore: newP2,
-        player1Name: match.player1Name,
-        player2Name: match.player2Name,
-        isLive: true,
-        lastUpdated: new Date(),
-        updatedBy: user?.id,
-      };
-      await updateDoc(doc(db, 'liveScores', matchId), liveScoreData);
+      await writeLiveScore({
+        p1: newP1,
+        p2: newP2,
+        sets1: player1Sets,
+        sets2: player2Sets,
+        set: currentSet,
+      });
+      if (canCloseSet(newP1, newP2, matchFormat)) {
+        await applySetWin(newP1, newP2);
+      }
     } catch (error) {
       console.error('Error setting score:', error);
       alert('Failed to update score');
@@ -256,58 +350,21 @@ export default function LiveScoringPage() {
     }
   };
 
-  const MIN_SET_SCORE = tournamentMatchFormat === 'single-set-30' ? 30 : 21;
-  const MIN_LEAD = 2;
-
-  const canCloseSet = (p1: number, p2: number) =>
-    (p1 >= MIN_SET_SCORE || p2 >= MIN_SET_SCORE) && Math.abs(p1 - p2) >= MIN_LEAD;
-
   const closeSet = async () => {
     if (!match || match.status !== 'live' || winner) return;
     const p1Score = player1Score;
     const p2Score = player2Score;
-    if (!canCloseSet(p1Score, p2Score)) {
-      alert(`Score must reach at least ${MIN_SET_SCORE} with a ${MIN_LEAD}-point lead (e.g. 21-19) to close the set.`);
+    if (!canCloseSet(p1Score, p2Score, matchFormat)) {
+      const hint =
+        matchFormat === 'single-set-30'
+          ? '30pt game: first player to reach 30 wins.'
+          : `Score must reach at least ${MIN_SET_SCORE} with a 2-point lead (e.g. 21-19).`;
+      alert(hint);
       return;
     }
-    const setsToWin = (tournamentMatchFormat === 'single-set' || tournamentMatchFormat === 'single-set-30') ? 1 : 2;
     try {
       setUpdating(true);
-      const newP1Sets = p1Score > p2Score ? player1Sets + 1 : player1Sets;
-      const newP2Sets = p2Score > p1Score ? player2Sets + 1 : player2Sets;
-      setPlayer1Sets(newP1Sets);
-      setPlayer2Sets(newP2Sets);
-      const newSet: MatchSet = {
-        setNumber: currentSet,
-        player1Score: p1Score,
-        player2Score: p2Score,
-      };
-      const updatedSets = [...(match.sets || []), newSet];
-      await updateDoc(doc(db, 'matches', matchId), {
-        sets: updatedSets,
-        updatedAt: new Date(),
-      });
-      if (newP1Sets >= setsToWin || newP2Sets >= setsToWin) {
-        await completeMatch(p1Score > p2Score ? match.player1Name : match.player2Name, newP1Sets, newP2Sets);
-      } else {
-        setPlayer1Score(0);
-        setPlayer2Score(0);
-        setCurrentSet(currentSet + 1);
-        await updateDoc(doc(db, 'liveScores', matchId), {
-          matchId,
-          tournamentId: match.tournamentId,
-          currentSet: currentSet + 1,
-          player1Sets: newP1Sets,
-          player2Sets: newP2Sets,
-          player1CurrentScore: 0,
-          player2CurrentScore: 0,
-          player1Name: match.player1Name,
-          player2Name: match.player2Name,
-          isLive: true,
-          lastUpdated: new Date(),
-          updatedBy: user?.id,
-        });
-      }
+      await applySetWin(p1Score, p2Score);
     } catch (error) {
       console.error('Error closing set:', error);
       alert('Failed to close set');
@@ -321,33 +378,60 @@ export default function LiveScoringPage() {
       setWinner(matchWinner);
       const p1 = setsP1 ?? player1Sets;
       const p2 = setsP2 ?? player2Sets;
+      const completedAt = new Date();
       await updateDoc(doc(db, 'matches', matchId), {
         status: 'completed',
         winner: matchWinner,
         player1Score: p1,
         player2Score: p2,
-        actualEndTime: new Date(),
-        updatedAt: new Date(),
+        actualEndTime: completedAt,
+        updatedAt: completedAt,
       });
-      
-      // Update live score to not live
+      setMatch((m) =>
+        m
+          ? { ...m, status: 'completed', winner: matchWinner, player1Score: p1, player2Score: p2 }
+          : m
+      );
+
       await updateDoc(doc(db, 'liveScores', matchId), {
         isLive: false,
-        lastUpdated: new Date(),
+        winnerName: matchWinner,
+        matchCompletedAt: completedAt,
+        lastUpdated: completedAt,
         updatedBy: user?.id,
       });
-      
-      alert(`Match completed! Winner: ${matchWinner}`);
+
+      alert(`Congratulations, ${matchWinner}! Match completed.`);
     } catch (error) {
       console.error('Error completing match:', error);
       alert('Failed to complete match');
     }
   };
 
+  const toggleSwapSides = async () => {
+    if (!match || match.status !== 'live') return;
+    const next = !sidesSwapped;
+    try {
+      setUpdating(true);
+      setSidesSwapped(next);
+      await updateDoc(doc(db, 'liveScores', matchId), {
+        sidesSwapped: next,
+        lastUpdated: new Date(),
+        updatedBy: user?.id,
+      });
+    } catch (error) {
+      console.error('Error swapping sides:', error);
+      setSidesSwapped(!next);
+      alert('Failed to swap sides');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const submitDirectScore = async () => {
     if (!match) return;
     // Honour tournament match format for scoring
-    const setsToWin = (tournamentMatchFormat === 'single-set' || tournamentMatchFormat === 'single-set-30') ? 1 : 2;
+    const directSetsToWin = getSetsToWin(matchFormat);
     const p1 = parseInt(directSetsP1, 10) || 0;
     const p2 = parseInt(directSetsP2, 10) || 0;
     if (p1 < 0 || p2 < 0 || p1 > 3 || p2 > 3) {
@@ -356,7 +440,7 @@ export default function LiveScoringPage() {
     }
     const total = p1 + p2;
     const maxSets = Math.max(p1, p2);
-    if (setsToWin === 1) {
+    if (directSetsToWin === 1) {
       if (total !== 1 || maxSets !== 1) {
         alert('Single set: enter 1-0 or 0-1.');
         return;
@@ -393,13 +477,19 @@ export default function LiveScoringPage() {
       try {
         await updateDoc(doc(db, 'liveScores', matchId), {
           isLive: false,
+          winnerName: matchWinner,
+          matchCompletedAt: new Date(),
           lastUpdated: new Date(),
           updatedBy: user?.id,
         });
       } catch {
         // liveScores doc may not exist
       }
-      alert(match.status === 'completed' ? `Score updated. Winner: ${matchWinner}` : `Result saved. Winner: ${matchWinner}`);
+      alert(
+        match.status === 'completed'
+          ? `Score updated. Congratulations, ${matchWinner}!`
+          : `Congratulations, ${matchWinner}! Result saved.`
+      );
       loadMatch();
     } catch (error) {
       console.error('Error saving direct score:', error);
@@ -429,12 +519,11 @@ export default function LiveScoringPage() {
     }
   };
 
-  const formatLabel =
-    tournamentMatchFormat === 'single-set-30'
-      ? '30pt Single set'
-      : tournamentMatchFormat === 'single-set'
-        ? 'Single set (21pt)'
-        : 'Best of 3 (21pt)';
+  const formatLabel = getFormatLabel(matchFormat);
+
+  const matchesBackHref = match?.tournamentId
+    ? `/admin/tournaments/${match.tournamentId}/matches`
+    : '/admin/matches';
 
   if (loading || authLoading) {
     return (
@@ -465,7 +554,18 @@ export default function LiveScoringPage() {
       {/* Sticky top bar */}
       <div className="sticky top-0 z-10 bg-white border-b shadow-sm px-3 py-3 sm:px-4">
         <div className="max-w-4xl mx-auto flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 flex items-start gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 touch-manipulation -ml-1 px-2"
+              onClick={() => router.push(matchesBackHref)}
+              title="Back to matches"
+            >
+              <ArrowLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Matches</span>
+            </Button>
+            <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <Target className="h-5 w-5 text-blue-500 shrink-0" />
               <h1 className="font-semibold text-sm sm:text-base truncate">
@@ -488,6 +588,7 @@ export default function LiveScoringPage() {
               {' · '}
               {formatLabel}
             </p>
+            </div>
           </div>
           <div className="flex shrink-0 gap-1">
             <Button
@@ -504,7 +605,7 @@ export default function LiveScoringPage() {
               className="touch-manipulation"
               asChild
             >
-              <a href={`/scoreboard/${matchId}`} target="_blank" rel="noopener noreferrer">
+              <a href={scoreboardPath(matchId, match.tournamentId)} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 sm:mr-1" />
                 <span className="hidden sm:inline">Scoreboard</span>
               </a>
@@ -546,6 +647,7 @@ export default function LiveScoringPage() {
               currentSet={currentSet}
               isLive={match.status === 'live'}
               winner={winner || undefined}
+              sidesSwapped={sidesSwapped}
               size="large"
             />
           </div>
@@ -559,6 +661,9 @@ export default function LiveScoringPage() {
               player1Score={player1Score}
               player2Score={player2Score}
               maxPoints={MAX_POINTS_PER_SET}
+              canIncrementP1={canIncrementScore(player1Score, player2Score, matchFormat)}
+              canIncrementP2={canIncrementScore(player2Score, player1Score, matchFormat)}
+              sidesSwapped={sidesSwapped}
               updating={updating}
               onIncrement={(p) => updateScore(p, true)}
               onDecrement={(p) => updateScore(p, false)}
@@ -566,12 +671,21 @@ export default function LiveScoringPage() {
               className="mb-4"
             />
 
-            {/* Desktop close/reset row */}
             <div className="hidden sm:flex flex-wrap justify-center gap-3 mb-6">
               <Button
+                onClick={toggleSwapSides}
+                disabled={updating}
+                variant="outline"
+                className="flex items-center gap-2 touch-manipulation"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                {sidesSwapped ? 'Restore sides' : 'Swap sides'}
+              </Button>
+              <Button
                 onClick={closeSet}
-                disabled={updating || !canCloseSet(player1Score, player2Score)}
-                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 touch-manipulation"
+                disabled={updating || !canCloseSet(player1Score, player2Score, matchFormat)}
+                variant="outline"
+                className="flex items-center gap-2 touch-manipulation"
               >
                 <Trophy className="h-4 w-4" />
                 Close set ({player1Score}-{player2Score})
@@ -586,11 +700,12 @@ export default function LiveScoringPage() {
                 Reset Set
               </Button>
             </div>
-            {!canCloseSet(player1Score, player2Score) &&
+            {!canCloseSet(player1Score, player2Score, matchFormat) &&
               (player1Score >= MIN_SET_SCORE - 1 || player2Score >= MIN_SET_SCORE - 1) && (
                 <p className="hidden sm:block text-center text-xs text-gray-500 mb-6">
-                  Reach {MIN_SET_SCORE}+ with a {MIN_LEAD}-point lead (e.g. {MIN_SET_SCORE}-
-                  {MIN_SET_SCORE - 2}) to enable Close set
+                  {matchFormat === 'single-set-30'
+                    ? 'First to 30 wins the set automatically.'
+                    : `Reach ${MIN_SET_SCORE}+ with a 2-point lead (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}) to close the set.`}
                 </p>
               )}
 
@@ -605,12 +720,13 @@ export default function LiveScoringPage() {
         )}
 
         {/* Secondary sections */}
-        <Tabs defaultValue="more" className="mt-2">
+        <Tabs defaultValue={isReferee ? 'history' : 'more'} className="mt-2">
           <TabsList className="w-full grid grid-cols-2">
-            <TabsTrigger value="more">More</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            {!isReferee && <TabsTrigger value="more">More</TabsTrigger>}
+            <TabsTrigger value="history" className={isReferee ? 'col-span-2' : ''}>History</TabsTrigger>
           </TabsList>
 
+          {!isReferee && (
           <TabsContent value="more" className="mt-4 space-y-4">
             {/* Set score directly */}
             {(match.status === 'scheduled' || (match.status === 'live' && !winner)) && (
@@ -621,7 +737,7 @@ export default function LiveScoringPage() {
                     Set score directly
                   </CardTitle>
                   <CardDescription>
-                    {tournamentMatchFormat === 'best-of-3'
+                    {matchFormat === 'best-of-3'
                       ? 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add set scores like 21-19, 18-21.'
                       : `Single set: enter 1-0 or 0-1. Optionally add set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}).`}
                   </CardDescription>
@@ -656,7 +772,7 @@ export default function LiveScoringPage() {
                     </div>
                     <div>
                       <Label className="text-sm text-gray-600">
-                        {tournamentMatchFormat === 'best-of-3'
+                        {matchFormat === 'best-of-3'
                           ? 'Optional set scores (e.g. 21-19, 18-21, 21-15)'
                           : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
                       </Label>
@@ -667,7 +783,7 @@ export default function LiveScoringPage() {
                           onChange={(e) => setDirectSet1(e.target.value)}
                           className="max-w-[120px]"
                         />
-                        {tournamentMatchFormat === 'best-of-3' && (
+                        {matchFormat === 'best-of-3' && (
                           <>
                             <Input
                               placeholder="Set 2: 18-21"
@@ -703,7 +819,7 @@ export default function LiveScoringPage() {
                   </CardTitle>
                   <CardDescription>
                     Change the result below and click Update score. Same format rules apply (
-                    {tournamentMatchFormat === 'best-of-3' ? 'best of 3: 2-0 or 2-1' : 'single set: 1-0 or 0-1'}
+                    {matchFormat === 'best-of-3' ? 'best of 3: 2-0 or 2-1' : 'single set: 1-0 or 0-1'}
                     ).
                   </CardDescription>
                 </CardHeader>
@@ -737,7 +853,7 @@ export default function LiveScoringPage() {
                     </div>
                     <div>
                       <Label className="text-sm text-gray-600">
-                        {tournamentMatchFormat === 'best-of-3'
+                        {matchFormat === 'best-of-3'
                           ? 'Optional set scores (e.g. 21-19, 18-21, 21-15)'
                           : `Optional set score (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2})`}
                       </Label>
@@ -748,7 +864,7 @@ export default function LiveScoringPage() {
                           onChange={(e) => setDirectSet1(e.target.value)}
                           className="max-w-[120px]"
                         />
-                        {tournamentMatchFormat === 'best-of-3' && (
+                        {matchFormat === 'best-of-3' && (
                           <>
                             <Input
                               placeholder="Set 2: 18-21"
@@ -805,7 +921,7 @@ export default function LiveScoringPage() {
                     </Button>
                   )}
                   <Button
-                    onClick={() => router.push(`/admin/tournaments/${match.tournamentId}?tab=matches`)}
+                    onClick={() => router.push(matchesBackHref)}
                     variant="outline"
                     className="touch-manipulation"
                   >
@@ -815,6 +931,7 @@ export default function LiveScoringPage() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
           <TabsContent value="history" className="mt-4">
             {match.sets && match.sets.length > 0 ? (
@@ -852,9 +969,19 @@ export default function LiveScoringPage() {
         <div className="fixed bottom-0 inset-x-0 z-20 sm:hidden bg-white border-t shadow-lg px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="flex gap-2">
             <Button
+              onClick={toggleSwapSides}
+              disabled={updating}
+              variant="outline"
+              className="min-h-12 touch-manipulation px-3"
+              title={sidesSwapped ? 'Restore sides' : 'Swap sides'}
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
+            <Button
               onClick={closeSet}
-              disabled={updating || !canCloseSet(player1Score, player2Score)}
-              className="flex-1 min-h-12 touch-manipulation bg-amber-600 hover:bg-amber-700"
+              disabled={updating || !canCloseSet(player1Score, player2Score, matchFormat)}
+              variant="outline"
+              className="flex-1 min-h-12 touch-manipulation"
             >
               <Trophy className="h-4 w-4 mr-1" />
               Close set

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { LiveScore, Match, Tournament } from '@/types';
 import { Target, Clock, Trophy, Play, RefreshCw, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import { scoreboardPath } from '@/lib/tournament-banner';
 
 export default function LiveScoresPage() {
   const [liveScores, setLiveScores] = useState<LiveScore[]>([]);
@@ -221,7 +222,7 @@ export default function LiveScoresPage() {
 
                     {/* Actions */}
                     <div className="flex flex-col gap-2">
-                      <Link href={`/scoreboard/${liveScore.matchId}`} target="_blank" rel="noopener noreferrer">
+                      <Link href={scoreboardPath(liveScore.matchId, liveScore.tournamentId)} target="_blank" rel="noopener noreferrer">
                         <Button className="w-full" size="sm" variant="default">
                           <Monitor className="h-4 w-4 mr-1" />
                           Scoreboard
@@ -294,7 +295,7 @@ export default function LiveScoresPage() {
                           <p className="text-sm text-gray-600">{tournament?.name} - {match.round}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-green-600">Winner: {match.winner}</p>
+                          <p className="font-semibold text-green-600">Congratulations, {match.winner}!</p>
                           <p className="text-sm text-gray-500">
                             {new Date(match.actualEndTime || match.updatedAt).toLocaleDateString()}
                           </p>

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'public' | 'tournament-admin' | 'super-admin';
+export type UserRole = 'admin' | 'public' | 'tournament-admin' | 'super-admin' | 'referee';
 
 export interface User {
   id: string;
@@ -253,6 +253,11 @@ export interface LiveScore {
   isLive: boolean;
   lastUpdated: Date;
   updatedBy: string;
+  /** Display-only: flip left/right on scoreboard when players switch courts */
+  sidesSwapped?: boolean;
+  /** Set when match completes for instant congratulations on live views */
+  winnerName?: string;
+  matchCompletedAt?: Date;
 }
 
 export interface TournamentBracket {

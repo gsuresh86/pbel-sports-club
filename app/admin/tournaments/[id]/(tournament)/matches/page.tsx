@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
+import { scoreboardPath } from '@/lib/tournament-banner';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
 import TeamMatchLineupDialog from '@/components/TeamMatchLineupDialog';
@@ -659,7 +660,7 @@ export default function MatchesPage() {
                     </Link>
                   )}
                   {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
-                    <Link href={`/scoreboard/${match.id}`} target="_blank" rel="noopener noreferrer">
+                    <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer">
                       <Button size="sm" variant="outline" className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation" title="Open TV scoreboard">
                         <Monitor className="h-3.5 w-3.5" />
                       </Button>
@@ -784,7 +785,7 @@ export default function MatchesPage() {
                           </Link>
                         )}
                         {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
-                          <Link href={`/scoreboard/${match.id}`} target="_blank" rel="noopener noreferrer" className="inline-block">
+                          <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer" className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation" title="Open TV scoreboard">
                               <Monitor className="h-3 w-3" />
                             </Button>
@@ -861,7 +862,19 @@ export default function MatchesPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {tournament && user && (
-                <GenerateMatchesPanel tournament={tournament} user={user} />
+                <GenerateMatchesPanel
+                  tournament={tournament}
+                  user={user}
+                  onNotify={alert}
+                  onGenerated={(totalCreated) => {
+                    setGenDrawerOpen(false);
+                    alert({
+                      title: 'Done!',
+                      description: `Created ${totalCreated} match${totalCreated === 1 ? '' : 'es'} successfully.`,
+                      variant: 'success',
+                    });
+                  }}
+                />
               )}
             </div>
           </div>

@@ -26,6 +26,13 @@ export default function LoginPage() {
       } else if (user.role === 'tournament-admin') {
         console.log('Tournament admin logged in, redirecting to tournaments...');
         router.push('/admin/tournaments');
+      } else if (user.role === 'referee') {
+        const firstTournament = user.assignedTournaments?.[0];
+        router.push(
+          firstTournament
+            ? `/admin/tournaments/${firstTournament}/matches`
+            : '/login'
+        );
       }
     }
   }, [user, loading, router]);

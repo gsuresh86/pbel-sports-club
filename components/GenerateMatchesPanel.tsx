@@ -10,7 +10,6 @@ import {
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { Tournament, CategoryType, Pool } from '@/types';
-import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +64,12 @@ function matchCount(n: number) {
 interface Props {
   tournament: Tournament;
   user: { id: string; role: string; email: string };
+  onNotify?: (config: {
+    title: string;
+    description: string;
+    variant?: 'default' | 'success' | 'error' | 'warning';
+  }) => void;
+  onGenerated?: (totalCreated: number) => void;
 }
 
 const STEPS = [
@@ -73,8 +78,8 @@ const STEPS = [
   { id: 3, label: 'Schedule', icon: CalendarClock },
 ];
 
-export default function GenerateMatchesPanel({ tournament, user }: Props) {
-  const { alert, AlertDialogComponent } = useAlertDialog();
+export default function GenerateMatchesPanel({ tournament, user, onNotify, onGenerated }: Props) {
+  const notify = onNotify ?? (() => {});
   const invalidateTournament = useInvalidateTournament();
 
   const { data: pools = [], isLoading: poolsLoading } = useTournamentPools(tournament.id);
@@ -115,7 +120,7 @@ export default function GenerateMatchesPanel({ tournament, user }: Props) {
 
   const handleGenerate = async () => {
     if (!form.startDateTime) {
-      alert({ title: 'Missing date', description: 'Please enter a start date and time (IST).', variant: 'error' });
+      notify({ title: 'Missing date', description: 'Please enter a start date and time (IST).', variant: 'error' });
       return;
     }
     setGenerating(true);
@@ -157,16 +162,16 @@ export default function GenerateMatchesPanel({ tournament, user }: Props) {
       }
 
       if (totalCreated === 0) {
-        alert({ title: 'No matches created', description: 'Each pool needs at least 2 participants.', variant: 'error' });
+        notify({ title: 'No matches created', description: 'Each pool needs at least 2 participants.', variant: 'error' });
       } else {
         invalidateTournament(tournament.id);
-        alert({ title: 'Done!', description: `Created ${totalCreated} match${totalCreated === 1 ? '' : 'es'} successfully.`, variant: 'success' });
         setStep(1);
         setSelectedCategory(null);
         setSelectedPoolId('all');
+        onGenerated?.(totalCreated);
       }
     } catch (err) {
-      alert({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to generate matches.', variant: 'error' });
+      notify({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to generate matches.', variant: 'error' });
     } finally {
       setGenerating(false);
     }
@@ -176,8 +181,6 @@ export default function GenerateMatchesPanel({ tournament, user }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {AlertDialogComponent}
-
       {/* Step indicator */}
       <div className="flex items-center gap-0">
         {STEPS.map((s, i) => {
