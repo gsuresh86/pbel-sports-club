@@ -67,6 +67,24 @@ export function validateRubberLineup(lineup: RubberLineupSlot[]): string | null 
   return null;
 }
 
+/** Rebuild lineup editor state from existing rubber match documents. */
+export function lineupFromRubbers(rubbers: Match[]): RubberLineupSlot[] {
+  return [...rubbers]
+    .sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0))
+    .map(r => ({
+      rubberNumber: r.rubberNumber!,
+      rubberType: r.rubberType!,
+      team1PlayerIds:
+        r.rubberType === 'doubles'
+          ? [r.player1Id, r.player1PartnerId].filter((id): id is string => !!id)
+          : [r.player1Id],
+      team2PlayerIds:
+        r.rubberType === 'doubles'
+          ? [r.player2Id, r.player2PartnerId].filter((id): id is string => !!id)
+          : [r.player2Id],
+    }));
+}
+
 export function countRubbersWon(rubbers: Match[]): { team1: number; team2: number } {
   let team1 = 0;
   let team2 = 0;

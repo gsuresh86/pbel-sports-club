@@ -32,10 +32,10 @@ import {
   isRubberMatch,
   countRubbersWon,
 } from '@/lib/teamMatchRubbers';
-import { cn, getMatchSideDisplay } from '@/lib/utils';
+import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
-  Edit, FilterX, Monitor, Play, Search, Square, Swords, Trash2, X,
+  Edit, FilterX, Monitor, Play, Search, Square, Swords, Trash2, X, ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -134,7 +134,13 @@ export default function MatchesPage() {
 
   const q = search.toLowerCase();
   const filteredMatches = topLevelMatches.filter(m => {
-    if (q && ![m.player1Name, m.player2Name, m.round].some(s => s.toLowerCase().includes(q))) return false;
+    if (q) {
+      const sideLabels = [
+        formatMatchSideLabel(m, 1, regById),
+        formatMatchSideLabel(m, 2, regById),
+      ];
+      if (![...sideLabels, m.round].some(s => s.toLowerCase().includes(q))) return false;
+    }
     if (roundFilter !== 'all' && m.round !== roundFilter) return false;
     if (categoryFilter !== 'all' && poolNameToCategory.get(m.round) !== categoryFilter) return false;
     if (statusFilter !== 'all' && m.status !== statusFilter) return false;
@@ -252,12 +258,12 @@ export default function MatchesPage() {
       return;
     }
     try {
+      const displayNames = getMatchLiveDisplayNames(match, regById);
       await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
       await setDoc(doc(db, 'liveScores', match.id), {
         matchId: match.id,
         tournamentId: match.tournamentId,
-        player1Name: match.player1Name,
-        player2Name: match.player2Name,
+        ...displayNames,
         currentSet: 1,
         player1Sets: 0,
         player2Sets: 0,
@@ -383,13 +389,24 @@ export default function MatchesPage() {
   };
 
   const renderRubberLabel = (rubber: Match) => {
-    const p1 = rubber.rubberType === 'doubles' && rubber.player1PartnerName
-      ? `${rubber.player1Name} & ${rubber.player1PartnerName}`
-      : rubber.player1Name;
-    const p2 = rubber.rubberType === 'doubles' && rubber.player2PartnerName
-      ? `${rubber.player2Name} & ${rubber.player2PartnerName}`
-      : rubber.player2Name;
+    const p1 = formatMatchSideLabel(rubber, 1, regById);
+    const p2 = formatMatchSideLabel(rubber, 2, regById);
     return `${p1} vs ${p2}`;
+  };
+
+  const renderLineupButton = (match: Match, compact = false) => {
+    if (!isTeamTieMatch(match, teamIds) || !match.rubbersGenerated) return null;
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className={compact ? 'h-9 text-xs touch-manipulation' : 'h-7 px-2 text-xs touch-manipulation'}
+        onClick={() => setLineupMatch(match)}
+      >
+        <ClipboardList className={compact ? 'h-3.5 w-3.5 mr-1' : 'h-3 w-3 mr-1'} />
+        Edit Lineup
+      </Button>
+    );
   };
 
   // Reusable score display
@@ -617,9 +634,9 @@ export default function MatchesPage() {
                     </div>
                     {/* Players */}
                     <div className="mt-1 text-sm font-medium leading-snug">
-                      <span>{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</span>
+                      <span>{formatMatchSideLabel(match, 1, regById)}</span>
                       <span className="text-gray-400 font-normal mx-1.5">vs</span>
-                      <span>{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</span>
+                      <span>{formatMatchSideLabel(match, 2, regById)}</span>
                     </div>
                     {/* Score + time */}
                     <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -651,6 +668,7 @@ export default function MatchesPage() {
                       Stop
                     </Button>
                   )}
+                  {renderLineupButton(match, true)}
                   {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                     <Link href={`/admin/matches/${match.id}`} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
@@ -745,8 +763,8 @@ export default function MatchesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 1, regById)}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 2, regById)}</TableCell>
                     <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
                     <TableCell className="py-2">
                       <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>
@@ -776,6 +794,7 @@ export default function MatchesPage() {
                             Stop
                           </Button>
                         )}
+                        {renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={`/admin/matches/${match.id}`} className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
@@ -1009,6 +1028,7 @@ export default function MatchesPage() {
             team2={team2}
             registrations={participants}
             userId={user.id}
+            existingRubbers={rubbersByParent.get(lineupMatch.id) ?? []}
             onSaved={() => invalidateTournament(tournamentId)}
           />
         );

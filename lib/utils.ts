@@ -151,6 +151,45 @@ export function getMatchSideDisplay(
   };
 }
 
+/** Fields needed to render one side of a match (singles, doubles pair, or team rubber). */
+export type MatchSideNameContext = {
+  player1Id: string;
+  player1Name: string;
+  player1PartnerName?: string | null;
+  player2Id: string;
+  player2Name: string;
+  player2PartnerName?: string | null;
+};
+
+/** Combined display label for one side — uses explicit partner fields or registration lookup. */
+export function formatMatchSideLabel(
+  ctx: MatchSideNameContext,
+  side: 1 | 2,
+  regById?: Map<string, RegistrationLike>,
+): string {
+  const name = side === 1 ? ctx.player1Name : ctx.player2Name;
+  const partnerName = side === 1 ? ctx.player1PartnerName : ctx.player2PartnerName;
+  if (partnerName?.trim()) {
+    return `${firstName(name)} & ${firstName(partnerName)}`;
+  }
+  if (regById) {
+    const id = side === 1 ? ctx.player1Id : ctx.player2Id;
+    return getMatchSideDisplay(id, name, regById).label;
+  }
+  return name;
+}
+
+/** Labels for live scoreboard / liveScores documents (includes doubles partners). */
+export function getMatchLiveDisplayNames(
+  ctx: MatchSideNameContext,
+  regById?: Map<string, RegistrationLike>,
+): { player1Name: string; player2Name: string } {
+  return {
+    player1Name: formatMatchSideLabel(ctx, 1, regById),
+    player2Name: formatMatchSideLabel(ctx, 2, regById),
+  };
+}
+
 /** Normalize name for participant identity (name + phone). */
 export function normalizeParticipantName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');

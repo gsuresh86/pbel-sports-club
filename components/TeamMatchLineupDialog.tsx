@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,9 +13,11 @@ import {
   TEAM_RUBBER_SEQUENCE,
   rubberTypeLabel,
   validateRubberLineup,
+  lineupFromRubbers,
   playerName,
   type RubberLineupSlot,
 } from '@/lib/teamMatchRubbers';
+import { getMatchLiveDisplayNames } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -25,6 +27,7 @@ interface Props {
   team2: Team;
   registrations: Registration[];
   userId: string;
+  existingRubbers?: Match[];
   onSaved: () => void;
 }
 
@@ -73,6 +76,40 @@ function PlayerSelect({
   );
 }
 
+function buildRubberPayload(
+  slot: RubberLineupSlot,
+  registrations: Registration[],
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const t1Ids = slot.team1PlayerIds;
+  const t2Ids = slot.team2PlayerIds;
+  const p1 = t1Ids[0];
+  const p2 = t2Ids[0];
+  const rubberData: Record<string, unknown> = {
+    ...base,
+    matchNumber: (base.matchNumber as number) * 10 + slot.rubberNumber,
+    rubberNumber: slot.rubberNumber,
+    rubberType: slot.rubberType,
+    player1Id: p1,
+    player1Name: playerName(registrations, p1),
+    player2Id: p2,
+    player2Name: playerName(registrations, p2),
+    player1PartnerId: null,
+    player1PartnerName: null,
+    player2PartnerId: null,
+    player2PartnerName: null,
+  };
+  if (slot.rubberType === 'doubles') {
+    const p1b = t1Ids[1];
+    const p2b = t2Ids[1];
+    rubberData.player1PartnerId = p1b;
+    rubberData.player1PartnerName = playerName(registrations, p1b);
+    rubberData.player2PartnerId = p2b;
+    rubberData.player2PartnerName = playerName(registrations, p2b);
+  }
+  return rubberData;
+}
+
 export default function TeamMatchLineupDialog({
   open,
   onOpenChange,
@@ -81,11 +118,18 @@ export default function TeamMatchLineupDialog({
   team2,
   registrations,
   userId,
+  existingRubbers = [],
   onSaved,
 }: Props) {
+  const isEditMode = existingRubbers.length > 0;
   const [lineup, setLineup] = useState<RubberLineupSlot[]>(emptyLineup);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const rubberByNumber = useMemo(
+    () => new Map(existingRubbers.map(r => [r.rubberNumber!, r])),
+    [existingRubbers],
+  );
 
   const team1Players = useMemo(
     () => registrations.filter(r => (team1.players || []).includes(r.id)),
@@ -98,10 +142,12 @@ export default function TeamMatchLineupDialog({
 
   useEffect(() => {
     if (open) {
-      setLineup(emptyLineup());
+      setLineup(
+        existingRubbers.length > 0 ? lineupFromRubbers(existingRubbers) : emptyLineup(),
+      );
       setError(null);
     }
-  }, [open, match.id]);
+  }, [open, match.id, existingRubbers]);
 
   const updateSlot = (
     rubberNumber: number,
@@ -117,6 +163,23 @@ export default function TeamMatchLineupDialog({
         ? { ...slot, team1PlayerIds: ids }
         : { ...slot, team2PlayerIds: ids };
     }));
+  };
+
+  const syncLiveScoreNames = async (rubberId: string, rubberData: Record<string, unknown>) => {
+    const liveSnap = await getDoc(doc(db, 'liveScores', rubberId));
+    if (!liveSnap.exists()) return;
+    const names = getMatchLiveDisplayNames({
+      player1Id: rubberData.player1Id as string,
+      player1Name: rubberData.player1Name as string,
+      player1PartnerName: rubberData.player1PartnerName as string | null,
+      player2Id: rubberData.player2Id as string,
+      player2Name: rubberData.player2Name as string,
+      player2PartnerName: rubberData.player2PartnerName as string | null,
+    });
+    await updateDoc(doc(db, 'liveScores', rubberId), {
+      ...names,
+      lastUpdated: new Date(),
+    });
   };
 
   const handleSave = async () => {
@@ -140,55 +203,54 @@ export default function TeamMatchLineupDialog({
         venue: match.venue,
         court: match.court ?? null,
         referee: match.referee ?? null,
-        status: 'scheduled' as const,
-        sets: [],
-        matchFormat: match.matchFormat ?? 'best-of-3',
         scheduledTime: match.scheduledTime,
+        matchFormat: match.matchFormat ?? 'best-of-3',
         updatedAt: now,
         createdBy: userId,
+        matchNumber: match.matchNumber,
       };
 
       for (const slot of lineup) {
-        const t1Ids = slot.team1PlayerIds;
-        const t2Ids = slot.team2PlayerIds;
-        const p1 = t1Ids[0];
-        const p2 = t2Ids[0];
-        const rubberData: Record<string, unknown> = {
-          ...base,
-          matchNumber: match.matchNumber * 10 + slot.rubberNumber,
-          rubberNumber: slot.rubberNumber,
-          rubberType: slot.rubberType,
-          player1Id: p1,
-          player1Name: playerName(registrations, p1),
-          player2Id: p2,
-          player2Name: playerName(registrations, p2),
-        };
-        if (slot.rubberType === 'doubles') {
-          const p1b = t1Ids[1];
-          const p2b = t2Ids[1];
-          rubberData.player1PartnerId = p1b;
-          rubberData.player1PartnerName = playerName(registrations, p1b);
-          rubberData.player2PartnerId = p2b;
-          rubberData.player2PartnerName = playerName(registrations, p2b);
+        const rubberData = buildRubberPayload(slot, registrations, base);
+        const existing = rubberByNumber.get(slot.rubberNumber);
+
+        if (isEditMode && existing) {
+          await updateDoc(doc(db, 'matches', existing.id), {
+            ...rubberData,
+            status: existing.status,
+            sets: existing.sets ?? [],
+          });
+          await syncLiveScoreNames(existing.id, rubberData);
+        } else {
+          await addDoc(collection(db, 'matches'), {
+            ...rubberData,
+            status: 'scheduled' as const,
+            sets: [],
+          });
         }
-        await addDoc(collection(db, 'matches'), rubberData);
       }
 
-      await updateDoc(doc(db, 'matches', match.id), {
-        matchKind: 'team-tie',
-        team1Id: team1.id,
-        team2Id: team2.id,
-        rubbersGenerated: true,
-        status: 'live',
-        actualStartTime: now,
-        updatedAt: now,
-      });
+      if (!isEditMode) {
+        await updateDoc(doc(db, 'matches', match.id), {
+          matchKind: 'team-tie',
+          team1Id: team1.id,
+          team2Id: team2.id,
+          rubbersGenerated: true,
+          status: 'live',
+          actualStartTime: now,
+          updatedAt: now,
+        });
+      } else {
+        await updateDoc(doc(db, 'matches', match.id), {
+          updatedAt: now,
+        });
+      }
 
       onSaved();
       onOpenChange(false);
     } catch (e) {
       console.error(e);
-      setError('Failed to save lineup and generate rubbers');
+      setError(isEditMode ? 'Failed to update lineup' : 'Failed to save lineup and generate rubbers');
     } finally {
       setSaving(false);
     }
@@ -198,10 +260,11 @@ export default function TeamMatchLineupDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Set team lineup</DialogTitle>
+          <DialogTitle>{isEditMode ? 'Edit team lineup' : 'Set team lineup'}</DialogTitle>
           <DialogDescription>
             {team1.name} vs {team2.name} — assign players for all 5 rubbers
-            (doubles, singles, doubles, singles, doubles) before the tie begins.
+            (doubles, singles, doubles, singles, doubles).
+            {isEditMode ? ' Changes apply to all rubbers in this tie.' : ' Save before the tie begins.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +322,7 @@ export default function TeamMatchLineupDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save lineup & start tie'}
+            {saving ? 'Saving…' : isEditMode ? 'Save lineup changes' : 'Save lineup & start tie'}
           </Button>
         </div>
       </DialogContent>

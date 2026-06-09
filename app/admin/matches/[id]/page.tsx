@@ -27,6 +27,8 @@ import {
 } from '@/lib/match-scoring';
 import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check, ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { scoreboardPath } from '@/lib/tournament-banner';
+import { useTournamentRegistrations } from '@/hooks/use-tournament-queries';
+import { getMatchLiveDisplayNames } from '@/lib/utils';
 
 export default function LiveScoringPage() {
   const params = useParams();
@@ -52,6 +54,14 @@ export default function LiveScoringPage() {
   const [matchFormat, setMatchFormat] = useState<MatchFormat>('best-of-3');
   const [sidesSwapped, setSidesSwapped] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
+
+  const { data: registrations = [] } = useTournamentRegistrations(match?.tournamentId ?? '', {
+    enabled: !!match?.tournamentId,
+  });
+  const regById = new Map(registrations.map(r => [r.id, r]));
+  const displayNames = match
+    ? getMatchLiveDisplayNames(match, regById)
+    : { player1Name: '', player2Name: '' };
 
   const canAccessScoring =
     user?.role === 'admin' ||
@@ -198,8 +208,7 @@ export default function LiveScoringPage() {
         player2Sets: 0,
         player1CurrentScore: 0,
         player2CurrentScore: 0,
-        player1Name: match!.player1Name,
-        player2Name: match!.player2Name,
+        ...getMatchLiveDisplayNames(match!, regById),
         isLive: true,
         sidesSwapped: false,
         lastUpdated: new Date(),
@@ -229,6 +238,7 @@ export default function LiveScoringPage() {
     live?: boolean;
   }) => {
     if (!match) return;
+    const names = getMatchLiveDisplayNames(match, regById);
     await updateDoc(doc(db, 'liveScores', matchId), {
       matchId,
       tournamentId: match.tournamentId,
@@ -237,8 +247,7 @@ export default function LiveScoringPage() {
       player2Sets: overrides.sets2,
       player1CurrentScore: overrides.p1,
       player2CurrentScore: overrides.p2,
-      player1Name: match.player1Name,
-      player2Name: match.player2Name,
+      ...names,
       isLive: overrides.live !== false,
       sidesSwapped,
       lastUpdated: new Date(),
@@ -583,7 +592,7 @@ export default function LiveScoringPage() {
               </Badge>
             </div>
             <p className="text-xs text-gray-500 mt-1 truncate">
-              {match.player1Name} vs {match.player2Name}
+              {displayNames.player1Name} vs {displayNames.player2Name}
               {match.court ? ` · Court ${match.court}` : ''}
               {' · '}
               {formatLabel}
@@ -638,8 +647,8 @@ export default function LiveScoringPage() {
         {(match.status === 'live' || match.status === 'completed') && (
           <div className="mb-6 rounded-xl bg-white border shadow-sm p-4 sm:p-6">
             <LiveScoreHeader
-              player1Name={match.player1Name}
-              player2Name={match.player2Name}
+              player1Name={displayNames.player1Name}
+              player2Name={displayNames.player2Name}
               player1Score={player1Score}
               player2Score={player2Score}
               player1Sets={player1Sets}
@@ -656,8 +665,8 @@ export default function LiveScoringPage() {
         {match.status === 'live' && !winner && (
           <>
             <RefereeScoreControls
-              player1Name={match.player1Name}
-              player2Name={match.player2Name}
+              player1Name={displayNames.player1Name}
+              player2Name={displayNames.player2Name}
               player1Score={player1Score}
               player2Score={player2Score}
               maxPoints={MAX_POINTS_PER_SET}
@@ -746,7 +755,7 @@ export default function LiveScoringPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="directSetsP1">{match.player1Name} – Sets won</Label>
+                        <Label htmlFor="directSetsP1">{displayNames.player1Name} – Sets won</Label>
                         <Input
                           id="directSetsP1"
                           type="number"
@@ -758,7 +767,7 @@ export default function LiveScoringPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="directSetsP2">{match.player2Name} – Sets won</Label>
+                        <Label htmlFor="directSetsP2">{displayNames.player2Name} – Sets won</Label>
                         <Input
                           id="directSetsP2"
                           type="number"
@@ -827,7 +836,7 @@ export default function LiveScoringPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="editDirectSetsP1">{match.player1Name} – Sets won</Label>
+                        <Label htmlFor="editDirectSetsP1">{displayNames.player1Name} – Sets won</Label>
                         <Input
                           id="editDirectSetsP1"
                           type="number"
@@ -839,7 +848,7 @@ export default function LiveScoringPage() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="editDirectSetsP2">{match.player2Name} – Sets won</Label>
+                        <Label htmlFor="editDirectSetsP2">{displayNames.player2Name} – Sets won</Label>
                         <Input
                           id="editDirectSetsP2"
                           type="number"

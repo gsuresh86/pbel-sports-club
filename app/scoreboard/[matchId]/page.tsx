@@ -2,12 +2,13 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { doc, getDoc, getDocFromServer, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
 import { toTournament } from '@/lib/tournament-api';
-import { Match, Tournament, LiveScore } from '@/types';
+import { getMatchLiveDisplayNames } from '@/lib/utils';
+import { Match, Tournament, LiveScore, Registration } from '@/types';
 
 function ScoreboardLoading() {
   return (
@@ -32,6 +33,7 @@ function ScoreboardPageInner() {
   const [matchLoading, setMatchLoading] = useState(true);
   const [liveScoreReady, setLiveScoreReady] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(true);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
 
   const effectiveTournamentId = useMemo(
     () =>
@@ -138,10 +140,46 @@ function ScoreboardPageInner() {
   }, [effectiveTournamentId]);
 
   useEffect(() => {
-    if (match) {
-      document.title = `${match.player1Name} vs ${match.player2Name} | Live Scoreboard`;
+    if (!effectiveTournamentId) {
+      setRegistrations([]);
+      return;
     }
-  }, [match]);
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(
+          collection(db, 'tournaments', effectiveTournamentId, 'registrations'),
+        );
+        if (cancelled) return;
+        setRegistrations(
+          snap.docs.map(d => ({
+            id: d.id,
+            ...d.data(),
+            createdAt: d.data().createdAt?.toDate(),
+            updatedAt: d.data().updatedAt?.toDate(),
+          })) as Registration[],
+        );
+      } catch {
+        if (!cancelled) setRegistrations([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveTournamentId]);
+
+  useEffect(() => {
+    if (match) {
+      const regById = new Map(registrations.map(r => [r.id, r]));
+      const names = getMatchLiveDisplayNames(match, regById);
+      document.title = `${names.player1Name} vs ${names.player2Name} | Live Scoreboard`;
+    }
+  }, [match, registrations]);
+
+  const regById = useMemo(() => new Map(registrations.map(r => [r.id, r])), [registrations]);
+  const matchDisplayNames = match ? getMatchLiveDisplayNames(match, regById) : null;
 
   const waitingForTournamentId =
     !matchLoading && match !== null && !effectiveTournamentId && !liveScoreReady;
@@ -177,6 +215,8 @@ function ScoreboardPageInner() {
     (match.status === 'completed' ? match.winner : undefined);
 
   const bannerUrl = resolveTournamentBannerUrl(tournament);
+  const player1DisplayName = matchDisplayNames?.player1Name ?? match.player1Name;
+  const player2DisplayName = matchDisplayNames?.player2Name ?? match.player2Name;
 
   return (
     <ScoreboardDisplay
@@ -184,8 +224,8 @@ function ScoreboardPageInner() {
       bannerUrl={bannerUrl}
       round={match.round}
       matchNumber={match.matchNumber}
-      player1Name={liveScore?.player1Name ?? match.player1Name}
-      player2Name={liveScore?.player2Name ?? match.player2Name}
+      player1Name={player1DisplayName}
+      player2Name={player2DisplayName}
       player1Score={isLive && liveScore ? liveScore.player1CurrentScore : player1Score}
       player2Score={isLive && liveScore ? liveScore.player2CurrentScore : player2Score}
       player1Sets={isLive && liveScore ? liveScore.player1Sets : player1Sets}
