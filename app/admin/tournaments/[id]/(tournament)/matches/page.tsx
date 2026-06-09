@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
+import { getMatchSideDisplay } from '@/lib/utils';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
 import { Activity, ArrowUpDown, Edit, FilterX, Play, Search, Square, Swords, Trash2, X } from 'lucide-react';
@@ -83,6 +84,9 @@ export default function MatchesPage() {
   const teams = teamsData;
 
   const teamIds = new Set(teams.map(t => t.id));
+
+  // Registration lookup so doubles matches can show both partners' first names
+  const regById = new Map(participants.map(p => [p.id, p]));
 
   // pool name → category, for the category filter
   const poolNameToCategory = new Map(poolsData.map(p => [p.name, p.category]));
@@ -588,8 +592,8 @@ export default function MatchesPage() {
                     </TableCell>
                     <TableCell className="font-medium text-sm py-2">#{match.matchNumber}</TableCell>
                     <TableCell className="text-sm py-2">{match.round}</TableCell>
-                    <TableCell className="text-sm py-2">{match.player1Name}</TableCell>
-                    <TableCell className="text-sm py-2">{match.player2Name}</TableCell>
+                    <TableCell className="text-sm py-2">{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</TableCell>
+                    <TableCell className="text-sm py-2">{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</TableCell>
                     <TableCell className="text-sm py-2">{renderMatchScore(match)}</TableCell>
                     <TableCell className="py-2">
                       <Badge className={`text-xs ${getMatchStatusColor(match.status)}`}>{getMatchStatusLabel(match.status)}</Badge>
@@ -625,9 +629,9 @@ export default function MatchesPage() {
                   </div>
 
                   <div className="mt-1.5 flex items-center gap-2 text-sm font-medium text-gray-900">
-                    <span className="min-w-0 flex-1 truncate text-right">{match.player1Name}</span>
+                    <span className="min-w-0 flex-1 truncate text-right">{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</span>
                     <span className="shrink-0 text-xs text-gray-400">vs</span>
-                    <span className="min-w-0 flex-1 truncate">{match.player2Name}</span>
+                    <span className="min-w-0 flex-1 truncate">{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</span>
                   </div>
 
                   <div className="mt-1 flex items-center justify-center gap-1.5 text-xs">

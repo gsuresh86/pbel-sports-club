@@ -101,6 +101,56 @@ export function getInitials(name?: string | null): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+/** First word of a full name. */
+export function firstName(full?: string | null): string {
+  return (full ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
+export interface MatchSideDisplay {
+  /** Combined label — "Asha & Ravi" for doubles, full name for singles/teams. */
+  label: string;
+  /** Individual full names (1 for singles/teams, 2 for doubles). */
+  names: string[];
+  /** Avatar URLs aligned with `names` (entries may be undefined). */
+  avatars: (string | undefined)[];
+}
+
+type RegistrationLike = {
+  name?: string;
+  partnerName?: string | null;
+  profilePhotoUrl?: string | null;
+  partnerProfilePhotoUrl?: string | null;
+};
+
+/**
+ * Display info for one side of a match. When the referenced registration is a
+ * doubles entry (has a partner), shows both players' first names and exposes
+ * both avatars. Falls back to the name stored on the match (e.g. team matches
+ * or registrations that are no longer loaded).
+ */
+export function getMatchSideDisplay(
+  playerId: string,
+  fallbackName: string,
+  regById: Map<string, RegistrationLike>
+): MatchSideDisplay {
+  const reg = regById.get(playerId);
+  if (!reg) return { label: fallbackName, names: [fallbackName], avatars: [undefined] };
+
+  const hasPartner = !!reg.partnerName && reg.partnerName.trim() !== '';
+  if (hasPartner) {
+    return {
+      label: `${firstName(reg.name)} & ${firstName(reg.partnerName)}`,
+      names: [reg.name ?? fallbackName, reg.partnerName ?? ''],
+      avatars: [reg.profilePhotoUrl ?? undefined, reg.partnerProfilePhotoUrl ?? undefined],
+    };
+  }
+  return {
+    label: reg.name ?? fallbackName,
+    names: [reg.name ?? fallbackName],
+    avatars: [reg.profilePhotoUrl ?? undefined],
+  };
+}
+
 /** Normalize name for participant identity (name + phone). */
 export function normalizeParticipantName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');

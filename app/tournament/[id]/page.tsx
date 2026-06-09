@@ -5,7 +5,9 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
+import { getInitials, getMatchSideDisplay, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
   Shield, Users2, ScrollText, ChevronRight,
@@ -130,6 +132,9 @@ export default function TournamentDetailPage() {
   ] as const;
 
   const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+
+  // Registration lookup so doubles matches can show both partners + avatars
+  const regById = new Map(participants.map(p => [p.id, p]));
 
   // Unfiltered — used by overview tab
   const allScheduledMatches = matches.filter(m => m.status === 'scheduled');
@@ -413,7 +418,7 @@ export default function TournamentDetailPage() {
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {allScheduledMatches.slice(0, 6).map(m => (
-                      <MatchCard key={m.id} match={m} tournamentId={tournamentId} />
+                      <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />
                     ))}
                   </div>
                 </div>
@@ -467,7 +472,7 @@ export default function TournamentDetailPage() {
                     <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Live Matches
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} />)}
+                    {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
                   </div>
                 </section>
               )}
@@ -476,7 +481,7 @@ export default function TournamentDetailPage() {
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Upcoming</h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} />)}
+                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
                   </div>
                 </section>
               )}
@@ -485,7 +490,7 @@ export default function TournamentDetailPage() {
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-3">Results</h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {completedMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} />)}
+                    {completedMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
                   </div>
                 </section>
               )}
@@ -698,10 +703,28 @@ export default function TournamentDetailPage() {
   );
 }
 
+// ── Player avatars (1 for singles, 2 stacked for doubles) ─────────────────
+function PlayerAvatars({ side, align }: { side: MatchSideDisplay; align: 'left' | 'right' }) {
+  return (
+    <div className={`flex ${align === 'right' ? 'flex-row-reverse' : ''} -space-x-2`}>
+      {side.names.map((n, i) => (
+        <Avatar key={i} className="h-7 w-7 border-2 border-slate-900">
+          {side.avatars[i] ? <AvatarImage src={side.avatars[i]} alt={n} /> : null}
+          <AvatarFallback className="bg-slate-700 text-[9px] font-bold text-slate-200">
+            {getInitials(n)}
+          </AvatarFallback>
+        </Avatar>
+      ))}
+    </div>
+  );
+}
+
 // ── Match card sub-component ──────────────────────────────────────────────
-function MatchCard({ match, tournamentId }: { match: Match; tournamentId: string }) {
+function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentId: string; regById: Map<string, Registration> }) {
   const isLive = match.status === 'live';
   const isDone = match.status === 'completed';
+  const side1 = getMatchSideDisplay(match.player1Id, match.player1Name, regById);
+  const side2 = getMatchSideDisplay(match.player2Id, match.player2Name, regById);
 
   return (
     <div className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${
@@ -725,9 +748,10 @@ function MatchCard({ match, tournamentId }: { match: Match; tournamentId: string
 
         {/* Players VS row */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 text-right">
-            <p className="font-bold text-white text-sm leading-tight">{match.player1Name}</p>
-            {isDone && <p className={`text-2xl font-black tabular-nums mt-1 ${match.winner === match.player1Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player1Score ?? '-'}</p>}
+          <div className="flex-1 flex flex-col items-end gap-1.5">
+            <PlayerAvatars side={side1} align="right" />
+            <p className="font-bold text-white text-sm leading-tight text-right">{side1.label}</p>
+            {isDone && <p className={`text-2xl font-black tabular-nums ${match.winner === match.player1Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player1Score ?? '-'}</p>}
             {isLive && match.sets?.length ? <p className="text-lg font-black text-white tabular-nums">{match.sets.at(-1)?.player1Score ?? 0}</p> : null}
           </div>
 
@@ -735,9 +759,10 @@ function MatchCard({ match, tournamentId }: { match: Match; tournamentId: string
             <span className="text-xs font-black text-slate-500">VS</span>
           </div>
 
-          <div className="flex-1 text-left">
-            <p className="font-bold text-white text-sm leading-tight">{match.player2Name}</p>
-            {isDone && <p className={`text-2xl font-black tabular-nums mt-1 ${match.winner === match.player2Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player2Score ?? '-'}</p>}
+          <div className="flex-1 flex flex-col items-start gap-1.5">
+            <PlayerAvatars side={side2} align="left" />
+            <p className="font-bold text-white text-sm leading-tight text-left">{side2.label}</p>
+            {isDone && <p className={`text-2xl font-black tabular-nums ${match.winner === match.player2Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player2Score ?? '-'}</p>}
             {isLive && match.sets?.length ? <p className="text-lg font-black text-white tabular-nums">{match.sets.at(-1)?.player2Score ?? 0}</p> : null}
           </div>
         </div>
