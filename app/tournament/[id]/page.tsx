@@ -740,11 +740,11 @@ export default function TournamentDetailPage() {
 // ── Player avatars (1 for singles, 2 stacked for doubles) ─────────────────
 function PlayerAvatars({ side, align }: { side: MatchSideDisplay; align: 'left' | 'right' }) {
   return (
-    <div className={`flex ${align === 'right' ? 'flex-row-reverse' : ''} -space-x-2`}>
+    <div className={`flex ${align === 'right' ? 'flex-row-reverse' : ''} -space-x-3`}>
       {side.names.map((n, i) => (
-        <Avatar key={i} className="h-7 w-7 border-2 border-slate-900">
-          {side.avatars[i] ? <AvatarImage src={side.avatars[i]} alt={n} /> : null}
-          <AvatarFallback className="bg-slate-700 text-[9px] font-bold text-slate-200">
+        <Avatar key={i} className="h-14 w-14 border-2 border-white/20 ring-2 ring-black/20 shadow-lg">
+          {side.avatars[i] ? <AvatarImage src={side.avatars[i]} alt={n} className="object-cover" /> : null}
+          <AvatarFallback className="bg-slate-700 text-sm font-bold text-slate-200">
             {getInitials(n)}
           </AvatarFallback>
         </Avatar>
@@ -760,71 +760,100 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
   const side1 = getMatchSideDisplay(match.player1Id, match.player1Name, regById);
   const side2 = getMatchSideDisplay(match.player2Id, match.player2Name, regById);
 
+  const p1won = isDone && match.winner === match.player1Name;
+  const p2won = isDone && match.winner === match.player2Name;
+  const liveP1 = isLive && match.sets?.length ? (match.sets.at(-1)?.player1Score ?? 0) : null;
+  const liveP2 = isLive && match.sets?.length ? (match.sets.at(-1)?.player2Score ?? 0) : null;
+
+  const dateStr = new Date(match.scheduledTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const timeStr = new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const courtLabel = match.court ? `Court ${match.court}` : null;
+
+  // Card surface — green gradient by default (per design), red when live, slate when done
+  const surface = isLive
+    ? 'border-rose-500/40 bg-gradient-to-br from-rose-600/25 via-slate-900 to-slate-900'
+    : isDone
+      ? 'border-white/10 bg-gradient-to-br from-slate-700/40 via-slate-900 to-slate-900'
+      : 'border-emerald-500/30 bg-gradient-to-br from-emerald-600/25 via-slate-900 to-slate-900';
+
   return (
-    <div className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${
-      isLive ? 'border-red-500/50 bg-gradient-to-b from-red-950/40 to-slate-900' : 'border-white/5 bg-slate-900 hover:border-white/10'
-    }`}>
+    <div className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${surface}`}>
       {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-orange-400 to-red-500 animate-pulse" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 via-orange-400 to-rose-500 animate-pulse" />
       )}
       <div className="p-4">
-        {/* Round + court */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{match.round}</span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-            isLive ? 'bg-red-500 text-white animate-pulse' :
-            isDone ? 'bg-slate-700 text-slate-300' :
-            'bg-blue-500/20 text-blue-400'
-          }`}>
-            {isLive ? '● Live' : isDone ? 'FT' : 'Soon'}
+        {/* Pool / round header */}
+        <div className="flex justify-center mb-3">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+            {match.round}
           </span>
         </div>
 
-        {/* Players VS row */}
-        <div className="flex items-center gap-2">
-          <div className="flex-1 flex flex-col items-end gap-1.5">
-            <PlayerAvatars side={side1} align="right" />
-            <p className="font-bold text-white text-sm leading-tight text-right">{side1.label}</p>
-            {isDone && <p className={`text-2xl font-black tabular-nums ${match.winner === match.player1Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player1Score ?? '-'}</p>}
-            {isLive && match.sets?.length ? <p className="text-lg font-black text-white tabular-nums">{match.sets.at(-1)?.player1Score ?? 0}</p> : null}
+        {/* Players + center score */}
+        <div className="flex items-start justify-between gap-2">
+          {/* Player 1 */}
+          <div className="flex-1 min-w-0 flex flex-col items-center gap-2">
+            <PlayerAvatars side={side1} align="left" />
+            <p className={`text-center text-sm font-bold leading-tight break-words ${p1won ? 'text-yellow-300' : 'text-white'}`}>{side1.label}</p>
           </div>
 
-          <div className="flex-shrink-0 w-8 text-center">
-            <span className="text-xs font-black text-slate-500">VS</span>
+          {/* Center: score or VS + status pill */}
+          <div className="flex flex-col items-center gap-1.5 px-1 pt-3 shrink-0">
+            {isDone ? (
+              <div className="flex items-center gap-1.5 text-2xl font-black tabular-nums">
+                <span className={p1won ? 'text-yellow-300' : 'text-slate-400'}>{match.player1Score ?? '-'}</span>
+                <span className="text-slate-500 text-base">:</span>
+                <span className={p2won ? 'text-yellow-300' : 'text-slate-400'}>{match.player2Score ?? '-'}</span>
+              </div>
+            ) : isLive && liveP1 !== null ? (
+              <div className="flex items-center gap-1.5 text-2xl font-black tabular-nums text-white">
+                <span>{liveP1}</span><span className="text-rose-400 text-base">:</span><span>{liveP2}</span>
+              </div>
+            ) : (
+              <span className="text-base font-black text-white/50">VS</span>
+            )}
+            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              isLive ? 'bg-rose-500 text-white animate-pulse' :
+              isDone ? 'bg-slate-700 text-slate-200' :
+              'bg-emerald-500/90 text-white'
+            }`}>
+              {isLive ? '● Live' : isDone ? 'Full Time' : 'Upcoming'}
+            </span>
           </div>
 
-          <div className="flex-1 flex flex-col items-start gap-1.5">
-            <PlayerAvatars side={side2} align="left" />
-            <p className="font-bold text-white text-sm leading-tight text-left">{side2.label}</p>
-            {isDone && <p className={`text-2xl font-black tabular-nums ${match.winner === match.player2Name ? 'text-yellow-400' : 'text-slate-500'}`}>{match.player2Score ?? '-'}</p>}
-            {isLive && match.sets?.length ? <p className="text-lg font-black text-white tabular-nums">{match.sets.at(-1)?.player2Score ?? 0}</p> : null}
+          {/* Player 2 */}
+          <div className="flex-1 min-w-0 flex flex-col items-center gap-2">
+            <PlayerAvatars side={side2} align="right" />
+            <p className={`text-center text-sm font-bold leading-tight break-words ${p2won ? 'text-yellow-300' : 'text-white'}`}>{side2.label}</p>
           </div>
         </div>
 
         {/* Winner label */}
         {isDone && match.winner && (
-          <div className="mt-2 text-center">
-            <span className="inline-flex items-center gap-1 text-[10px] text-yellow-400 font-bold">
-              <Star className="h-2.5 w-2.5 fill-yellow-400" /> {match.winner}
-            </span>
+          <div className="mt-3 flex items-center justify-center gap-1 text-[11px] font-bold text-yellow-300">
+            <Star className="h-3 w-3 fill-yellow-300" /> {match.winner}
           </div>
         )}
 
-        {/* Date + venue */}
-        <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500">
-          <span className="flex items-center gap-1">
-            <Clock className="h-2.5 w-2.5" />
-            {new Date(match.scheduledTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-            {' '}{new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+        {/* Time + court footer */}
+        <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-300">
+          <span className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+            {dateStr} · {timeStr}
           </span>
-          {match.court && <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" />{match.court}</span>}
+          {courtLabel && (
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-slate-400" />
+              {courtLabel}
+            </span>
+          )}
         </div>
 
         {/* Live action button */}
         {isLive && (
           <Link href={`/tournament/${tournamentId}/live/${match.id}`} className="block mt-3">
-            <Button className="w-full h-8 text-xs bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl">
-              <Target className="h-3.5 w-3.5 mr-1.5" /> Live Score
+            <Button className="w-full h-9 text-xs bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl">
+              <Target className="h-3.5 w-3.5 mr-1.5" /> Watch Live Score
             </Button>
           </Link>
         )}
