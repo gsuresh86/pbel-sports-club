@@ -10,6 +10,8 @@ import {
   fetchTournamentTeams,
   fetchTournamentPools,
   updateTournament,
+  cloneTournament,
+  deleteTournament,
   type TournamentUpdatePayload,
 } from '@/lib/tournament-api';
 
@@ -75,6 +77,34 @@ export function useUpdateTournamentMutation() {
       updateTournament(tournamentId, data),
     onSuccess: (_, { tournamentId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.detail(tournamentId) });
+    },
+  });
+}
+
+export function useCloneTournamentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sourceTournamentId,
+      createdBy,
+      newName,
+    }: {
+      sourceTournamentId: string;
+      createdBy: string;
+      newName?: string;
+    }) => cloneTournament(sourceTournamentId, createdBy, { newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.list() });
+    },
+  });
+}
+
+export function useDeleteTournamentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tournamentId: string) => deleteTournament(tournamentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.list() });
     },
   });
 }

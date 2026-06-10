@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Tournament, Registration, Team, Pool } from '@/types';
-import { ArrowLeft, Shield, Users, Star, Trophy, Users2 } from 'lucide-react';
+import { Tournament, Registration, Team, Pool, Match } from '@/types';
+import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function fmtCategory(cat: string) {
@@ -175,66 +176,6 @@ function DoublesCard({ registration }: { registration: Registration }) {
   );
 }
 
-// ── Pool standings ─────────────────────────────────────────────────────────
-function PoolStandings({ pool, teams, participants, isTeamCat, isDoubles }: {
-  pool: Pool; teams: Team[]; participants: Registration[]; isTeamCat: boolean; isDoubles?: boolean;
-}) {
-  return (
-    <div className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600/20 to-indigo-500/10 px-5 py-3 border-b border-white/5 flex items-center justify-between">
-        <div>
-          <h4 className="font-black text-white">{pool.name}</h4>
-          <p className="text-xs text-slate-400 mt-0.5">{pool.teams.length} {isTeamCat ? 'teams' : 'players'} · max {pool.maxTeams}</p>
-        </div>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${pool.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
-          {pool.status}
-        </span>
-      </div>
-      <div className="divide-y divide-white/5">
-        {pool.teams.map((itemId, idx) => {
-          if (isTeamCat) {
-            const team = teams.find(t => t.id === itemId);
-            return (
-              <div key={idx} className="flex items-center gap-3 px-5 py-3">
-                <span className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                <p className="text-sm font-semibold text-white">{team?.name ?? `Team ${idx + 1}`}</p>
-                {team && <span className="ml-auto text-xs text-slate-400">{team.players.length} players</span>}
-              </div>
-            );
-          } else {
-            const player = participants.find(p => p.id === itemId);
-            const initials = player?.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() ?? '?';
-            return (
-              <div key={idx} className="flex items-center gap-3 px-5 py-3">
-                <span className="w-6 h-6 rounded-full bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center flex-shrink-0">{idx + 1}</span>
-                {player?.profilePhotoUrl ? (
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/10">
-                    <Image src={player.profilePhotoUrl} alt={player.name} width={32} height={32} className="object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{player?.name ?? `Player ${idx + 1}`}</p>
-                  {isDoubles && player?.partnerName && (
-                    <p className="text-[10px] text-slate-400 truncate">w/ {player.partnerName}</p>
-                  )}
-                  {(player?.tower || player?.flatNumber) && (
-                    <p className="text-[10px] text-slate-500">{player.tower} {player.flatNumber}</p>
-                  )}
-                </div>
-              </div>
-            );
-          }
-        })}
-        {pool.teams.length === 0 && (
-          <p className="text-sm text-slate-500 italic px-5 py-4">No {isTeamCat ? 'teams' : 'players'} assigned yet</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function CategoryPage() {
   const params = useParams();
@@ -245,18 +186,20 @@ export default function CategoryPage() {
   const [participants, setParticipants] = useState<Registration[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'squads' | 'pools'>('squads');
+  const [activeSection, setActiveSection] = useState<'squads' | 'points'>('squads');
 
   useEffect(() => { if (tournamentId) loadAll(); }, [tournamentId]);
 
   const loadAll = async () => {
     try {
-      const [tSnap, regSnap, teamSnap, poolSnap] = await Promise.all([
+      const [tSnap, regSnap, teamSnap, poolSnap, matchSnap] = await Promise.all([
         getDoc(doc(db, 'tournaments', tournamentId)),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'registrations'), orderBy('registeredAt', 'desc'))),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'teams'), orderBy('createdAt', 'desc'))),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'pools'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'matches'), where('tournamentId', '==', tournamentId))),
       ]);
       if (tSnap.exists()) {
         const d = tSnap.data();
@@ -265,6 +208,17 @@ export default function CategoryPage() {
       setParticipants(regSnap.docs.map(d => ({ id: d.id, ...d.data(), registeredAt: d.data().registeredAt?.toDate() })) as Registration[]);
       setTeams(teamSnap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate(), updatedAt: d.data().updatedAt?.toDate() })) as Team[]);
       setPools(poolSnap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate(), updatedAt: d.data().updatedAt?.toDate() })) as Pool[]);
+      setMatches(matchSnap.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          scheduledTime: data.scheduledTime?.toDate(),
+          actualStartTime: data.actualStartTime?.toDate(),
+          actualEndTime: data.actualEndTime?.toDate(),
+          updatedAt: data.updatedAt?.toDate(),
+        } as Match;
+      }));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -301,7 +255,7 @@ export default function CategoryPage() {
           <div className="flex-1" />
           {poolsAvailable && (
             <div className="flex gap-1 bg-slate-800 p-0.5 rounded-full">
-              {([['squads', isCatTeam ? 'Squads' : isDoubles ? 'Pairs' : 'Players'], ['pools', 'Pools']] as const).map(([id, lbl]) => (
+              {([['squads', isCatTeam ? 'Squads' : isDoubles ? 'Pairs' : 'Players'], ['points', 'Points']] as const).map(([id, lbl]) => (
                 <button key={id} onClick={() => setActiveSection(id)}
                   className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${activeSection === id ? 'bg-yellow-400 text-black' : 'text-slate-400 hover:text-white'}`}>
                   {lbl}
@@ -393,23 +347,29 @@ export default function CategoryPage() {
           )
         )}
 
-        {isCatTeam && activeSection === 'pools' && (
+        {isCatTeam && activeSection === 'points' && tournament && (
           <section>
-            <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
-              <Users2 className="h-3.5 w-3.5" /> Pools — {label}
-            </h2>
-            {catPools.length === 0 ? (
-              <div className="text-center py-16">
-                <Users2 className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-400">No pools created for this category yet</p>
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {catPools.map(pool => (
-                  <PoolStandings key={pool.id} pool={pool} teams={teams} participants={participants} isTeamCat={true} isDoubles={false} />
-                ))}
-              </div>
-            )}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+              <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold flex items-center gap-2">
+                <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
+              </h2>
+              <Link
+                href={`/tournament/${tournamentId}/standings?category=${categorySlug}`}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View all standings
+              </Link>
+            </div>
+            <TournamentStandingsView
+              tournament={tournament}
+              pools={pools}
+              matches={matches}
+              teams={teams}
+              participants={participants}
+              initialCategory={categorySlug}
+              hideCategoryFilter
+            />
           </section>
         )}
 
@@ -443,16 +403,29 @@ export default function CategoryPage() {
           )
         )}
 
-        {!isCatTeam && poolsAvailable && activeSection === 'pools' && (
+        {!isCatTeam && poolsAvailable && activeSection === 'points' && tournament && (
           <section>
-            <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-5 flex items-center gap-2">
-              <Users2 className="h-3.5 w-3.5" /> Pools — {label}
-            </h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {catPools.map(pool => (
-                <PoolStandings key={pool.id} pool={pool} teams={teams} participants={participants} isTeamCat={false} isDoubles={isDoubles} />
-              ))}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-5">
+              <h2 className="text-xs uppercase tracking-widest text-yellow-400 font-bold flex items-center gap-2">
+                <BarChart3 className="h-3.5 w-3.5" /> Points Table — {label}
+              </h2>
+              <Link
+                href={`/tournament/${tournamentId}/standings?category=${categorySlug}`}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View all standings
+              </Link>
             </div>
+            <TournamentStandingsView
+              tournament={tournament}
+              pools={pools}
+              matches={matches}
+              teams={teams}
+              participants={participants}
+              initialCategory={categorySlug}
+              hideCategoryFilter
+            />
           </section>
         )}
       </div>

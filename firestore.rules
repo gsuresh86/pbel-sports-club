@@ -16,6 +16,21 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin'];
     }
+
+    function isReferee() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'referee';
+    }
+
+    function isAssignedToTournament(tournamentId) {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return 'assignedTournaments' in userData && tournamentId in userData.assignedTournaments;
+    }
+
+    function canScoreTournament(tournamentId) {
+      return isTournamentAdmin() || (isReferee() && isAssignedToTournament(tournamentId));
+    }
     
 
     // User documents - allow authenticated users to read their own document
@@ -49,21 +64,24 @@ service cloud.firestore {
       allow delete: if request.auth != null && isTournamentAdmin(); // Only admins can delete
     }
 
-    // Matches - public read, admin/tournament-admin write
+    // Matches - public read; tournament-admin full write; referee update on assigned tournaments
     match /matches/{matchId} {
-      allow read: if true; // Public read for match schedules and results
-      allow write: if request.auth != null && isTournamentAdmin();
+      allow read: if true;
       allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && (
+        isTournamentAdmin() ||
+        (isReferee() && isAssignedToTournament(resource.data.tournamentId))
+      );
       allow delete: if request.auth != null && isAdmin();
     }
 
-    // Live Scores - public read, admin/tournament-admin write
+    // Live Scores - public read; tournament-admin or assigned referee write
     match /liveScores/{scoreId} {
-      allow read: if true; // Public read for live scores
-      allow write: if request.auth != null && isTournamentAdmin();
-      allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && isTournamentAdmin();
+      allow read: if true;
+      allow create, update: if request.auth != null && (
+        isTournamentAdmin() ||
+        (isReferee() && isAssignedToTournament(request.resource.data.tournamentId))
+      );
       allow delete: if request.auth != null && isAdmin();
     }
 

@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 
 const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+  role === 'admin' || role === 'tournament-admin' || role === 'super-admin' || role === 'referee';
 
 const NAV_ITEMS = [
   { label: 'Overview', href: 'overview', icon: LayoutDashboard },
@@ -74,7 +74,11 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   const { data: tournamentData, isLoading: tournamentLoading } = useTournament(tournamentId, { enabled: queriesEnabled });
   const tournament = tournamentData ?? null;
 
-  const assignedIds = user?.role === 'tournament-admin' ? (user.assignedTournaments ?? undefined) : undefined;
+  const isReferee = user?.role === 'referee';
+  const assignedIds =
+    user?.role === 'tournament-admin' || isReferee
+      ? (user.assignedTournaments ?? undefined)
+      : undefined;
   const { data: tournaments = [] } = useTournaments({ assignedIds, enabled: queriesEnabled });
 
   const loading = authLoading || (queriesEnabled && tournamentLoading);
@@ -91,15 +95,19 @@ export default function TournamentSidebarLayout({ children }: { children: React.
       router.push('/admin/tournaments');
       return;
     }
+    const scopedRole = user?.role === 'tournament-admin' || user?.role === 'referee';
     if (
       tournament &&
-      user?.role === 'tournament-admin' &&
+      scopedRole &&
       user.assignedTournaments &&
       !user.assignedTournaments.includes(tournamentId)
     ) {
-      router.push('/admin/tournaments');
+      router.push(isReferee ? '/login' : '/admin/tournaments');
     }
-  }, [authLoading, queriesEnabled, tournamentLoading, tournamentData, tournament, user, tournamentId, router]);
+    if (isReferee && !pathname.endsWith('/matches')) {
+      router.push(`/admin/tournaments/${tournamentId}/matches`);
+    }
+  }, [authLoading, queriesEnabled, tournamentLoading, tournamentData, tournament, user, tournamentId, router, pathname, isReferee]);
 
   const handleLogout = async () => {
     try {
@@ -169,22 +177,24 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         </div>
 
         {/* Back link */}
-        <div className="px-3 pt-3">
-          <Link
-            href="/admin/tournaments"
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            All Tournaments
-          </Link>
-        </div>
+        {!isReferee && (
+          <div className="px-3 pt-3">
+            <Link
+              href="/admin/tournaments"
+              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              All Tournaments
+            </Link>
+          </div>
+        )}
 
         {/* Tournament nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
             Tournament
           </p>
-          {NAV_ITEMS.map((item) => {
+          {(isReferee ? NAV_ITEMS.filter((item) => item.href === 'matches') : NAV_ITEMS).map((item) => {
             const href = `/admin/tournaments/${tournamentId}/${item.href}`;
             const isActive = pathname === href;
             const Icon = item.icon;

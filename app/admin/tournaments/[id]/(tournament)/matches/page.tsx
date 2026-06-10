@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -23,12 +23,19 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
+import { scoreboardPath } from '@/lib/tournament-banner';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
-import { cn, getMatchSideDisplay } from '@/lib/utils';
+import TeamMatchLineupDialog from '@/components/TeamMatchLineupDialog';
+import {
+  isTeamTieMatch,
+  isRubberMatch,
+  countRubbersWon,
+} from '@/lib/teamMatchRubbers';
+import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
-  Edit, FilterX, Play, Search, Square, Swords, Trash2, X,
+  Edit, FilterX, Monitor, Play, Search, Square, Swords, Trash2, X, ClipboardList,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -100,7 +107,19 @@ export default function MatchesPage() {
   // Registration lookup so doubles matches can show both partners' first names
   const regById = new Map(participants.map(p => [p.id, p]));
   const poolNameToCategory = new Map(poolsData.map(p => [p.name, p.category]));
-  const totalMatches = matches.length;
+  const rubberMatches = matches.filter(isRubberMatch);
+  const rubbersByParent = rubberMatches.reduce((map, rubber) => {
+    const parentId = rubber.parentMatchId!;
+    const list = map.get(parentId) ?? [];
+    list.push(rubber);
+    map.set(parentId, list);
+    return map;
+  }, new Map<string, Match[]>());
+  for (const list of rubbersByParent.values()) {
+    list.sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0));
+  }
+  const topLevelMatches = matches.filter(m => !isRubberMatch(m));
+  const totalMatches = topLevelMatches.length;
 
   const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
@@ -108,14 +127,20 @@ export default function MatchesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
 
-  const distinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+  const distinctRounds = Array.from(new Set(topLevelMatches.map(m => m.round))).sort();
   const distinctCategories = Array.from(
     new Set(poolsData.map(p => p.category).filter(Boolean))
   ).sort() as string[];
 
   const q = search.toLowerCase();
-  const filteredMatches = matches.filter(m => {
-    if (q && ![m.player1Name, m.player2Name, m.round].some(s => s.toLowerCase().includes(q))) return false;
+  const filteredMatches = topLevelMatches.filter(m => {
+    if (q) {
+      const sideLabels = [
+        formatMatchSideLabel(m, 1, regById),
+        formatMatchSideLabel(m, 2, regById),
+      ];
+      if (![...sideLabels, m.round].some(s => s.toLowerCase().includes(q))) return false;
+    }
     if (roundFilter !== 'all' && m.round !== roundFilter) return false;
     if (categoryFilter !== 'all' && poolNameToCategory.get(m.round) !== categoryFilter) return false;
     if (statusFilter !== 'all' && m.status !== statusFilter) return false;
@@ -224,15 +249,21 @@ export default function MatchesPage() {
     }
   };
 
+  const [lineupMatch, setLineupMatch] = useState<Match | null>(null);
+
   // Match action handlers
   const handleStartMatch = async (match: Match) => {
+    if (isTeamTieMatch(match, teamIds) && !match.rubbersGenerated) {
+      setLineupMatch(match);
+      return;
+    }
     try {
+      const displayNames = getMatchLiveDisplayNames(match, regById);
       await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
       await setDoc(doc(db, 'liveScores', match.id), {
         matchId: match.id,
         tournamentId: match.tournamentId,
-        player1Name: match.player1Name,
-        player2Name: match.player2Name,
+        ...displayNames,
         currentSet: 1,
         player1Sets: 0,
         player2Sets: 0,
@@ -350,13 +381,70 @@ export default function MatchesPage() {
 
   if (!tournament) return null;
 
+  const renderTeamTieScore = (match: Match) => {
+    const rubbers = rubbersByParent.get(match.id) ?? [];
+    if (rubbers.length === 0) return <span className="text-gray-400">—</span>;
+    const { team1, team2 } = countRubbersWon(rubbers);
+    return <span className="font-semibold">{team1}-{team2}</span>;
+  };
+
+  const renderRubberLabel = (rubber: Match) => {
+    const p1 = formatMatchSideLabel(rubber, 1, regById);
+    const p2 = formatMatchSideLabel(rubber, 2, regById);
+    return `${p1} vs ${p2}`;
+  };
+
+  const renderLineupButton = (match: Match, compact = false) => {
+    if (!isTeamTieMatch(match, teamIds) || !match.rubbersGenerated) return null;
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className={compact ? 'h-9 text-xs touch-manipulation' : 'h-7 px-2 text-xs touch-manipulation'}
+        onClick={() => setLineupMatch(match)}
+      >
+        <ClipboardList className={compact ? 'h-3.5 w-3.5 mr-1' : 'h-3 w-3 mr-1'} />
+        Edit Lineup
+      </Button>
+    );
+  };
+
   // Reusable score display
   const renderScore = (match: Match) => {
+    if (isTeamTieMatch(match, teamIds)) return renderTeamTieScore(match);
     if (match.status === 'completed')
       return <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>;
     if (match.status === 'live' && match.sets?.length)
       return <span className="text-green-600 text-xs">{match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}</span>;
     return <span className="text-gray-400">-</span>;
+  };
+
+  const renderRubbers = (match: Match) => {
+    const rubbers = rubbersByParent.get(match.id);
+    if (!rubbers?.length) return null;
+    return (
+      <div className="mt-2 space-y-1.5 border-t border-gray-100 pt-2">
+        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Rubbers</p>
+        {rubbers.map(rubber => (
+          <div key={rubber.id} className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-gray-600 shrink-0">#{rubber.rubberNumber} {rubber.rubberType}</span>
+            <span className="truncate text-gray-800">{renderRubberLabel(rubber)}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <Badge className={`text-[10px] px-1 ${getMatchStatusColor(rubber.status)}`}>
+                {getMatchStatusLabel(rubber.status)}
+              </Badge>
+              {(rubber.status === 'scheduled' || rubber.status === 'live') && (
+                <Link href={`/admin/matches/${rubber.id}`}>
+                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px]">
+                    Score
+                  </Button>
+                </Link>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -546,15 +634,16 @@ export default function MatchesPage() {
                     </div>
                     {/* Players */}
                     <div className="mt-1 text-sm font-medium leading-snug">
-                      <span>{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</span>
+                      <span>{formatMatchSideLabel(match, 1, regById)}</span>
                       <span className="text-gray-400 font-normal mx-1.5">vs</span>
-                      <span>{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</span>
+                      <span>{formatMatchSideLabel(match, 2, regById)}</span>
                     </div>
                     {/* Score + time */}
                     <div className="mt-0.5 flex items-center justify-between gap-2">
                       <span className="text-xs text-gray-500">{formatDateShort(new Date(match.scheduledTime))}</span>
                       <span className="text-xs">{renderScore(match)}</span>
                     </div>
+                    {isTeamTieMatch(match, teamIds) && renderRubbers(match)}
                   </div>
                 </div>
                 {/* Action buttons */}
@@ -566,7 +655,7 @@ export default function MatchesPage() {
                       onClick={() => handleStartMatch(match)}
                     >
                       <Play className="h-3.5 w-3.5 mr-1" />
-                      Start
+                      {isTeamTieMatch(match, teamIds) && !match.rubbersGenerated ? 'Set Lineup' : 'Start'}
                     </Button>
                   )}
                   {match.status === 'live' && (
@@ -579,11 +668,19 @@ export default function MatchesPage() {
                       Stop
                     </Button>
                   )}
-                  {(match.status === 'scheduled' || match.status === 'live') && (
+                  {renderLineupButton(match, true)}
+                  {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                     <Link href={`/admin/matches/${match.id}`} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
                         <Swords className="h-3.5 w-3.5 mr-1" />
                         {match.status === 'scheduled' ? 'Score' : 'Update'}
+                      </Button>
+                    </Link>
+                  )}
+                  {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
+                    <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation" title="Open TV scoreboard">
+                        <Monitor className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
                   )}
@@ -650,7 +747,8 @@ export default function MatchesPage() {
               </TableHeader>
               <TableBody>
                 {sortedMatches.map((match) => (
-                  <TableRow key={match.id} data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
+                  <Fragment key={match.id}>
+                  <TableRow data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
                     <TableCell className="py-2">
                       <Checkbox
                         checked={selectedIds.has(match.id)}
@@ -658,10 +756,15 @@ export default function MatchesPage() {
                         aria-label={`Select match ${match.matchNumber}`}
                       />
                     </TableCell>
-                    <TableCell className="font-medium text-xs py-2">#{match.matchNumber}</TableCell>
+                    <TableCell className="font-medium text-xs py-2">
+                      #{match.matchNumber}
+                      {isTeamTieMatch(match, teamIds) && (
+                        <Badge variant="outline" className="ml-1 text-[10px]">Team</Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{getMatchSideDisplay(match.player1Id, match.player1Name, regById).label}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{getMatchSideDisplay(match.player2Id, match.player2Name, regById).label}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 1, regById)}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 2, regById)}</TableCell>
                     <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
                     <TableCell className="py-2">
                       <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>
@@ -678,7 +781,7 @@ export default function MatchesPage() {
                             onClick={() => handleStartMatch(match)}
                           >
                             <Play className="h-3 w-3 mr-1" />
-                            Start
+                            {isTeamTieMatch(match, teamIds) && !match.rubbersGenerated ? 'Lineup' : 'Start'}
                           </Button>
                         )}
                         {match.status === 'live' && (
@@ -691,11 +794,19 @@ export default function MatchesPage() {
                             Stop
                           </Button>
                         )}
-                        {(match.status === 'scheduled' || match.status === 'live') && (
+                        {renderLineupButton(match)}
+                        {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={`/admin/matches/${match.id}`} className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
                               <Swords className="h-3 w-3 mr-1" />
                               {match.status === 'scheduled' ? 'Score' : 'Update'}
+                            </Button>
+                          </Link>
+                        )}
+                        {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
+                          <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer" className="inline-block">
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation" title="Open TV scoreboard">
+                              <Monitor className="h-3 w-3" />
                             </Button>
                           </Link>
                         )}
@@ -716,6 +827,14 @@ export default function MatchesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
+                  {isTeamTieMatch(match, teamIds) && rubbersByParent.get(match.id)?.length ? (
+                    <TableRow key={`${match.id}-rubbers`} className="bg-gray-50/80 hover:bg-gray-50/80">
+                      <TableCell colSpan={9} className="py-2 px-4">
+                        {renderRubbers(match)}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -762,7 +881,19 @@ export default function MatchesPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {tournament && user && (
-                <GenerateMatchesPanel tournament={tournament} user={user} />
+                <GenerateMatchesPanel
+                  tournament={tournament}
+                  user={user}
+                  onNotify={alert}
+                  onGenerated={(totalCreated) => {
+                    setGenDrawerOpen(false);
+                    alert({
+                      title: 'Done!',
+                      description: `Created ${totalCreated} match${totalCreated === 1 ? '' : 'es'} successfully.`,
+                      variant: 'success',
+                    });
+                  }}
+                />
               )}
             </div>
           </div>
@@ -883,6 +1014,25 @@ export default function MatchesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {lineupMatch && user && (() => {
+        const team1 = teams.find(t => t.id === lineupMatch.player1Id);
+        const team2 = teams.find(t => t.id === lineupMatch.player2Id);
+        if (!team1 || !team2) return null;
+        return (
+          <TeamMatchLineupDialog
+            open={!!lineupMatch}
+            onOpenChange={(open) => { if (!open) setLineupMatch(null); }}
+            match={lineupMatch}
+            team1={team1}
+            team2={team2}
+            registrations={participants}
+            userId={user.id}
+            existingRubbers={rubbersByParent.get(lineupMatch.id) ?? []}
+            onSaved={() => invalidateTournament(tournamentId)}
+          />
+        );
+      })()}
     </div>
   );
 }

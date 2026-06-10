@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'public' | 'tournament-admin' | 'super-admin';
+export type UserRole = 'admin' | 'public' | 'tournament-admin' | 'super-admin' | 'referee';
 
 export interface User {
   id: string;
@@ -179,6 +179,8 @@ export interface Player {
   updatedAt?: Date;
 }
 
+export type MatchKind = 'team-tie' | 'rubber';
+
 export interface Match {
   id: string;
   tournamentId: string;
@@ -188,6 +190,21 @@ export interface Match {
   player1Name: string;
   player2Id: string;
   player2Name: string;
+  /** Doubles rubber: second player on side 1 */
+  player1PartnerId?: string;
+  player1PartnerName?: string;
+  /** Doubles rubber: second player on side 2 */
+  player2PartnerId?: string;
+  player2PartnerName?: string;
+  /** Team tie parent match, or rubber sub-match */
+  matchKind?: MatchKind;
+  /** Parent team-tie match id (rubbers only) */
+  parentMatchId?: string;
+  rubberNumber?: number;
+  rubberType?: 'doubles' | 'single';
+  team1Id?: string;
+  team2Id?: string;
+  rubbersGenerated?: boolean;
   player1Score?: number;
   player2Score?: number;
   sets: MatchSet[];
@@ -236,6 +253,11 @@ export interface LiveScore {
   isLive: boolean;
   lastUpdated: Date;
   updatedBy: string;
+  /** Display-only: flip left/right on scoreboard when players switch courts */
+  sidesSwapped?: boolean;
+  /** Set when match completes for instant congratulations on live views */
+  winnerName?: string;
+  matchCompletedAt?: Date;
 }
 
 export interface TournamentBracket {

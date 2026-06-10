@@ -41,6 +41,7 @@ import {
   ChevronDown,
   Users2,
   UserPlus,
+  Target,
   X,
   PieChart,
   Trophy,
@@ -71,7 +72,9 @@ export default function OverviewPage() {
 
   const [collectionsOpen, setCollectionsOpen] = useState(true);
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
+  const [refereeDialogOpen, setRefereeDialogOpen] = useState(false);
   const [tournamentAdmins, setTournamentAdmins] = useState<User[]>([]);
+  const [referees, setReferees] = useState<User[]>([]);
   const [volunteersDrawerOpen, setVolunteersDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -79,11 +82,20 @@ export default function OverviewPage() {
     getDocs(query(collection(db, 'users'), where('role', '==', 'tournament-admin'))).then((snap) => {
       setTournamentAdmins(snap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
     });
+    getDocs(query(collection(db, 'users'), where('role', '==', 'referee'))).then((snap) => {
+      setReferees(snap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
+    });
   }, [isFullAdmin]);
 
   const refreshAdmins = () => {
     getDocs(query(collection(db, 'users'), where('role', '==', 'tournament-admin'))).then((snap) => {
       setTournamentAdmins(snap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
+    });
+  };
+
+  const refreshReferees = () => {
+    getDocs(query(collection(db, 'users'), where('role', '==', 'referee'))).then((snap) => {
+      setReferees(snap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
     });
   };
 
@@ -99,6 +111,18 @@ export default function OverviewPage() {
 
   const assignedAdmins = tournamentAdmins.filter((u) => u.assignedTournaments?.includes(tournamentId));
   const unassignedAdmins = tournamentAdmins.filter((u) => !u.assignedTournaments?.includes(tournamentId));
+  const assignedReferees = referees.filter((u) => u.assignedTournaments?.includes(tournamentId));
+  const unassignedReferees = referees.filter((u) => !u.assignedTournaments?.includes(tournamentId));
+
+  const addRefereeToTournament = async (userId: string) => {
+    await updateDoc(doc(db, 'users', userId), { assignedTournaments: arrayUnion(tournamentId), updatedAt: new Date() });
+    refreshReferees();
+  };
+
+  const removeRefereeFromTournament = async (userId: string) => {
+    await updateDoc(doc(db, 'users', userId), { assignedTournaments: arrayRemove(tournamentId), updatedAt: new Date() });
+    refreshReferees();
+  };
 
   const analytics = useMemo(() => {
     const catMap = new Map<string, { total: number; approved: number; pending: number; rejected: number }>();
@@ -305,6 +329,59 @@ export default function OverviewPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Manage Referees */}
+      {isFullAdmin && (
+        <Card>
+          <CardHeader className="p-4 sm:p-6 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5" />
+                Referees
+              </CardTitle>
+              {unassignedReferees.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setRefereeDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  Add Referee
+                </Button>
+              )}
+            </div>
+            <CardDescription>Users who can score matches for this tournament</CardDescription>
+          </CardHeader>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            {assignedReferees.length === 0 ? (
+              <div className="text-center py-6 text-sm text-muted-foreground">
+                No referees assigned yet.{' '}
+                {unassignedReferees.length > 0 && (
+                  <button className="underline text-primary" onClick={() => setRefereeDialogOpen(true)}>Add one</button>
+                )}
+                {unassignedReferees.length === 0 && 'Create referee users first.'}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {assignedReferees.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5 text-sm">
+                    <div className="w-6 h-6 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-800 font-semibold text-xs flex-shrink-0">
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-emerald-900 leading-tight truncate max-w-[120px]">{u.name}</p>
+                      <p className="text-[10px] text-emerald-600 truncate max-w-[120px]">{u.email}</p>
+                    </div>
+                    <button
+                      onClick={() => removeRefereeFromTournament(u.id)}
+                      className="ml-1 text-emerald-400 hover:text-red-500 transition-colors flex-shrink-0"
+                      title="Remove referee"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Manage Tournament Admins */}
       {isFullAdmin && (
@@ -543,6 +620,40 @@ export default function OverviewPage() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Add Referee Dialog */}
+      {isFullAdmin && (
+        <Dialog open={refereeDialogOpen} onOpenChange={setRefereeDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Referee</DialogTitle>
+              <DialogDescription>Select a referee to score matches for this tournament.</DialogDescription>
+            </DialogHeader>
+            {unassignedReferees.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">All referee users are already assigned.</p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto py-2">
+                {unassignedReferees.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={async () => { await addRefereeToTournament(u.id); setRefereeDialogOpen(false); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg border hover:bg-emerald-50 hover:border-emerald-300 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold text-sm flex-shrink-0">
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{u.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                    </div>
+                    <UserPlus className="h-4 w-4 text-muted-foreground ml-auto flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Add Admin Dialog */}

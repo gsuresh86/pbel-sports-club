@@ -20,13 +20,15 @@ import { Tournament, SportType, TournamentType, CategoryType, PaymentAccount, To
 import { ImageUpload } from '@/components/ui/image-upload';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { cloneTournament, deleteTournament } from '@/lib/tournament-api';
 import {
   buildTournamentContactsPayload,
   generateRegistrationLink,
   getTournamentContacts,
   normalizeTournamentContactsForForm,
 } from '@/lib/utils';
-import { Plus, Edit, Eye, Copy, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X, MessageCircle } from 'lucide-react';
+import { Plus, Edit, Eye, Copy, CopyPlus, Trash2, Loader2, Calendar, Users, Trophy, ExternalLink, Search, Filter, MapPin, Clock, DollarSign, Users2, Shuffle, Target, LayoutGrid, List, ScrollText, X, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 const sports = [
@@ -111,7 +113,9 @@ export default function ManageTournamentsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { alert, AlertDialogComponent } = useAlertDialog();
+  const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [operationTournamentId, setOperationTournamentId] = useState<string | null>(null);
   const [filteredTournaments, setFilteredTournaments] = useState<Tournament[]>([]);
   const [tournamentStats, setTournamentStats] = useState<{[key: string]: {registrations: number, players: number}}>({});
   const [loading, setLoading] = useState(true);
@@ -439,6 +443,70 @@ export default function ManageTournamentsPage() {
     });
   };
 
+  const isFullAdmin = user?.role === 'admin' || user?.role === 'super-admin';
+
+  const handleCloneTournament = (tournament: Tournament) => {
+    confirm({
+      title: 'Clone Tournament',
+      description: `Create a full copy of "${tournament.name}" including registrations, teams, pools, matches, brackets, and winners? The copy will be set to upcoming with registration closed.`,
+      confirmText: 'Clone',
+      onConfirm: async () => {
+        setOperationTournamentId(tournament.id);
+        try {
+          const newId = await cloneTournament(tournament.id, user!.id, {
+            newName: `${tournament.name} (Copy)`,
+          });
+          await loadTournaments();
+          alert({
+            title: 'Tournament Cloned',
+            description: `"${tournament.name} (Copy)" was created with all data.`,
+            variant: 'success',
+          });
+          router.push(`/admin/tournaments/${newId}/overview`);
+        } catch (error) {
+          console.error('Error cloning tournament:', error);
+          alert({
+            title: 'Clone Failed',
+            description: 'Failed to clone tournament. Please try again.',
+            variant: 'error',
+          });
+        } finally {
+          setOperationTournamentId(null);
+        }
+      },
+    });
+  };
+
+  const handleDeleteTournament = (tournament: Tournament) => {
+    confirm({
+      title: 'Delete Tournament',
+      description: `Permanently delete "${tournament.name}" and all related data (registrations, teams, pools, matches, brackets, winners)? This cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'destructive',
+      onConfirm: async () => {
+        setOperationTournamentId(tournament.id);
+        try {
+          await deleteTournament(tournament.id);
+          await loadTournaments();
+          alert({
+            title: 'Tournament Deleted',
+            description: `"${tournament.name}" and all related data have been removed.`,
+            variant: 'success',
+          });
+        } catch (error) {
+          console.error('Error deleting tournament:', error);
+          alert({
+            title: 'Delete Failed',
+            description: 'Failed to delete tournament. Please try again.',
+            variant: 'error',
+          });
+        } finally {
+          setOperationTournamentId(null);
+        }
+      },
+    });
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -756,6 +824,38 @@ export default function ManageTournamentsPage() {
                       Edit
                     </Button>
                   </div>
+                  {isFullAdmin && (
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        disabled={operationTournamentId === tournament.id}
+                        onClick={() => handleCloneTournament(tournament)}
+                      >
+                        {operationTournamentId === tournament.id ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <CopyPlus className="h-3 w-3 mr-1" />
+                        )}
+                        Clone
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={operationTournamentId === tournament.id}
+                        onClick={() => handleDeleteTournament(tournament)}
+                      >
+                        {operationTournamentId === tournament.id ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3 mr-1" />
+                        )}
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -862,6 +962,37 @@ export default function ManageTournamentsPage() {
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
+                        {isFullAdmin && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={operationTournamentId === tournament.id}
+                              onClick={() => handleCloneTournament(tournament)}
+                              title="Clone Tournament"
+                            >
+                              {operationTournamentId === tournament.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CopyPlus className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={operationTournamentId === tournament.id}
+                              onClick={() => handleDeleteTournament(tournament)}
+                              title="Delete Tournament"
+                            >
+                              {operationTournamentId === tournament.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1492,6 +1623,7 @@ export default function ManageTournamentsPage() {
       </Drawer>
 
       {AlertDialogComponent}
+      {ConfirmDialogComponent}
     </AdminLayout>
   );
 }

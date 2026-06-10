@@ -677,6 +677,7 @@ export default function UserManagementPage() {
                     <SelectContent>
                       <SelectItem value="admin">Admin (Full Access)</SelectItem>
                       <SelectItem value="tournament-admin">Tournament Admin (Limited Access)</SelectItem>
+                      <SelectItem value="referee">Referee (Matches & Scoring Only)</SelectItem>
                       <SelectItem value="public">Public User</SelectItem>
                     </SelectContent>
                   </Select>
@@ -693,11 +694,15 @@ export default function UserManagementPage() {
                 </div>
               </div>
 
-              {formData.role === 'tournament-admin' && (
+              {(formData.role === 'tournament-admin' || formData.role === 'referee') && (
                 <div className="space-y-3">
                   <div>
                     <Label>Assigned Tournaments</Label>
-                    <p className="text-sm text-gray-600 mt-1">Select tournaments this user can manage</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {formData.role === 'referee'
+                        ? 'Select tournaments this referee can score matches for'
+                        : 'Select tournaments this user can manage'}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Select
