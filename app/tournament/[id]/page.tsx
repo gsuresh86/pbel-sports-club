@@ -16,6 +16,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
+import { TeamLogo } from '@/components/TeamLogo';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -137,6 +138,7 @@ export default function TournamentDetailPage() {
 
   // Registration lookup so doubles matches can show both partners + avatars
   const regById = new Map(participants.map(p => [p.id, p]));
+  const teamsById = new Map(teams.map(t => [t.id, { logoUrl: t.logoUrl, name: t.name }]));
 
   // Unfiltered — used by overview tab
   const allScheduledMatches = matches.filter(m => m.status === 'scheduled');
@@ -446,7 +448,7 @@ export default function TournamentDetailPage() {
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {allScheduledMatches.slice(0, 6).map(m => (
-                      <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />
+                      <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
                     ))}
                   </div>
                 </div>
@@ -523,7 +525,7 @@ export default function TournamentDetailPage() {
                     <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Live Matches
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
+                    {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
@@ -532,7 +534,7 @@ export default function TournamentDetailPage() {
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Upcoming</h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
+                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
@@ -541,7 +543,7 @@ export default function TournamentDetailPage() {
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-3">Results</h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {completedMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} />)}
+                    {completedMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
@@ -600,9 +602,7 @@ export default function TournamentDetailPage() {
                               <h3 className="font-black text-white text-lg">{team.name}</h3>
                               <p className="text-xs text-slate-400 capitalize mt-0.5">{team.category.replace(/-/g, ' ')}</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                              <Shield className="h-5 w-5 text-yellow-400" />
-                            </div>
+                            <TeamLogo logoUrl={team.logoUrl} name={team.name} size={40} className="ring-2 ring-yellow-400/30" />
                           </div>
                         </div>
                         {/* Players */}
@@ -675,10 +675,39 @@ export default function TournamentDetailPage() {
 // ── Edge-anchored player photo with fallback image + name tag ─────────────
 const PLAYER_PLACEHOLDER = '/placeholder-player.svg';
 const TEAM_PLACEHOLDER = '/placeholder-team.svg';
+/** Charcoal slate — shared match card + team logo panel background */
+const MATCH_CARD_BG = '#2E3033';
 
 function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: boolean; align: 'left' | 'right' }) {
   const fallback = isTeam ? TEAM_PLACEHOLDER : PLAYER_PLACEHOLDER;
   const src = side.avatars[0] || fallback;
+
+  if (isTeam) {
+    return (
+      <div
+        className="flex h-full w-full flex-col items-center justify-center gap-1.5 px-1.5 py-2"
+        style={{ backgroundColor: MATCH_CARD_BG }}
+      >
+        <div className="flex min-h-0 flex-1 w-full items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={src}
+            alt={side.label}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = fallback; }}
+            className="max-h-full max-w-[88%] object-contain"
+          />
+        </div>
+        <p
+          className={`w-full shrink-0 px-1 text-sm font-bold leading-tight text-white break-words ${
+            align === 'left' ? 'text-left' : 'text-right'
+          }`}
+        >
+          {side.label}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full w-full bg-slate-800">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -688,7 +717,6 @@ function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: 
         onError={(e) => { (e.currentTarget as HTMLImageElement).src = fallback; }}
         className="absolute inset-0 h-full w-full object-cover object-top"
       />
-      {/* Name tag */}
       <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-2 pb-2 pt-7 ${align === 'left' ? 'text-left' : 'text-right'}`}>
         <p className="text-[11px] font-bold text-white leading-tight break-words">{side.label}</p>
       </div>
@@ -697,11 +725,18 @@ function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: 
 }
 
 // ── Match card sub-component ──────────────────────────────────────────────
-function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentId: string; regById: Map<string, Registration> }) {
+function MatchCard({
+  match, tournamentId, regById, teamsById,
+}: {
+  match: Match;
+  tournamentId: string;
+  regById: Map<string, Registration>;
+  teamsById: Map<string, { logoUrl?: string; name?: string }>;
+}) {
   const isLive = match.status === 'live';
   const isDone = match.status === 'completed';
-  const side1 = getMatchSideDisplay(match.player1Id, match.player1Name, regById);
-  const side2 = getMatchSideDisplay(match.player2Id, match.player2Name, regById);
+  const side1 = getMatchSideDisplay(match.player1Id, match.player1Name, regById, teamsById);
+  const side2 = getMatchSideDisplay(match.player2Id, match.player2Name, regById, teamsById);
   const side1IsTeam = !regById.has(match.player1Id);
   const side2IsTeam = !regById.has(match.player2Id);
 
@@ -714,13 +749,15 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
   const timeStr = new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const courtLabel = match.court ? `Court ${match.court}` : null;
 
-  // Card surface — keep the existing dark slate look (red accent when live)
   const surface = isLive
-    ? 'border-red-500/50 bg-gradient-to-b from-red-950/40 to-slate-900'
-    : 'border-white/5 bg-slate-900 hover:border-white/10';
+    ? 'border-red-500/50 hover:border-red-400/60'
+    : 'border-white/5 hover:border-white/10';
 
   return (
-    <div className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${surface}`}>
+    <div
+      className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${surface}`}
+      style={{ backgroundColor: MATCH_CARD_BG }}
+    >
       {isLive && (
         <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-red-500 via-orange-400 to-red-500 animate-pulse" />
       )}
@@ -764,12 +801,12 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
           </span>
 
           {/* Time + court */}
-          <div className="flex flex-col items-center gap-0.5 text-[10px] text-slate-400">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />{dateStr} · {timeStr}
+          <div className="flex flex-col items-center gap-0.5 text-[10px]">
+            <span className="flex items-center gap-1 font-semibold text-white">
+              <Clock className="h-3 w-3 text-white" />{dateStr} · {timeStr}
             </span>
             {courtLabel && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 text-slate-400">
                 <MapPin className="h-3 w-3" />{courtLabel}
               </span>
             )}

@@ -6,6 +6,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebas
 import { db } from '@/lib/firebase';
 import { Tournament, Registration, Team, Pool, Match } from '@/types';
 import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
+import { TeamLogo } from '@/components/TeamLogo';
 import Link from 'next/link';
 import Image from 'next/image';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
@@ -315,9 +316,7 @@ export default function CategoryPage() {
                 <section key={team.id}>
                   <div className={`flex items-center justify-between bg-gradient-to-r ${grad} rounded-2xl px-6 py-5 mb-5 border border-white/5`}>
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                        <Shield className="h-6 w-6 text-white/80" />
-                      </div>
+                      <TeamLogo logoUrl={team.logoUrl} name={team.name} size={48} className="ring-2 ring-white/20" />
                       <div>
                         <h2 className="text-2xl font-black text-white">{team.name}</h2>
                         <p className="text-sm text-white/50 mt-0.5">{players.length} players</p>

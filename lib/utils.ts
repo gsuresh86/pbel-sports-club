@@ -131,10 +131,18 @@ type RegistrationLike = {
 export function getMatchSideDisplay(
   playerId: string,
   fallbackName: string,
-  regById: Map<string, RegistrationLike>
+  regById: Map<string, RegistrationLike>,
+  teamsById?: Map<string, { logoUrl?: string; name?: string }>,
 ): MatchSideDisplay {
   const reg = regById.get(playerId);
-  if (!reg) return { label: fallbackName, names: [fallbackName], avatars: [undefined] };
+  if (!reg) {
+    const team = teamsById?.get(playerId);
+    return {
+      label: team?.name ?? fallbackName,
+      names: [team?.name ?? fallbackName],
+      avatars: [team?.logoUrl ?? undefined],
+    };
+  }
 
   const hasPartner = !!reg.partnerName && reg.partnerName.trim() !== '';
   if (hasPartner) {

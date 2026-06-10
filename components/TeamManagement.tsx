@@ -26,6 +26,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Team, Pool, Tournament, CategoryType } from '@/types';
+import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
+import { TeamLogo } from '@/components/TeamLogo';
 import { Users, Plus, Edit, Trash2, Crown, Target, UserPlus, Shuffle, X } from 'lucide-react';
 
 const TEAM_CATEGORIES: CategoryType[] = [
@@ -60,17 +62,33 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   const [teamPoolSelections, setTeamPoolSelections] = useState<Record<string, string>>({});
   const [savingPoolAssignments, setSavingPoolAssignments] = useState(false);
 
-  const [teamForm, setTeamForm] = useState({ name: '', category: '' as CategoryType, captainId: '', maxPlayers: 6 });
+  const [teamForm, setTeamForm] = useState({
+    name: '',
+    category: '' as CategoryType,
+    captainId: '',
+    maxPlayers: 6,
+    logoUrl: null as string | null,
+  });
+  const [uploadingTeamLogo, setUploadingTeamLogo] = useState(false);
 
   const defaultMaxPlayers = (category: CategoryType) =>
     category === 'womens-team' ? 5 : category === 'mens-team' ? 6 : 6;
+
+  const openCreateTeamModal = () => {
+    setTeamForm({ name: '', category: '' as CategoryType, captainId: '', maxPlayers: 6, logoUrl: null });
+    setShowCreateTeam(true);
+  };
   const [poolForm, setPoolForm] = useState({ name: '', category: '' as CategoryType, maxTeams: 4 });
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await addDoc(collection(db, 'tournaments', tournament.id, 'teams'), {
-        ...teamForm,
+        name: teamForm.name,
+        category: teamForm.category,
+        captainId: teamForm.captainId || null,
+        maxPlayers: teamForm.maxPlayers,
+        logoUrl: teamForm.logoUrl || null,
         tournamentId: tournament.id,
         players: [],
         status: 'active',
@@ -78,7 +96,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         createdBy: user.id,
       });
       setShowCreateTeam(false);
-      setTeamForm({ name: '', category: '' as CategoryType, captainId: '', maxPlayers: 6 });
+      setTeamForm({ name: '', category: '' as CategoryType, captainId: '', maxPlayers: 6, logoUrl: null });
       invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error creating team:', error);
@@ -122,6 +140,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       category: team.category,
       captainId: team.captainId || 'none',
       maxPlayers: team.maxPlayers ?? defaultMaxPlayers(team.category),
+      logoUrl: team.logoUrl ?? null,
     });
   };
 
@@ -142,6 +161,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         category: teamForm.category,
         captainId: teamForm.captainId === 'none' ? null : teamForm.captainId,
         maxPlayers: teamForm.maxPlayers,
+        logoUrl: teamForm.logoUrl || null,
         updatedAt: new Date(),
       });
 
@@ -171,7 +191,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       }
 
       setEditingTeam(null);
-      setTeamForm({ name: '', category: '' as CategoryType, captainId: 'none', maxPlayers: 6 });
+      setTeamForm({ name: '', category: '' as CategoryType, captainId: 'none', maxPlayers: 6, logoUrl: null });
       invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error updating team:', error);
@@ -457,7 +477,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setShowCreateTeam(true)}>
+          <Button onClick={openCreateTeamModal}>
             <Plus className="h-4 w-4 mr-2" />
             Create Team
           </Button>
@@ -490,7 +510,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No teams created</h3>
               <p className="text-gray-600 mb-4">Create teams to organize players for the tournament</p>
-              <Button onClick={() => setShowCreateTeam(true)}>
+              <Button onClick={openCreateTeamModal}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Team
               </Button>
@@ -523,10 +543,15 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                       <TableRow key={team.id}>
                         <TableCell className="text-gray-500 text-sm">{idx + 1}</TableCell>
                         <TableCell>
-                          <div className="font-medium">{team.name}</div>
-                          {team.seed && (
-                            <div className="text-xs text-gray-500">Seed #{team.seed}</div>
-                          )}
+                          <div className="flex items-center gap-3">
+                            <TeamLogo logoUrl={team.logoUrl} name={team.name} size={36} />
+                            <div>
+                              <div className="font-medium">{team.name}</div>
+                              {team.seed && (
+                                <div className="text-xs text-gray-500">Seed #{team.seed}</div>
+                              )}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{formatCategory(team.category)}</Badge>
@@ -885,9 +910,20 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                   required
                 />
               </div>
+              <ProfilePhotoUpload
+                label="Team logo (optional)"
+                value={teamForm.logoUrl}
+                onChange={(url) => setTeamForm(prev => ({ ...prev, logoUrl: url }))}
+                tournamentId={tournament.id}
+                uploadKey="team-new"
+                storageFolder="team-logos"
+                previewShape="square"
+                placeholderIcon="shield"
+                onUploadingChange={setUploadingTeamLogo}
+              />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setShowCreateTeam(false)}>Cancel</Button>
-                <Button type="submit">Create Team</Button>
+                <Button type="submit" disabled={uploadingTeamLogo}>Create Team</Button>
               </div>
             </form>
           </div>
@@ -1001,9 +1037,20 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                   </SelectContent>
                 </Select>
               </div>
+              <ProfilePhotoUpload
+                label="Team logo (optional)"
+                value={teamForm.logoUrl}
+                onChange={(url) => setTeamForm(prev => ({ ...prev, logoUrl: url }))}
+                tournamentId={tournament.id}
+                uploadKey={`team-${editingTeam.id}`}
+                storageFolder="team-logos"
+                previewShape="square"
+                placeholderIcon="shield"
+                onUploadingChange={setUploadingTeamLogo}
+              />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setEditingTeam(null)}>Cancel</Button>
-                <Button type="submit">Update Team</Button>
+                <Button type="submit" disabled={uploadingTeamLogo}>Update Team</Button>
               </div>
             </form>
           </div>

@@ -343,6 +343,7 @@ export interface Team {
   poolId?: string; // ID of pool/group this team belongs to
   seed?: number; // Seeding for tournament
   maxPlayers?: number; // Maximum players allowed in this team
+  logoUrl?: string; // Team logo for match cards, standings, etc.
   status: 'active' | 'eliminated' | 'withdrawn';
   createdAt: Date;
   updatedAt?: Date;

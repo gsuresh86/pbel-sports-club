@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Camera, Loader2, User, X } from 'lucide-react';
+import { Camera, Loader2, Shield, User, X } from 'lucide-react';
 import Image from 'next/image';
 
 interface ProfilePhotoUploadProps {
@@ -15,6 +15,12 @@ interface ProfilePhotoUploadProps {
   tournamentId: string;
   /** Distinguishes primary vs partner uploads in storage path */
   uploadKey?: string;
+  /** Storage folder prefix (default: participant-profiles) */
+  storageFolder?: 'participant-profiles' | 'team-logos';
+  /** Preview shape */
+  previewShape?: 'round' | 'square';
+  /** Placeholder icon when no image */
+  placeholderIcon?: 'user' | 'shield';
   maxSize?: number;
   disabled?: boolean;
   className?: string;
@@ -31,6 +37,9 @@ export function ProfilePhotoUpload({
   onChange,
   tournamentId,
   uploadKey = 'player',
+  storageFolder = 'participant-profiles',
+  previewShape = 'round',
+  placeholderIcon = 'user',
   maxSize = 5,
   disabled = false,
   className = '',
@@ -67,10 +76,12 @@ export function ProfilePhotoUpload({
     try {
       const timestamp = Date.now();
       const safeName = sanitizeFileName(file.name);
-      const fileName = `participant-profiles/${tournamentId}/${uploadKey}-${timestamp}-${safeName}`;
+      const fileName = `${storageFolder}/${tournamentId}/${uploadKey}-${timestamp}-${safeName}`;
 
       const storageRef = ref(storage, fileName);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, file, {
+        contentType: file.type || 'image/jpeg',
+      });
       const downloadURL = await getDownloadURL(snapshot.ref);
 
       onChange(downloadURL);
@@ -111,15 +122,15 @@ export function ProfilePhotoUpload({
       <Label className="text-sm font-medium text-gray-700">{label}</Label>
       <div className="flex items-center gap-4">
         <div
-          className={`relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-full border-2 border-dashed ${
-            displayUrl ? 'border-gray-200' : 'border-gray-300 bg-gray-50'
-          }`}
+          className={`relative h-24 w-24 flex-shrink-0 overflow-hidden border-2 border-dashed ${
+            previewShape === 'round' ? 'rounded-full' : 'rounded-xl'
+          } ${displayUrl ? 'border-gray-200' : 'border-gray-300 bg-gray-50'}`}
         >
           {displayUrl ? (
-            <Image src={displayUrl} alt="Profile preview" fill className="object-cover" />
+            <Image src={displayUrl} alt="Upload preview" fill className="object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-gray-400">
-              <User className="h-10 w-10" />
+              {placeholderIcon === 'shield' ? <Shield className="h-10 w-10" /> : <User className="h-10 w-10" />}
             </div>
           )}
           {uploading && (

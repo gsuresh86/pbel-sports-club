@@ -1,6 +1,7 @@
 'use client';
 
 import type { Match, Pool, Registration, Team } from '@/types';
+import { TeamLogo } from '@/components/TeamLogo';
 import {
   computePoolStandings,
   formatNrr,
@@ -27,7 +28,14 @@ const stickyCell =
 const stickyCellSecond =
   'sticky left-8 z-10 bg-slate-900 after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-white/10';
 
-function PoolPointsTableInner({ rows, label }: { rows: PoolStandingRow[]; label: string }) {
+function PoolPointsTableInner({
+  rows, label, isTeamCat, teams,
+}: {
+  rows: PoolStandingRow[];
+  label: string;
+  isTeamCat: boolean;
+  teams: Team[];
+}) {
   if (rows.every(r => r.played === 0)) {
     return (
       <p className="text-sm text-slate-500 italic px-5 py-6 text-center">
@@ -63,8 +71,17 @@ function PoolPointsTableInner({ rows, label }: { rows: PoolStandingRow[]; label:
                 <td className={`px-1.5 sm:px-4 py-2 sm:py-2.5 text-slate-500 font-bold tabular-nums ${stickyCell} ${rowBg}`}>
                   {idx + 1}
                 </td>
-                <td className={`px-1.5 sm:px-2 py-2 sm:py-2.5 font-semibold text-white truncate min-w-[88px] max-w-[120px] sm:max-w-none ${stickyCellSecond} ${rowBg}`}>
-                  {row.name}
+                <td className={`px-1.5 sm:px-2 py-2 sm:py-2.5 font-semibold text-white min-w-[88px] max-w-[120px] sm:max-w-none ${stickyCellSecond} ${rowBg}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isTeamCat && (
+                      <TeamLogo
+                        logoUrl={teams.find(t => t.id === row.id)?.logoUrl}
+                        name={row.name}
+                        size={24}
+                      />
+                    )}
+                    <span className="truncate">{row.name}</span>
+                  </div>
                 </td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-300 tabular-nums">{row.played}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-green-400 tabular-nums">{row.won}</td>
@@ -113,7 +130,7 @@ export default function PoolPointsTable({
           {pool.status}
         </span>
       </div>
-      <PoolPointsTableInner rows={rows} label={entityLabel(isTeamCat, isDoubles)} />
+      <PoolPointsTableInner rows={rows} label={entityLabel(isTeamCat, isDoubles)} isTeamCat={isTeamCat} teams={teams} />
     </div>
   );
 }
