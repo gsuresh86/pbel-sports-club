@@ -6,7 +6,7 @@ import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebas
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
-import { getMatchSideDisplay, type MatchSideDisplay } from '@/lib/utils';
+import { getMatchSideDisplay, getInitials, firstName, toTitleCase, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
   Shield, Users2, ScrollText, ChevronRight,
@@ -17,6 +17,7 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 import { TeamLogo } from '@/components/TeamLogo';
+import { formatCategoryLabel } from '@/lib/categoryLabels';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -31,6 +32,7 @@ export default function TournamentDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
   const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
   const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
+  const [matchCategoryFilter, setMatchCategoryFilter] = useState<string>('all');
   const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
   const [matchSearch, setMatchSearch] = useState('');
   const [matchDateFilter, setMatchDateFilter] = useState('');
@@ -136,6 +138,24 @@ export default function TournamentDetailPage() {
   const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
   const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
 
+  const getMatchCategory = (m: Match): string | undefined => {
+    const fromPool = poolNameToCategory.get(m.round);
+    if (fromPool) return fromPool;
+    const team1 = teams.find(t => t.id === m.player1Id);
+    if (team1) return team1.category;
+    const team2 = teams.find(t => t.id === m.player2Id);
+    if (team2) return team2.category;
+    const reg1 = participants.find(p => p.id === m.player1Id);
+    if (reg1?.selectedCategory) return reg1.selectedCategory;
+    const reg2 = participants.find(p => p.id === m.player2Id);
+    if (reg2?.selectedCategory) return reg2.selectedCategory;
+    return undefined;
+  };
+
+  const matchDistinctCategories = Array.from(
+    new Set(matches.map(getMatchCategory).filter((c): c is string => !!c))
+  ).sort();
+
   // Registration lookup so doubles matches can show both partners + avatars
   const regById = new Map(participants.map(p => [p.id, p]));
   const teamsById = new Map(teams.map(t => [t.id, { logoUrl: t.logoUrl, name: t.name }]));
@@ -148,6 +168,7 @@ export default function TournamentDetailPage() {
 
   const fixturesFiltered = matches.filter(m => {
     if (matchRoundFilter !== 'all' && m.round !== matchRoundFilter) return false;
+    if (matchCategoryFilter !== 'all' && getMatchCategory(m) !== matchCategoryFilter) return false;
     if (matchStatusFilter === 'live') { if (m.status !== 'live') return false; }
     else if (matchStatusFilter === 'scheduled') { if (m.status !== 'scheduled') return false; }
     else if (matchStatusFilter === 'completed') { if (m.status !== 'completed') return false; }
@@ -342,29 +363,8 @@ export default function TournamentDetailPage() {
           {/* OVERVIEW ─────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <div className="space-y-8">
-              {/* Info cards row */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Key Info */}
-                <div className="col-span-full lg:col-span-1 bg-slate-900 rounded-2xl p-6 border border-white/5">
-                  <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-4">Tournament Info</h3>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Format', value: (tournament.tournamentType || 'individual').replace('-', ' ') },
-                      { label: 'Categories', value: tournament.categories?.length ?? 0, suffix: ' categories' },
-                      { label: 'Deadline', value: fmt(tournament.registrationDeadline) },
-                      ...(tournament.entryFee ? [{ label: 'Entry Fee', value: `₹${tournament.entryFee}` }] : []),
-                      ...(tournament.prizePool ? [{ label: 'Prize Pool', value: `₹${tournament.prizePool}` }] : []),
-                    ].map(row => (
-                      <div key={row.label} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
-                        <span className="text-slate-400">{row.label}</span>
-                        <span className="text-white font-semibold capitalize">{row.value}{(row as {suffix?: string}).suffix ?? ''}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Categories — clickable cards linking to category pages */}
-                <div className="col-span-full lg:col-span-2 bg-slate-900 rounded-2xl p-6 border border-white/5">
+              {/* Categories — clickable cards linking to category pages */}
+              <div className="bg-slate-900 rounded-2xl p-6 border border-white/5">
                   <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-4">Categories</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {tournament.categories?.map(cat => {
@@ -416,7 +416,6 @@ export default function TournamentDetailPage() {
                       )}
                     </div>
                   )}
-                </div>
               </div>
 
               {pools.length > 0 && (
@@ -484,6 +483,18 @@ export default function TournamentDetailPage() {
                   </div>
                   {/* Selects + count — second row */}
                   <div className="flex flex-wrap gap-2 items-center">
+                    {matchDistinctCategories.length > 0 && (
+                      <select
+                        value={matchCategoryFilter}
+                        onChange={e => setMatchCategoryFilter(e.target.value)}
+                        className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                      >
+                        <option value="all">All Categories</option>
+                        {matchDistinctCategories.map(c => (
+                          <option key={c} value={c}>{formatCategoryLabel(c)}</option>
+                        ))}
+                      </select>
+                    )}
                     {matchDistinctRounds.length > 1 && (
                       <select
                         value={matchRoundFilter}
@@ -504,9 +515,15 @@ export default function TournamentDetailPage() {
                       <option value="scheduled">Upcoming</option>
                       <option value="completed">Completed</option>
                     </select>
-                    {(matchRoundFilter !== 'all' || matchStatusFilter !== 'all' || matchSearch || matchDateFilter) && (
+                    {(matchRoundFilter !== 'all' || matchCategoryFilter !== 'all' || matchStatusFilter !== 'all' || matchSearch || matchDateFilter) && (
                       <button
-                        onClick={() => { setMatchRoundFilter('all'); setMatchStatusFilter('all'); setMatchSearch(''); setMatchDateFilter(''); }}
+                        onClick={() => {
+                          setMatchRoundFilter('all');
+                          setMatchCategoryFilter('all');
+                          setMatchStatusFilter('all');
+                          setMatchSearch('');
+                          setMatchDateFilter('');
+                        }}
                         className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
                       >
                         Clear all
@@ -673,53 +690,112 @@ export default function TournamentDetailPage() {
 }
 
 // ── Edge-anchored player photo with fallback image + name tag ─────────────
-const PLAYER_PLACEHOLDER = '/placeholder-player.svg';
-const TEAM_PLACEHOLDER = '/placeholder-team.svg';
-/** Charcoal slate — shared match card + team logo panel background */
-const MATCH_CARD_BG = '#2E3033';
+const MATCH_CARD_BG_IMAGE = '/match-card-bg.png';
 
-function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: boolean; align: 'left' | 'right' }) {
-  const fallback = isTeam ? TEAM_PLACEHOLDER : PLAYER_PLACEHOLDER;
-  const src = side.avatars[0] || fallback;
+const MATCH_AVATAR_SIZE = 'h-[5.5rem] w-[5.5rem] sm:h-28 sm:w-28';
+const TEAM_LOGO_SIZE = 'aspect-[3/4] w-[85%] max-w-[132px]';
+const TEAM_LOGO_IMG = 'max-h-[5.5rem] sm:max-h-[6.25rem] max-w-[78%] object-contain';
+/** Improves legibility of center labels on the textured match-card background */
+const MATCH_CENTER_SHADOW = 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]';
 
-  if (isTeam) {
-    return (
-      <div
-        className="flex h-full w-full flex-col items-center justify-center gap-1.5 px-1.5 py-2"
-        style={{ backgroundColor: MATCH_CARD_BG }}
-      >
-        <div className="flex min-h-0 flex-1 w-full items-center justify-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={side.label}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = fallback; }}
-            className="max-h-full max-w-[88%] object-contain"
-          />
-        </div>
-        <p
-          className={`w-full shrink-0 px-1 text-sm font-bold leading-tight text-white break-words ${
-            align === 'left' ? 'text-left' : 'text-right'
-          }`}
-        >
-          {side.label}
-        </p>
-      </div>
-    );
-  }
+function AvatarHalf({ name, photoUrl }: { name: string; photoUrl?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getInitials(name) || '?';
+  const showPhoto = !!photoUrl && !imgError;
 
   return (
-    <div className="relative h-full w-full bg-slate-800">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={side.label}
-        onError={(e) => { (e.currentTarget as HTMLImageElement).src = fallback; }}
-        className="absolute inset-0 h-full w-full object-cover object-top"
-      />
-      <div className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-2 pb-2 pt-7 ${align === 'left' ? 'text-left' : 'text-right'}`}>
-        <p className="text-[11px] font-bold text-white leading-tight break-words">{side.label}</p>
+    <div className="relative h-full w-1/2 overflow-hidden bg-slate-700/80">
+      {showPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl}
+          alt={name}
+          onError={() => setImgError(true)}
+          className="h-full w-full object-cover object-top"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white">
+          {initials}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatchSideAvatar({ name, photoUrl }: { name: string; photoUrl?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getInitials(name) || '?';
+  const showPhoto = !!photoUrl && !imgError;
+
+  return (
+    <div className={`${MATCH_AVATAR_SIZE} shrink-0 overflow-hidden rounded-full bg-slate-700/80`}>
+      {showPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl}
+          alt={name}
+          onError={() => setImgError(true)}
+          className="h-full w-full object-cover object-top"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-base font-bold text-white">
+          {initials}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PairCombinedAvatar({
+  names,
+  photoUrls,
+}: {
+  names: string[];
+  photoUrls: (string | undefined)[];
+}) {
+  return (
+    <div className={`${MATCH_AVATAR_SIZE} flex shrink-0 overflow-hidden rounded-full`}>
+      <AvatarHalf name={names[0] ?? ''} photoUrl={photoUrls[0]} />
+      <AvatarHalf name={names[1] ?? ''} photoUrl={photoUrls[1]} />
+    </div>
+  );
+}
+
+function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: boolean; align: 'left' | 'right' }) {
+  const isDoubles = !isTeam && side.names.length > 1;
+  const [teamLogoError, setTeamLogoError] = useState(false);
+  const teamLogo = side.avatars[0];
+  const teamName = side.names[0] ?? side.label;
+
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 bg-transparent px-1 py-2">
+      <div className={isTeam ? 'flex min-h-0 flex-1 w-full items-center justify-center' : 'shrink-0'}>
+        {isTeam ? (
+          teamLogo && !teamLogoError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={teamLogo}
+              alt={side.label}
+              onError={() => setTeamLogoError(true)}
+              className={TEAM_LOGO_IMG}
+            />
+          ) : (
+            <div className={`${TEAM_LOGO_SIZE} flex items-center justify-center rounded-lg bg-slate-700/80 text-lg font-bold text-white`}>
+              {getInitials(teamName) || '?'}
+            </div>
+          )
+        ) : isDoubles ? (
+          <PairCombinedAvatar names={side.names} photoUrls={side.avatars} />
+        ) : (
+          <MatchSideAvatar
+            name={side.names[0] ?? side.label}
+            photoUrl={side.avatars[0]}
+          />
+        )}
       </div>
+      <p className="w-full shrink-0 px-0.5 text-center text-xs sm:text-sm font-bold leading-snug text-white">
+        {isTeam ? toTitleCase(side.label) : toTitleCase(firstName(side.names[0] ?? side.label))}
+      </p>
     </div>
   );
 }
@@ -749,14 +825,10 @@ function MatchCard({
   const timeStr = new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const courtLabel = match.court ? `Court ${match.court}` : null;
 
-  const surface = isLive
-    ? 'border-red-500/50 hover:border-red-400/60'
-    : 'border-white/5 hover:border-white/10';
-
   return (
     <div
-      className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${surface}`}
-      style={{ backgroundColor: MATCH_CARD_BG }}
+      className="relative rounded-2xl overflow-hidden transition-all hover:scale-[1.01] bg-cover bg-center"
+      style={{ backgroundImage: `url(${MATCH_CARD_BG_IMAGE})` }}
     >
       {isLive && (
         <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-red-500 via-orange-400 to-red-500 animate-pulse" />
@@ -765,56 +837,58 @@ function MatchCard({
       {/* Players on the edges + center info (UEFA-style) */}
       <div className="flex items-stretch min-h-[172px]">
         {/* Player 1 photo — left edge */}
-        <div className="relative w-[30%] shrink-0">
+        <div className="relative w-[36%] shrink-0">
           <PlayerPhoto side={side1} isTeam={side1IsTeam} align="left" />
         </div>
 
         {/* Center column */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-2 py-4">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center gap-1.5 px-1 py-3">
           {/* Pool / round */}
-          <span className="rounded-full bg-white/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-100 max-w-full break-words">
+          <span className={`whitespace-nowrap rounded-full border border-white/15 bg-black/45 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ${MATCH_CENTER_SHADOW}`}>
             {match.round}
           </span>
 
           {/* Score / VS */}
           {isDone ? (
-            <div className="flex items-center gap-1.5 text-3xl font-black tabular-nums">
+            <div className={`flex items-center gap-1 text-2xl font-black tabular-nums whitespace-nowrap text-white ${MATCH_CENTER_SHADOW}`}>
               <span className={p1won ? 'text-yellow-300' : 'text-white'}>{match.player1Score ?? '-'}</span>
-              <span className="text-slate-500 text-xl">:</span>
+              <span className="text-slate-300 text-lg">:</span>
               <span className={p2won ? 'text-yellow-300' : 'text-white'}>{match.player2Score ?? '-'}</span>
             </div>
           ) : isLive && liveP1 !== null ? (
-            <div className="flex items-center gap-1.5 text-3xl font-black tabular-nums text-white">
-              <span>{liveP1}</span><span className="text-red-400 text-xl">:</span><span>{liveP2}</span>
+            <div className={`flex items-center gap-1 text-2xl font-black tabular-nums text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>
+              <span>{liveP1}</span><span className="text-red-300 text-lg">:</span><span>{liveP2}</span>
             </div>
           ) : (
-            <span className="text-xl font-black text-white/40">VS</span>
+            <span className={`text-xl font-black text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>VS</span>
           )}
 
           {/* Status */}
-          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-            isLive ? 'bg-red-500 text-white animate-pulse' :
-            isDone ? 'bg-slate-700 text-slate-200' :
-            'bg-blue-500/20 text-blue-400'
+          <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${MATCH_CENTER_SHADOW} ${
+            isLive ? 'bg-red-600 text-white animate-pulse' :
+            isDone ? 'bg-slate-600 text-white' :
+            'bg-blue-600 text-white'
           }`}>
             {isLive ? '● Live' : isDone ? 'Full Time' : 'Upcoming'}
           </span>
 
           {/* Time + court */}
-          <div className="flex flex-col items-center gap-0.5 text-[10px]">
-            <span className="flex items-center gap-1 font-semibold text-white">
-              <Clock className="h-3 w-3 text-white" />{dateStr} · {timeStr}
+          <div className="flex w-full flex-col items-center gap-1">
+            <span className={`inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-[9px] font-semibold text-white ${MATCH_CENTER_SHADOW}`}>
+              <Clock className="h-3 w-3 shrink-0 text-white" />
+              <span>{dateStr} · {timeStr}</span>
             </span>
             {courtLabel && (
-              <span className="flex items-center gap-1 text-slate-400">
-                <MapPin className="h-3 w-3" />{courtLabel}
+              <span className={`inline-flex items-center gap-1 whitespace-nowrap text-[9px] font-medium text-slate-200 ${MATCH_CENTER_SHADOW}`}>
+                <MapPin className="h-3 w-3 shrink-0 text-slate-200" />
+                {courtLabel}
               </span>
             )}
           </div>
         </div>
 
         {/* Player 2 photo — right edge */}
-        <div className="relative w-[30%] shrink-0">
+        <div className="relative w-[36%] shrink-0">
           <PlayerPhoto side={side2} isTeam={side2IsTeam} align="right" />
         </div>
       </div>
@@ -822,7 +896,7 @@ function MatchCard({
       {/* Winner label */}
       {isDone && match.winner && (
         <div className="px-3 pb-3 -mt-1 flex items-center justify-center gap-1 text-[11px] font-bold text-yellow-300">
-          <Star className="h-3 w-3 fill-yellow-300" /> {match.winner}
+          <Star className="h-3 w-3 fill-yellow-300" /> {!side1IsTeam && !side2IsTeam ? toTitleCase(match.winner) : match.winner}
         </div>
       )}
 

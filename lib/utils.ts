@@ -106,6 +106,12 @@ export function firstName(full?: string | null): string {
   return (full ?? '').trim().split(/\s+/)[0] ?? '';
 }
 
+/** Title-case a name — converts "ANJANI PT" → "Anjani Pt". */
+export function toTitleCase(text?: string | null): string {
+  if (!text?.trim()) return '';
+  return text.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export interface MatchSideDisplay {
   /** Combined label — "Asha & Ravi" for doubles, full name for singles/teams. */
   label: string;
