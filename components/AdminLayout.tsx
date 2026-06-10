@@ -63,7 +63,7 @@ const adminMenuItems = [
     href: '/admin/users',
     icon: User,
     description: 'Manage admin users and permissions',
-    roles: ['admin', 'super-admin']
+    roles: ['admin', 'super-admin', 'tournament-admin']
   },
   {
     title: 'Leads',

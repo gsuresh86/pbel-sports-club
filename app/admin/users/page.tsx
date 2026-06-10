@@ -58,10 +58,17 @@ export default function UserManagementPage() {
     isActive: true,
   });
 
+  const isFullAdmin = user?.role === 'admin' || user?.role === 'super-admin';
+  const canManageUsers = isFullAdmin || user?.role === 'tournament-admin';
+  // Tournaments this user is allowed to assign (full admins get all)
+  const assignableTournaments = isFullAdmin
+    ? tournaments
+    : tournaments.filter(t => (user?.assignedTournaments || []).includes(t.id));
+
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
+    if (!authLoading && !canManageUsers) {
       router.push('/login');
-    } else if (user?.role === 'admin' || user?.role === 'super-admin') {
+    } else if (canManageUsers) {
       loadData();
     }
   }, [user, authLoading, router]);
@@ -88,15 +95,24 @@ export default function UserManagementPage() {
 
   const loadData = async () => {
     try {
-      // Load users
-      const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+      // Load users — full admins see everyone; tournament-admins see only referees
+      const usersQuery = isFullAdmin
+        ? query(collection(db, 'users'), orderBy('createdAt', 'desc'))
+        : query(collection(db, 'users'), where('role', '==', 'referee'));
       const usersSnapshot = await getDocs(usersQuery);
-      const usersData = usersSnapshot.docs.map(doc => ({
+      let usersData = usersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as User[];
+      // The referee-only query can't orderBy createdAt without a composite index,
+      // so sort newest-first on the client instead.
+      if (!isFullAdmin) {
+        usersData = usersData.sort(
+          (a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+        );
+      }
 
       // Load tournaments
       const tournamentsQuery = query(collection(db, 'tournaments'), orderBy('createdAt', 'desc'));
@@ -165,11 +181,11 @@ export default function UserManagementPage() {
       console.log('Current admin user:', user);
       console.log('Auth loading state:', authLoading);
       
-      // Check if current user is admin
-      if (!user || (user.role !== 'admin' && user.role !== 'super-admin')) {
+      // Check if current user may manage users
+      if (!user || !canManageUsers) {
         alert({
           title: 'Permission Denied',
-          description: 'Only administrators can create users',
+          description: 'You do not have permission to manage users',
           variant: 'error'
         });
         return;
@@ -203,11 +219,27 @@ export default function UserManagementPage() {
         console.error('Error reading user document:', docError);
       }
       
+      // Tournament-admins may only manage referees, scoped to their own tournaments.
+      let effectiveRole: UserRole = formData.role;
+      let effectiveTournaments = formData.assignedTournaments;
+      if (!isFullAdmin) {
+        effectiveRole = 'referee';
+        const allowed = user.assignedTournaments || [];
+        const within = formData.assignedTournaments.filter(id => allowed.includes(id));
+        if (editingUser) {
+          // Preserve any assignments to tournaments outside this admin's control.
+          const outside = (editingUser.assignedTournaments || []).filter(id => !allowed.includes(id));
+          effectiveTournaments = Array.from(new Set([...outside, ...within]));
+        } else {
+          effectiveTournaments = within;
+        }
+      }
+
       const userData = {
         name: formData.name.trim(),
         email: formData.email.trim(),
-        role: formData.role,
-        assignedTournaments: formData.assignedTournaments,
+        role: effectiveRole,
+        assignedTournaments: effectiveTournaments,
         isActive: formData.isActive,
         updatedAt: new Date(),
         createdBy: user?.id,
@@ -256,8 +288,8 @@ export default function UserManagementPage() {
             email: formData.email,
             password: formData.password,
             name: formData.name,
-            role: formData.role,
-            assignedTournaments: formData.assignedTournaments,
+            role: effectiveRole,
+            assignedTournaments: effectiveTournaments,
             isActive: formData.isActive,
           }),
         });
@@ -330,6 +362,14 @@ export default function UserManagementPage() {
   };
 
   const handleEdit = (user: User) => {
+    if (!isFullAdmin && user.role !== 'referee') {
+      alert({
+        title: 'Permission Denied',
+        description: 'You can only edit referee accounts',
+        variant: 'error'
+      });
+      return;
+    }
     setEditingUser(user);
     setFormData({
       name: user.name,
@@ -392,7 +432,7 @@ export default function UserManagementPage() {
       name: '',
       email: '',
       password: '',
-      role: 'tournament-admin',
+      role: isFullAdmin ? 'tournament-admin' : 'referee',
       assignedTournaments: [],
       isActive: true,
     });
@@ -441,7 +481,11 @@ export default function UserManagementPage() {
       <div className="p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-          <p className="text-gray-600">Manage admin users and their tournament access</p>
+          <p className="text-gray-600">
+            {isFullAdmin
+              ? 'Manage admin users and their tournament access'
+              : 'Add and manage referees for your assigned tournaments'}
+          </p>
         </div>
 
         {/* Search and Filters */}
@@ -466,12 +510,13 @@ export default function UserManagementPage() {
                   <SelectItem value="all">All Roles</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="tournament-admin">Tournament Admin</SelectItem>
+                  <SelectItem value="referee">Referee</SelectItem>
                   <SelectItem value="public">Public</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add User
+                {isFullAdmin ? 'Add User' : 'Add Referee'}
               </Button>
             </div>
           </div>
@@ -670,17 +715,20 @@ export default function UserManagementPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })}>
+                  <Select value={formData.role} onValueChange={(value: UserRole) => setFormData({ ...formData, role: value })} disabled={!isFullAdmin}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin (Full Access)</SelectItem>
-                      <SelectItem value="tournament-admin">Tournament Admin (Limited Access)</SelectItem>
+                      {isFullAdmin && <SelectItem value="admin">Admin (Full Access)</SelectItem>}
+                      {isFullAdmin && <SelectItem value="tournament-admin">Tournament Admin (Limited Access)</SelectItem>}
                       <SelectItem value="referee">Referee (Matches & Scoring Only)</SelectItem>
-                      <SelectItem value="public">Public User</SelectItem>
+                      {isFullAdmin && <SelectItem value="public">Public User</SelectItem>}
                     </SelectContent>
                   </Select>
+                  {!isFullAdmin && (
+                    <p className="text-xs text-gray-500">Tournament admins can only create referees.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
@@ -720,7 +768,7 @@ export default function UserManagementPage() {
                         <SelectValue placeholder="Add a tournament..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {tournaments
+                        {assignableTournaments
                           .filter(tournament => !formData.assignedTournaments.includes(tournament.id))
                           .map((tournament) => (
                             <SelectItem key={tournament.id} value={tournament.id}>
@@ -760,8 +808,12 @@ export default function UserManagementPage() {
                       </div>
                     )}
                     
-                    {tournaments.length === 0 && (
-                      <p className="text-sm text-gray-500">No tournaments available. Create tournaments first.</p>
+                    {assignableTournaments.length === 0 && (
+                      <p className="text-sm text-gray-500">
+                        {isFullAdmin
+                          ? 'No tournaments available. Create tournaments first.'
+                          : 'You have no assigned tournaments yet. Ask an admin to assign you to one.'}
+                      </p>
                     )}
                   </div>
                 </div>

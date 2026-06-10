@@ -35,15 +35,27 @@ service cloud.firestore {
 
     // User documents - allow authenticated users to read their own document
     match /users/{userId} {
+      // Tournament-admins may read referee accounts so they can manage them
+      // (list queries must be constrained to role == 'referee')
       allow read: if request.auth != null && (
-        request.auth.uid == userId || 
-        isAdmin()
-      );
-      allow write: if request.auth != null && (
-        request.auth.uid == userId || 
-        isAdmin()
+        request.auth.uid == userId ||
+        isAdmin() ||
+        (isTournamentAdmin() && resource.data.role == 'referee')
       );
       allow create: if request.auth != null;
+      // Tournament-admins may only update referee accounts and may not change the role
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        isAdmin() ||
+        (isTournamentAdmin() &&
+          resource.data.role == 'referee' &&
+          request.resource.data.role == 'referee')
+      );
+      // Tournament-admins may remove referee accounts
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        (isTournamentAdmin() && resource.data.role == 'referee')
+      );
     }
 
     // Tournaments - public read, role-based write
