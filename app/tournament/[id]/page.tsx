@@ -242,8 +242,8 @@ export default function TournamentDetailPage() {
             <div className="max-w-7xl mx-auto px-6 pt-28 sm:pt-32 pb-10">
               {tournament.status === 'ongoing' && (
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="inline-flex items-center gap-1.5 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Live Now
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-600/90 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-200" /> Live Now
                   </span>
                 </div>
               )}
@@ -284,7 +284,7 @@ export default function TournamentDetailPage() {
                 )}
                 {liveMatches.length > 0 && (
                   <Link href={`/tournament/${tournamentId}/live/${liveMatches[0].id}`}>
-                    <Button className="bg-red-600 hover:bg-red-500 text-white font-bold h-11 rounded-full px-6 text-sm animate-pulse">
+                    <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 rounded-full px-6 text-sm">
                       <Flame className="h-4 w-4 mr-2" /> Watch Live
                     </Button>
                   </Link>
@@ -316,10 +316,10 @@ export default function TournamentDetailPage() {
 
             {/* ── Live ticker ── */}
             {liveMatches.length > 0 && (
-              <div className="bg-red-600/90 border-t border-red-500/50">
+              <div className="bg-emerald-800/80 border-t border-emerald-600/40">
                 <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-3 overflow-x-auto">
-                  <span className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-widest flex-shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Live
+                  <span className="flex items-center gap-1.5 text-xs font-black text-emerald-100 uppercase tracking-widest flex-shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-emerald-300" /> Live
                   </span>
                   {liveMatches.map(m => (
                     <Link key={m.id} href={`/tournament/${tournamentId}/live/${m.id}`}
@@ -397,7 +397,7 @@ export default function TournamentDetailPage() {
                       <div className="flex gap-4 text-sm flex-wrap">
                         {[
                           { label: 'Completed', value: completedMatches.length, color: 'text-green-400' },
-                          { label: 'Live', value: liveMatches.length, color: 'text-red-400' },
+                          { label: 'Live', value: liveMatches.length, color: 'text-emerald-400' },
                           { label: 'Upcoming', value: scheduledMatches.length, color: 'text-blue-400' },
                         ].map(s => (
                           <div key={s.label} className="flex items-center gap-2">
@@ -410,7 +410,7 @@ export default function TournamentDetailPage() {
                       {matches.length > 0 && (
                         <div className="mt-3 h-2 bg-white/5 rounded-full overflow-hidden flex">
                           <div className="h-full bg-green-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'completed').length / matches.length) * 100}%` }} />
-                          <div className="h-full bg-red-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'live').length / matches.length) * 100}%` }} />
+                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'live').length / matches.length) * 100}%` }} />
                           <div className="h-full bg-blue-500 transition-all" style={{ width: `${(allScheduledMatches.length / matches.length) * 100}%` }} />
                         </div>
                       )}
@@ -538,8 +538,8 @@ export default function TournamentDetailPage() {
               {/* Live */}
               {liveMatches.length > 0 && (
                 <section>
-                  <h3 className="text-xs uppercase tracking-widest text-red-400 font-bold mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Live Matches
+                  <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" /> Live Matches
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
@@ -831,7 +831,7 @@ function MatchCard({
       style={{ backgroundImage: `url(${MATCH_CARD_BG_IMAGE})` }}
     >
       {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-red-500 via-orange-400 to-red-500 animate-pulse" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" />
       )}
 
       {/* Players on the edges + center info (UEFA-style) */}
@@ -857,7 +857,7 @@ function MatchCard({
             </div>
           ) : isLive && liveP1 !== null ? (
             <div className={`flex items-center gap-1 text-2xl font-black tabular-nums text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>
-              <span>{liveP1}</span><span className="text-red-300 text-lg">:</span><span>{liveP2}</span>
+              <span>{liveP1}</span><span className="text-emerald-300 text-lg">:</span><span>{liveP2}</span>
             </div>
           ) : (
             <span className={`text-xl font-black text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>VS</span>
@@ -865,7 +865,7 @@ function MatchCard({
 
           {/* Status */}
           <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${MATCH_CENTER_SHADOW} ${
-            isLive ? 'bg-red-600 text-white animate-pulse' :
+            isLive ? 'bg-emerald-600/90 text-white' :
             isDone ? 'bg-slate-600 text-white' :
             'bg-blue-600 text-white'
           }`}>
@@ -904,7 +904,7 @@ function MatchCard({
       {isLive && (
         <div className="px-3 pb-3">
           <Link href={`/tournament/${tournamentId}/live/${match.id}`} className="block">
-            <Button className="w-full h-9 text-xs bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl">
+            <Button className="w-full h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">
               <Target className="h-3.5 w-3.5 mr-1.5" /> Watch Live Score
             </Button>
           </Link>

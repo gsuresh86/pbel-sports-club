@@ -111,8 +111,8 @@ export default function LiveMatchPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Match Not Found</h1>
-          <Link href="/live-scores">
-            <Button>Back to Live Scores</Button>
+          <Link href={`/tournament/${tournamentId}`}>
+            <Button>Back to Tournament</Button>
           </Link>
         </div>
       </div>
@@ -173,11 +173,11 @@ export default function LiveMatchPage() {
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
                   <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-red-500" />
+                    <Target className="h-5 w-5 text-emerald-500" />
                     Live Score
                   </CardTitle>
                   {liveScore.isLive && !winner && (
-                    <Badge className="bg-red-100 text-red-800 animate-pulse">
+                    <Badge className="bg-emerald-100 text-emerald-800">
                       <Play className="h-3 w-3 mr-1" />
                       LIVE
                     </Badge>

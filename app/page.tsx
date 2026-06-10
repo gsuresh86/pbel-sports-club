@@ -81,14 +81,6 @@ const QUICK_LINKS = [
     border: 'hover:border-blue-400/40',
   },
   {
-    emoji: '🔴',
-    label: 'Live Scores',
-    desc: 'Real-time updates for ongoing matches',
-    href: '/live-scores',
-    border: 'hover:border-red-400/40',
-    live: true,
-  },
-  {
     emoji: '🏆',
     label: 'Winners',
     desc: 'Results, brackets, and champion gallery',
@@ -150,12 +142,6 @@ export default function Home() {
                 View Tournaments <ChevronRight className="h-4 w-4" />
               </div>
             </Link>
-            <Link href="/live-scores">
-              <div className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-bold px-8 py-4 rounded-full text-sm transition-all duration-200">
-                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-                Live Scores
-              </div>
-            </Link>
           </div>
         </div>
       </section>
@@ -164,7 +150,7 @@ export default function Home() {
       <section className="py-12 px-4">
         <div className="max-w-5xl mx-auto">
           <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest text-center mb-6">Quick Access</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {QUICK_LINKS.map(ql => (
               <Link key={ql.href + ql.label} href={ql.href}>
                 <div className={`group h-full bg-black/30 backdrop-blur-md rounded-2xl border border-white/5 ${ql.border} p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer`}>

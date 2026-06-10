@@ -42,9 +42,6 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
               <Link href="/schedules" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
                 Schedules
               </Link>
-              <Link href="/live-scores" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
-                Live Scores
-              </Link>
               <Link href="/winners" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
                 Winners
               </Link>
