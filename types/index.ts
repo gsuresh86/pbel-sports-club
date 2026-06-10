@@ -372,3 +372,32 @@ export interface TeamAssignment {
   assignedBy?: string;
   status: 'unassigned' | 'assigned' | 'pending';
 }
+
+export type FinanceEntryType = 'income' | 'expense';
+
+/** Manual income categories (registration income is auto-derived from paid registrations). */
+export const FINANCE_INCOME_CATEGORIES = ['sponsor', 'donation', 'registration', 'other'] as const;
+export const FINANCE_EXPENSE_CATEGORIES = [
+  'tshirt',
+  'banner',
+  'snacks',
+  'awards',
+  'venue',
+  'equipment',
+  'other',
+] as const;
+
+/** A single income or expense line in a tournament's finance ledger. */
+export interface FinanceEntry {
+  id: string;
+  tournamentId: string;
+  type: FinanceEntryType;
+  category: string;
+  description: string;
+  amount: number;
+  date?: Date;
+  note?: string;
+  createdBy?: string;
+  createdAt: Date;
+  updatedAt?: Date;
+}

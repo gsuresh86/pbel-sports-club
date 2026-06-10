@@ -30,6 +30,7 @@ import {
   Target,
   Shuffle,
   Award,
+  Wallet,
   LogOut,
   User,
   Settings,
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
   { label: 'Spin Wheel', href: 'spin-wheel', icon: Shuffle },
   { label: 'Matches', href: 'matches', icon: Target },
   { label: 'Results', href: 'results', icon: Award },
+  { label: 'Finance', href: 'finance', icon: Wallet },
 ];
 
 function getStatusColor(status: string) {

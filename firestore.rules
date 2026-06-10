@@ -194,10 +194,18 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
       );
       allow delete: if request.auth != null && (
-        request.auth.uid != null && 
+        request.auth.uid != null &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
       );
+    }
+
+    // Tournament finances - sensitive: admin/tournament-admin only, NOT public
+    match /tournaments/{tournamentId}/finances/{financeId} {
+      allow read: if request.auth != null && isTournamentAdmin();
+      allow create: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && isTournamentAdmin();
+      allow delete: if request.auth != null && isTournamentAdmin();
     }
 
     // Tournament Leads - public create for lead capture, admin read/write
