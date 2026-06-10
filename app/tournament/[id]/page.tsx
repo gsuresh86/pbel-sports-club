@@ -769,17 +769,15 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
   const timeStr = new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const courtLabel = match.court ? `Court ${match.court}` : null;
 
-  // Card surface — green gradient by default (per design), red when live, slate when done
+  // Card surface — keep the existing dark slate look (red accent when live)
   const surface = isLive
-    ? 'border-rose-500/40 bg-gradient-to-br from-rose-600/25 via-slate-900 to-slate-900'
-    : isDone
-      ? 'border-white/10 bg-gradient-to-br from-slate-700/40 via-slate-900 to-slate-900'
-      : 'border-emerald-500/30 bg-gradient-to-br from-emerald-600/25 via-slate-900 to-slate-900';
+    ? 'border-red-500/50 bg-gradient-to-b from-red-950/40 to-slate-900'
+    : 'border-white/5 bg-slate-900 hover:border-white/10';
 
   return (
     <div className={`relative rounded-2xl border overflow-hidden transition-all hover:scale-[1.01] ${surface}`}>
       {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 via-orange-400 to-rose-500 animate-pulse" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-orange-400 to-red-500 animate-pulse" />
       )}
       <div className="p-4">
         {/* Pool / round header */}
@@ -807,15 +805,15 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
               </div>
             ) : isLive && liveP1 !== null ? (
               <div className="flex items-center gap-1.5 text-2xl font-black tabular-nums text-white">
-                <span>{liveP1}</span><span className="text-rose-400 text-base">:</span><span>{liveP2}</span>
+                <span>{liveP1}</span><span className="text-red-400 text-base">:</span><span>{liveP2}</span>
               </div>
             ) : (
               <span className="text-base font-black text-white/50">VS</span>
             )}
             <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-              isLive ? 'bg-rose-500 text-white animate-pulse' :
+              isLive ? 'bg-red-500 text-white animate-pulse' :
               isDone ? 'bg-slate-700 text-slate-200' :
-              'bg-emerald-500/90 text-white'
+              'bg-blue-500/20 text-blue-400'
             }`}>
               {isLive ? '● Live' : isDone ? 'Full Time' : 'Upcoming'}
             </span>
@@ -852,7 +850,7 @@ function MatchCard({ match, tournamentId, regById }: { match: Match; tournamentI
         {/* Live action button */}
         {isLive && (
           <Link href={`/tournament/${tournamentId}/live/${match.id}`} className="block mt-3">
-            <Button className="w-full h-9 text-xs bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl">
+            <Button className="w-full h-9 text-xs bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl">
               <Target className="h-3.5 w-3.5 mr-1.5" /> Watch Live Score
             </Button>
           </Link>
