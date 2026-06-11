@@ -50,7 +50,7 @@ const NAV_ITEMS = [
   { label: 'Matches', href: 'matches', icon: Target },
   { label: 'Results', href: 'results', icon: Award },
   { label: 'Finance', href: 'finance', icon: Wallet },
-  { label: 'Users', href: '/admin/users', icon: UserCog },
+  { label: 'Referees', href: 'referees', icon: UserCog },
 ];
 
 function getStatusColor(status: string) {
@@ -199,9 +199,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
             Tournament
           </p>
           {(isReferee ? NAV_ITEMS.filter((item) => item.href === 'matches') : NAV_ITEMS).map((item) => {
-            const href = item.href.startsWith('/')
-              ? item.href
-              : `/admin/tournaments/${tournamentId}/${item.href}`;
+            const href = `/admin/tournaments/${tournamentId}/${item.href}`;
             const isActive = pathname === href;
             const Icon = item.icon;
             return (
