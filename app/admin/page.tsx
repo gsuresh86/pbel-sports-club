@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Trophy, Users, Target, Play, Award, Settings, TrendingUp, Calendar, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { db } from '@/lib/firebase';
+import { allMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { Tournament, Registration, Player, Match } from '@/types';
 
@@ -101,7 +102,7 @@ export default function AdminDashboard() {
       let completedMatches = 0;
       
       try {
-        const matchesSnapshot = await getDocs(collection(db, 'matches'));
+        const matchesSnapshot = await getDocs(allMatchesOrderedQuery());
         const matches = matchesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
@@ -182,38 +183,10 @@ export default function AdminDashboard() {
       roles: ['admin', 'super-admin', 'tournament-admin']
     },
     {
-      title: 'Manage Registrations',
-      description: 'View and manage tournament registrations',
-      icon: '👥',
-      href: '/admin/participants',
-      roles: ['admin', 'super-admin', 'tournament-admin']
-    },
-    {
       title: 'Manage Matches',
       description: 'Schedule and update match details',
       icon: '🎯',
       href: '/admin/matches',
-      roles: ['admin', 'super-admin']
-    },
-    {
-      title: 'Update Live Scores',
-      description: 'Real-time score updates for ongoing matches',
-      icon: '🔴',
-      href: '/admin/live-scores',
-      roles: ['admin', 'super-admin']
-    },
-    {
-      title: 'Tournament Brackets',
-      description: 'Generate and manage tournament brackets',
-      icon: '🏆',
-      href: '/admin/brackets',
-      roles: ['admin', 'super-admin']
-    },
-    {
-      title: 'Announce Winners',
-      description: 'Declare tournament winners and prizes',
-      icon: '🏅',
-      href: '/admin/winners',
       roles: ['admin', 'super-admin']
     },
     {

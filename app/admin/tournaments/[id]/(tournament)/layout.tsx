@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
 import { useTournament, useTournaments } from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,7 +51,7 @@ const NAV_ITEMS = [
   { label: 'Matches', href: 'matches', icon: Target },
   { label: 'Results', href: 'results', icon: Award },
   { label: 'Finance', href: 'finance', icon: Wallet },
-  { label: 'Referees', href: 'referees', icon: UserCog },
+  { label: 'Users', href: 'users', icon: UserCog },
 ];
 
 function getStatusColor(status: string) {
@@ -65,6 +66,7 @@ function getStatusColor(status: string) {
 
 export default function TournamentSidebarLayout({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { openProfile } = useProfileSidebar();
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
@@ -225,7 +227,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         <div className="p-3 border-t border-gray-200">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="" />
+              <AvatarImage src={user?.profilePhotoUrl || ''} />
               <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
@@ -304,7 +306,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src="" />
+                        <AvatarImage src={user?.profilePhotoUrl || ''} />
                         <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
                       </Avatar>
                     </Button>
@@ -317,7 +319,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={openProfile} className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </DropdownMenuItem>

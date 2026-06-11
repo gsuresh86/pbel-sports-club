@@ -5,8 +5,9 @@ import { PublicLayout } from '@/components/PublicLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { allMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Match, Tournament } from '@/types';
 
 export default function SchedulesPage() {
@@ -22,7 +23,7 @@ export default function SchedulesPage() {
   const loadData = async () => {
     try {
       const [matchesSnapshot, tournamentsSnapshot] = await Promise.all([
-        getDocs(query(collection(db, 'matches'), orderBy('scheduledTime', 'asc'))),
+        getDocs(allMatchesOrderedQuery()),
         getDocs(collection(db, 'tournaments')),
       ]);
 

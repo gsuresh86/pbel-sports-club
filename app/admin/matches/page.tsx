@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy } from 'firebase/firestore';
+import { getDocs, addDoc, updateDoc, deleteDoc, collection, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  allMatchesOrderedQuery,
+  tournamentMatchRef,
+  tournamentMatchesRef,
+} from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -129,8 +134,7 @@ export default function ManageMatchesPage() {
 
   const loadMatches = async () => {
     try {
-      const q = query(collection(db, 'matches'), orderBy('scheduledTime', 'asc'));
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(allMatchesOrderedQuery());
       const matchesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -179,9 +183,9 @@ export default function ManageMatchesPage() {
       };
 
       if (editingMatch) {
-        await updateDoc(doc(db, 'matches', editingMatch.id), matchData);
+        await updateDoc(tournamentMatchRef(editingMatch.tournamentId, editingMatch.id), matchData);
       } else {
-        await addDoc(collection(db, 'matches'), {
+        await addDoc(tournamentMatchesRef(formData.tournamentId), {
           ...matchData,
           createdAt: new Date(),
         });
@@ -215,10 +219,10 @@ export default function ManageMatchesPage() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, tournamentId: string) => {
     if (confirm('Are you sure you want to delete this match?')) {
       try {
-        await deleteDoc(doc(db, 'matches', id));
+        await deleteDoc(tournamentMatchRef(tournamentId, id));
         loadMatches();
       } catch (error) {
         console.error('Error deleting match:', error);
@@ -227,7 +231,11 @@ export default function ManageMatchesPage() {
     }
   };
 
-  const handleStatusChange = async (matchId: string, newStatus: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed') => {
+  const handleStatusChange = async (
+    matchId: string,
+    tournamentId: string,
+    newStatus: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed'
+  ) => {
     try {
       const updateData: Partial<Match> = {
         status: newStatus,
@@ -240,7 +248,7 @@ export default function ManageMatchesPage() {
         updateData.actualEndTime = new Date();
       }
 
-      await updateDoc(doc(db, 'matches', matchId), updateData);
+      await updateDoc(tournamentMatchRef(tournamentId, matchId), updateData);
       loadMatches();
     } catch (error) {
       console.error('Error updating match status:', error);
@@ -671,7 +679,7 @@ export default function ManageMatchesPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleStatusChange(match.id, 'live')}
+                                onClick={() => handleStatusChange(match.id, match.tournamentId, 'live')}
                                 className="text-green-600 hover:text-green-700"
                               >
                                 <Play className="h-4 w-4 mr-1" />
@@ -682,7 +690,7 @@ export default function ManageMatchesPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleStatusChange(match.id, 'completed')}
+                                onClick={() => handleStatusChange(match.id, match.tournamentId, 'completed')}
                                 className="text-blue-600 hover:text-blue-700"
                               >
                                 <Trophy className="h-4 w-4 mr-1" />
@@ -698,7 +706,7 @@ export default function ManageMatchesPage() {
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => handleDelete(match.id)}
+                              onClick={() => handleDelete(match.id, match.tournamentId)}
                             >
                               <Trash2 className="h-4 w-4 mr-1" />
                               Delete

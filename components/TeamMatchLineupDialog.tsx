@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+  tournamentMatchesRef,
+} from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -166,7 +171,7 @@ export default function TeamMatchLineupDialog({
   };
 
   const syncLiveScoreNames = async (rubberId: string, rubberData: Record<string, unknown>) => {
-    const liveSnap = await getDoc(doc(db, 'liveScores', rubberId));
+    const liveSnap = await getDoc(tournamentLiveScoreRef(match.tournamentId, rubberId));
     if (!liveSnap.exists()) return;
     const names = getMatchLiveDisplayNames({
       player1Id: rubberData.player1Id as string,
@@ -176,7 +181,7 @@ export default function TeamMatchLineupDialog({
       player2Name: rubberData.player2Name as string,
       player2PartnerName: rubberData.player2PartnerName as string | null,
     });
-    await updateDoc(doc(db, 'liveScores', rubberId), {
+    await updateDoc(tournamentLiveScoreRef(match.tournamentId, rubberId), {
       ...names,
       lastUpdated: new Date(),
     });
@@ -215,14 +220,14 @@ export default function TeamMatchLineupDialog({
         const existing = rubberByNumber.get(slot.rubberNumber);
 
         if (isEditMode && existing) {
-          await updateDoc(doc(db, 'matches', existing.id), {
+          await updateDoc(tournamentMatchRef(match.tournamentId, existing.id), {
             ...rubberData,
             status: existing.status,
             sets: existing.sets ?? [],
           });
           await syncLiveScoreNames(existing.id, rubberData);
         } else {
-          await addDoc(collection(db, 'matches'), {
+          await addDoc(tournamentMatchesRef(match.tournamentId), {
             ...rubberData,
             status: 'scheduled' as const,
             sets: [],
@@ -231,7 +236,7 @@ export default function TeamMatchLineupDialog({
       }
 
       if (!isEditMode) {
-        await updateDoc(doc(db, 'matches', match.id), {
+        await updateDoc(tournamentMatchRef(match.tournamentId, match.id), {
           matchKind: 'team-tie',
           team1Id: team1.id,
           team2Id: team2.id,
@@ -241,7 +246,7 @@ export default function TeamMatchLineupDialog({
           updatedAt: now,
         });
       } else {
-        await updateDoc(doc(db, 'matches', match.id), {
+        await updateDoc(tournamentMatchRef(match.tournamentId, match.id), {
           updatedAt: now,
         });
       }

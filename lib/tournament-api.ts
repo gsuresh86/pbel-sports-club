@@ -9,6 +9,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { tournamentMatchesOrderedQuery, tournamentMatchesRef } from '@/lib/firestore-paths';
 import type { Tournament, Registration, Match, Team, Pool } from '@/types';
 
 export function toTournament(data: Record<string, unknown>, id: string): Tournament {
@@ -95,13 +96,38 @@ export async function fetchTournamentRegistrations(
 }
 
 export async function fetchTournamentMatches(tournamentId: string): Promise<Match[]> {
-  const q = query(
-    collection(db, 'matches'),
-    where('tournamentId', '==', tournamentId),
-    orderBy('scheduledTime', 'asc')
+  const mapDocs = (docs: { id: string; data: () => Record<string, unknown> }[]) =>
+    docs.map((d) => {
+      const match = toMatch({ id: d.id, data: () => d.data() });
+      if (!match.tournamentId) match.tournamentId = tournamentId;
+      return match;
+    });
+
+  try {
+    const snap = await getDocs(tournamentMatchesOrderedQuery(tournamentId));
+    if (snap.docs.length > 0) return mapDocs(snap.docs);
+  } catch (error) {
+    console.warn('Ordered tournament matches query failed, retrying without orderBy:', error);
+  }
+
+  try {
+    const snap = await getDocs(tournamentMatchesRef(tournamentId));
+    if (snap.docs.length > 0) {
+      return mapDocs(snap.docs).sort(
+        (a, b) => (a.scheduledTime?.getTime() ?? 0) - (b.scheduledTime?.getTime() ?? 0)
+      );
+    }
+  } catch (error) {
+    console.warn('Tournament matches subcollection read failed, trying legacy collection:', error);
+  }
+
+  // Legacy fallback while old top-level docs still exist
+  const legacySnap = await getDocs(
+    query(collection(db, 'matches'), where('tournamentId', '==', tournamentId))
   );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => toMatch({ id: d.id, data: () => d.data() }));
+  return mapDocs(legacySnap.docs).sort(
+    (a, b) => (a.scheduledTime?.getTime() ?? 0) - (b.scheduledTime?.getTime() ?? 0)
+  );
 }
 
 export async function fetchTournamentTeams(tournamentId: string): Promise<Team[]> {

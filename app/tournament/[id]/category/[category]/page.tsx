@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { tournamentMatchesRef } from '@/lib/firestore-paths';
 import { Tournament, Registration, Team, Pool, Match } from '@/types';
 import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import { TeamLogo } from '@/components/TeamLogo';
@@ -200,7 +201,7 @@ export default function CategoryPage() {
         getDocs(query(collection(db, 'tournaments', tournamentId, 'registrations'), orderBy('registeredAt', 'desc'))),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'teams'), orderBy('createdAt', 'desc'))),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'pools'), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'matches'), where('tournamentId', '==', tournamentId))),
+        getDocs(query(tournamentMatchesRef(tournamentId), orderBy('scheduledTime', 'asc'))),
       ]);
       if (tSnap.exists()) {
         const d = tSnap.data();

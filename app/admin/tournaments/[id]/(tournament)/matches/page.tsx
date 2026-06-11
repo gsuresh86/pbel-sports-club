@@ -3,8 +3,12 @@
 import { Fragment, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+} from '@/lib/firestore-paths';
 import {
   useTournament,
   useTournamentRegistrations,
@@ -45,6 +49,9 @@ const fromISTLocal = (value: string) => new Date(new Date(value + ':00Z').getTim
 
 const isAdminRole = (role: string) =>
   role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+
+const canAccessTournamentConsole = (role: string) =>
+  isAdminRole(role) || role === 'referee';
 
 function getMatchStatusColor(status: string) {
   switch (status) {
@@ -88,7 +95,10 @@ export default function MatchesPage() {
   const { user } = useAuth();
   const params = useParams();
   const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const isReferee = user?.role === 'referee';
+  const isFullAdmin = !!user && isAdminRole(user.role);
+  const canRunMatches = isFullAdmin || isReferee;
+  const queriesEnabled = !!user && canAccessTournamentConsole(user.role) && !!tournamentId;
   const { alert, AlertDialogComponent } = useAlertDialog();
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
@@ -220,7 +230,7 @@ export default function MatchesPage() {
     setBulkWorking(true);
     try {
       await Promise.all(selectedVisible.map(id =>
-        updateDoc(doc(db, 'matches', id), { status, updatedAt: new Date() })
+        updateDoc(tournamentMatchRef(tournamentId, id), { status, updatedAt: new Date() })
       ));
       invalidateTournament(tournamentId);
       setBulkStatus('');
@@ -238,7 +248,7 @@ export default function MatchesPage() {
     if (!confirm(`Delete ${selectedVisible.length} selected match${selectedVisible.length === 1 ? '' : 'es'}? This cannot be undone.`)) return;
     setBulkWorking(true);
     try {
-      await Promise.all(selectedVisible.map(id => deleteDoc(doc(db, 'matches', id))));
+      await Promise.all(selectedVisible.map(id => deleteDoc(tournamentMatchRef(tournamentId, id))));
       invalidateTournament(tournamentId);
       clearSelection();
     } catch (e) {
@@ -259,8 +269,8 @@ export default function MatchesPage() {
     }
     try {
       const displayNames = getMatchLiveDisplayNames(match, regById);
-      await updateDoc(doc(db, 'matches', match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
-      await setDoc(doc(db, 'liveScores', match.id), {
+      await updateDoc(tournamentMatchRef(tournamentId, match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
+      await setDoc(tournamentLiveScoreRef(tournamentId, match.id), {
         matchId: match.id,
         tournamentId: match.tournamentId,
         ...displayNames,
@@ -282,8 +292,8 @@ export default function MatchesPage() {
   const handleStopMatch = async (match: Match) => {
     if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
     try {
-      await updateDoc(doc(db, 'matches', match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
-      await deleteDoc(doc(db, 'liveScores', match.id));
+      await updateDoc(tournamentMatchRef(tournamentId, match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
+      await deleteDoc(tournamentLiveScoreRef(tournamentId, match.id));
       invalidateTournament(tournamentId);
     } catch (e) {
       console.error(e);
@@ -294,7 +304,7 @@ export default function MatchesPage() {
   const handleDeleteMatch = async (matchId: string) => {
     if (!confirm('Delete this match? This cannot be undone.')) return;
     try {
-      await deleteDoc(doc(db, 'matches', matchId));
+      await deleteDoc(tournamentMatchRef(tournamentId, matchId));
       invalidateTournament(tournamentId);
     } catch (e) {
       console.error(e);
@@ -353,7 +363,7 @@ export default function MatchesPage() {
     }
     setSavingMatch(true);
     try {
-      await updateDoc(doc(db, 'matches', editingMatch.id), {
+      await updateDoc(tournamentMatchRef(tournamentId, editingMatch.id), {
         round: editMatchForm.round,
         matchNumber: parseInt(editMatchForm.matchNumber),
         player1Id: lookup1.id,
@@ -459,113 +469,111 @@ export default function MatchesPage() {
           </h3>
           <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Button size="sm" className="h-8 text-xs" onClick={() => setGenDrawerOpen(true)}>
-            <Swords className="h-3.5 w-3.5 mr-1" />
-            Generate
-          </Button>
-          {totalMatches > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-              onClick={async () => {
-                if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-                try {
-                  await Promise.all(matches.map((m) => deleteDoc(doc(db, 'matches', m.id))));
-                  invalidateTournament(tournamentId);
-                } catch (e) {
-                  console.error(e);
-                  alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-                }
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Clear All
+        {isFullAdmin && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button size="sm" className="h-8 text-xs" onClick={() => setGenDrawerOpen(true)}>
+              <Swords className="h-3.5 w-3.5 mr-1" />
+              Generate
             </Button>
-          )}
-        </div>
+            {totalMatches > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                onClick={async () => {
+                  if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                  try {
+                    await Promise.all(matches.map((m) => deleteDoc(tournamentMatchRef(tournamentId, m.id))));
+                    invalidateTournament(tournamentId);
+                  } catch (e) {
+                    console.error(e);
+                    alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                  }
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Clear All
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Filter bar */}
-      <div className="space-y-2">
-        {/* Search + clear — full width on mobile */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 md:flex-none">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search players, rounds…"
-              className="h-8 pl-7 pr-3 w-full md:w-48 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          {anyFilterActive && (
-            <button
-              onClick={clearFilters}
-              title="Clear all filters"
-              className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
-            >
-              <FilterX className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        {/* Filter selects — 2-col grid on mobile, row on larger */}
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <Select value={roundFilter} onValueChange={setRoundFilter}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Round / Pool" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Rounds</SelectItem>
-              {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-            </SelectContent>
-          </Select>
-
-          {distinctCategories.length > 0 && (
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {distinctCategories.map(c => (
-                  <SelectItem key={c} value={c}>
-                    {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="not-scheduled">Not scheduled</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="live">Live</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="postponed">Postponed</SelectItem>
-            </SelectContent>
-          </Select>
-
+      {/* Search + filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[140px] flex-1 sm:flex-none sm:w-48">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
           <input
-            type="date"
-            value={dateFilter}
-            onChange={e => setDateFilter(e.target.value)}
-            title="Filter by date (IST)"
-            className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search players, rounds…"
+            className="h-8 pl-7 pr-3 w-full text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+
+        <Select value={roundFilter} onValueChange={setRoundFilter}>
+          <SelectTrigger className="h-8 w-[130px] text-xs">
+            <SelectValue placeholder="Round / Pool" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Rounds</SelectItem>
+            {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        {distinctCategories.length > 0 && (
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {distinctCategories.map(c => (
+                <SelectItem key={c} value={c}>
+                  {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-8 w-[120px] text-xs">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="not-scheduled">Not scheduled</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="live">Live</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="postponed">Postponed</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={e => setDateFilter(e.target.value)}
+          title="Filter by date (IST)"
+          className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+
+        {anyFilterActive && (
+          <button
+            onClick={clearFilters}
+            title="Clear all filters"
+            className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+          >
+            <FilterX className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Bulk action bar */}
-      {selectedVisible.length > 0 && (
+      {isFullAdmin && selectedVisible.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
           <span className="text-xs font-medium text-blue-900">{selectedVisible.length} selected</span>
           <Select
@@ -617,12 +625,14 @@ export default function MatchesPage() {
               >
                 {/* Top row */}
                 <div className="flex items-start gap-2">
-                  <Checkbox
-                    className="mt-0.5 flex-shrink-0"
-                    checked={selectedIds.has(match.id)}
-                    onCheckedChange={() => toggleSelect(match.id)}
-                    aria-label={`Select match ${match.matchNumber}`}
-                  />
+                  {isFullAdmin && (
+                    <Checkbox
+                      className="mt-0.5 flex-shrink-0"
+                      checked={selectedIds.has(match.id)}
+                      onCheckedChange={() => toggleSelect(match.id)}
+                      aria-label={`Select match ${match.matchNumber}`}
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-xs text-gray-500 font-medium">
@@ -648,7 +658,7 @@ export default function MatchesPage() {
                 </div>
                 {/* Action buttons */}
                 <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
-                  {match.status === 'scheduled' && (
+                  {canRunMatches && match.status === 'scheduled' && (
                     <Button
                       size="sm"
                       className="h-9 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
@@ -658,7 +668,7 @@ export default function MatchesPage() {
                       {isTeamTieMatch(match, teamIds) && !match.rubbersGenerated ? 'Set Lineup' : 'Start'}
                     </Button>
                   )}
-                  {match.status === 'live' && (
+                  {canRunMatches && match.status === 'live' && (
                     <Button
                       size="sm"
                       className="h-9 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
@@ -668,7 +678,7 @@ export default function MatchesPage() {
                       Stop
                     </Button>
                   )}
-                  {renderLineupButton(match, true)}
+                  {canRunMatches && renderLineupButton(match, true)}
                   {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                     <Link href={`/admin/matches/${match.id}`} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
@@ -684,20 +694,24 @@ export default function MatchesPage() {
                       </Button>
                     </Link>
                   )}
-                  <Button
-                    size="sm" variant="ghost"
-                    className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
-                    onClick={() => openEditMatch(match)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm" variant="ghost"
-                    className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => handleDeleteMatch(match.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {isFullAdmin && (
+                    <>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
+                        onClick={() => openEditMatch(match)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeleteMatch(match.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -708,13 +722,15 @@ export default function MatchesPage() {
             <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8">
-                    <Checkbox
-                      checked={allVisibleSelected}
-                      onCheckedChange={toggleSelectAll}
-                      aria-label="Select all matches"
-                    />
-                  </TableHead>
+                  {isFullAdmin && (
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all matches"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead
                     className="text-xs cursor-pointer select-none whitespace-nowrap"
                     onClick={() => toggleSort('matchNumber')}
@@ -749,13 +765,15 @@ export default function MatchesPage() {
                 {sortedMatches.map((match) => (
                   <Fragment key={match.id}>
                   <TableRow data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
-                    <TableCell className="py-2">
-                      <Checkbox
-                        checked={selectedIds.has(match.id)}
-                        onCheckedChange={() => toggleSelect(match.id)}
-                        aria-label={`Select match ${match.matchNumber}`}
-                      />
-                    </TableCell>
+                    {isFullAdmin && (
+                      <TableCell className="py-2">
+                        <Checkbox
+                          checked={selectedIds.has(match.id)}
+                          onCheckedChange={() => toggleSelect(match.id)}
+                          aria-label={`Select match ${match.matchNumber}`}
+                        />
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium text-xs py-2">
                       #{match.matchNumber}
                       {isTeamTieMatch(match, teamIds) && (
@@ -774,7 +792,7 @@ export default function MatchesPage() {
                     <TableCell className="text-xs py-2 whitespace-nowrap">{formatDate(new Date(match.scheduledTime))}</TableCell>
                     <TableCell className="text-right py-2">
                       <div className="flex items-center justify-end gap-1">
-                        {match.status === 'scheduled' && (
+                        {canRunMatches && match.status === 'scheduled' && (
                           <Button
                             size="sm"
                             className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
@@ -784,7 +802,7 @@ export default function MatchesPage() {
                             {isTeamTieMatch(match, teamIds) && !match.rubbersGenerated ? 'Lineup' : 'Start'}
                           </Button>
                         )}
-                        {match.status === 'live' && (
+                        {canRunMatches && match.status === 'live' && (
                           <Button
                             size="sm"
                             className="h-7 px-2 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
@@ -794,7 +812,7 @@ export default function MatchesPage() {
                             Stop
                           </Button>
                         )}
-                        {renderLineupButton(match)}
+                        {canRunMatches && renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={`/admin/matches/${match.id}`} className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
@@ -810,20 +828,24 @@ export default function MatchesPage() {
                             </Button>
                           </Link>
                         )}
-                        <Button
-                          size="sm" variant="ghost"
-                          className="h-7 w-7 p-0 text-xs touch-manipulation"
-                          onClick={() => openEditMatch(match)}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm" variant="ghost"
-                          className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDeleteMatch(match.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {isFullAdmin && (
+                          <>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 w-7 p-0 text-xs touch-manipulation"
+                              onClick={() => openEditMatch(match)}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => handleDeleteMatch(match.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -847,7 +869,11 @@ export default function MatchesPage() {
               {totalMatches === 0 ? (
                 <>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
-                  <p className="text-gray-600">Click <strong>Generate</strong> to create matches from pools.</p>
+                  <p className="text-gray-600">
+                    {isReferee
+                      ? 'No matches have been scheduled for this tournament yet.'
+                      : <>Click <strong>Generate</strong> to create matches from pools.</>}
+                  </p>
                 </>
               ) : (
                 <>
@@ -861,7 +887,7 @@ export default function MatchesPage() {
       </Card>
 
       {/* Generate Matches Panel */}
-      {genDrawerOpen && (
+      {isFullAdmin && genDrawerOpen && (
         <>
           {/* Backdrop — z-[51]: covers left-nav sidebar (z-50) so only the panel is lit */}
           <div
@@ -901,7 +927,7 @@ export default function MatchesPage() {
       )}
 
       {/* Edit Match Dialog */}
-      <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
+      {isFullAdmin && <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Match</DialogTitle>
@@ -1013,9 +1039,9 @@ export default function MatchesPage() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
-      {lineupMatch && user && (() => {
+      {canRunMatches && lineupMatch && user && (() => {
         const team1 = teams.find(t => t.id === lineupMatch.player1Id);
         const team2 = teams.find(t => t.id === lineupMatch.player2Id);
         if (!team1 || !team2) return null;

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { addDoc } from 'firebase/firestore';
+import { tournamentMatchesRef } from '@/lib/firestore-paths';
 import {
   useTournamentPools,
   useTournamentTeams,
@@ -138,7 +138,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         let matchNumber = 1;
         for (let i = 0; i < items.length; i++) {
           for (let j = i + 1; j < items.length; j++) {
-            await addDoc(collection(db, 'matches'), {
+            await addDoc(tournamentMatchesRef(tournament.id), {
               tournamentId: tournament.id,
               round: pool.name,
               matchNumber,

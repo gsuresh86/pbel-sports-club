@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { collection, getDocs, updateDoc, doc, query, orderBy, addDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { tournamentMatchesRef } from '@/lib/firestore-paths';
 
 // IST = UTC+5:30
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -387,7 +388,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
         for (let i = 0; i < items.length; i++) {
           for (let j = i + 1; j < items.length; j++) {
-            await addDoc(collection(db, 'matches'), {
+            await addDoc(tournamentMatchesRef(tournament.id), {
               tournamentId: tournament.id,
               round: roundLabel,
               matchNumber,
@@ -463,7 +464,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       const b = items.find((x) => x.id === singleMatchP2);
       if (!a || !b) return;
       const existingCount = matches.filter((m) => m.round === pool.name).length;
-      await addDoc(collection(db, 'matches'), {
+      await addDoc(tournamentMatchesRef(tournament.id), {
         tournamentId: tournament.id,
         round: pool.name || `Pool ${pool.id.slice(0, 6)}`,
         matchNumber: existingCount + 1,

@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  profilePhotoUrl?: string;
   assignedTournaments?: string[]; // Array of tournament IDs this user can manage
   createdAt: Date;
   updatedAt?: Date;
@@ -115,6 +116,10 @@ export interface Registration {
   // T-shirt size
   tshirtSize?: string;
   partnerTshirtSize?: string;
+  /** Admin: primary player collected their event t-shirt */
+  tshirtTaken?: boolean;
+  /** Admin: partner collected their event t-shirt */
+  partnerTshirtTaken?: boolean;
   // Expertise level
   expertiseLevel: 'beginner' | 'intermediate' | 'advanced' | 'expert';
   previousExperience?: string;

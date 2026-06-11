@@ -12,6 +12,7 @@ import {
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +29,7 @@ type UniquePlayerRow = {
   name: string;
   phone: string;
   tshirtSize: string;
+  tshirtTaken: boolean;
   expertiseLevel: string;
   profilePhotoUrl: string;
   categories: CategoryType[];
@@ -60,6 +62,7 @@ export default function PlayersPage() {
   const [editingPlayerKey, setEditingPlayerKey] = useState<string | null>(null);
   const [playerEdits, setPlayerEdits] = useState<{ tshirtSize: string; expertiseLevel: string; profilePhotoUrl: string | null }>({ tshirtSize: '', expertiseLevel: '', profilePhotoUrl: null });
   const [savingPlayer, setSavingPlayer] = useState(false);
+  const [togglingTshirtKey, setTogglingTshirtKey] = useState<string | null>(null);
   const [uploadingPlayerPhoto, setUploadingPlayerPhoto] = useState(false);
   const playerPhotoInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +72,7 @@ export default function PlayersPage() {
       rawName: string,
       phone: string | undefined,
       tshirtSize: string | undefined,
+      tshirtTaken: boolean | undefined,
       expertiseLevel: string | undefined,
       profilePhotoUrl: string | undefined,
       category: CategoryType,
@@ -81,6 +85,7 @@ export default function PlayersPage() {
       if (existing) {
         if (phone?.trim() && !existing.phone) existing.phone = phone.trim();
         if (tshirtSize?.trim() && !existing.tshirtSize) existing.tshirtSize = tshirtSize.trim();
+        if (tshirtTaken) existing.tshirtTaken = true;
         if (expertiseLevel?.trim() && !existing.expertiseLevel) existing.expertiseLevel = expertiseLevel.trim();
         if (profilePhotoUrl?.trim() && !existing.profilePhotoUrl) existing.profilePhotoUrl = profilePhotoUrl.trim();
         if (!existing.categories.includes(category)) existing.categories.push(category);
@@ -90,6 +95,7 @@ export default function PlayersPage() {
           name,
           phone: phone?.trim() ?? '',
           tshirtSize: tshirtSize?.trim() ?? '',
+          tshirtTaken: tshirtTaken ?? false,
           expertiseLevel: expertiseLevel?.trim() ?? '',
           profilePhotoUrl: profilePhotoUrl?.trim() ?? '',
           categories: [category],
@@ -98,9 +104,9 @@ export default function PlayersPage() {
       }
     };
     participants.forEach((p) => {
-      upsert(p.name, p.phone, p.tshirtSize, p.expertiseLevel, p.profilePhotoUrl, p.selectedCategory, { id: p.id, role: 'primary' });
+      upsert(p.name, p.phone, p.tshirtSize, p.tshirtTaken, p.expertiseLevel, p.profilePhotoUrl, p.selectedCategory, { id: p.id, role: 'primary' });
       if (p.partnerName?.trim()) {
-        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, undefined, p.partnerProfilePhotoUrl, p.selectedCategory, { id: p.id, role: 'partner' });
+        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, p.partnerTshirtTaken, undefined, p.partnerProfilePhotoUrl, p.selectedCategory, { id: p.id, role: 'partner' });
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -147,6 +153,27 @@ export default function PlayersPage() {
     }
   };
 
+  const toggleTshirtTaken = async (player: UniquePlayerRow, taken: boolean) => {
+    const key = normalizePlayerName(player.name);
+    setTogglingTshirtKey(key);
+    try {
+      await Promise.all(
+        player.registrationRefs.map(({ id, role }) => {
+          const fields: Record<string, unknown> = {
+            updatedAt: new Date(),
+            ...(role === 'primary' ? { tshirtTaken: taken } : { partnerTshirtTaken: taken }),
+          };
+          return updateDoc(doc(db, 'tournaments', tournamentId, 'registrations', id), fields);
+        }),
+      );
+      invalidateTournament(tournamentId);
+    } catch (err) {
+      console.error('Error updating t-shirt status:', err);
+    } finally {
+      setTogglingTshirtKey(null);
+    }
+  };
+
   const savePlayerEdits = async (player: UniquePlayerRow) => {
     setSavingPlayer(true);
     try {
@@ -175,8 +202,8 @@ export default function PlayersPage() {
 
   const exportPlayersCsv = (players: UniquePlayerRow[]) => {
     const rows = [
-      ['Name', 'Phone', 'T-Shirt Size', 'Level', 'Categories'],
-      ...players.map((p) => [p.name, p.phone, p.tshirtSize, p.expertiseLevel, p.categories.map(formatCategoryLabel).join('; ')]),
+      ['Name', 'Phone', 'T-Shirt Size', 'T-Shirt Taken', 'Level', 'Categories'],
+      ...players.map((p) => [p.name, p.phone, p.tshirtSize, p.tshirtTaken ? 'Yes' : 'No', p.expertiseLevel, p.categories.map(formatCategoryLabel).join('; ')]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -264,6 +291,7 @@ export default function PlayersPage() {
                     <TableHead className="text-xs sm:text-sm">Name</TableHead>
                     <TableHead className="text-xs sm:text-sm">Phone</TableHead>
                     <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
+                    <TableHead className="text-xs sm:text-sm">T-Shirt Taken</TableHead>
                     <TableHead className="text-xs sm:text-sm">Level</TableHead>
                     <TableHead className="text-xs sm:text-sm">Categories</TableHead>
                     <TableHead className="w-20 text-xs sm:text-sm">Actions</TableHead>
@@ -318,6 +346,29 @@ export default function PlayersPage() {
                           ) : (
                             <span className="text-xs sm:text-sm">{player.tshirtSize || '—'}</span>
                           )}
+                        </TableCell>
+                        <TableCell className="py-1.5">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`tshirt-taken-${key}`}
+                              checked={player.tshirtTaken}
+                              disabled={togglingTshirtKey === key}
+                              onCheckedChange={(checked) => toggleTshirtTaken(player, checked === true)}
+                              aria-label={`T-shirt taken for ${player.name}`}
+                            />
+                            <label
+                              htmlFor={`tshirt-taken-${key}`}
+                              className={`cursor-pointer text-xs sm:text-sm ${player.tshirtTaken ? 'text-green-700' : 'text-muted-foreground'}`}
+                            >
+                              {togglingTshirtKey === key ? (
+                                <Loader2 className="inline h-3.5 w-3.5 animate-spin" />
+                              ) : player.tshirtTaken ? (
+                                'Yes'
+                              ) : (
+                                'No'
+                              )}
+                            </label>
+                          </div>
                         </TableCell>
                         <TableCell className="py-1.5">
                           {isEditing ? (

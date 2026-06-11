@@ -13,6 +13,11 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+  tournamentMatchesRef,
+} from '@/lib/firestore-paths';
 import type { TournamentBracket } from '@/types';
 
 const BATCH_LIMIT = 450;
@@ -180,16 +185,14 @@ export async function cloneTournament(
   }
 
   // 5. Matches (non-rubbers first, then rubbers)
-  const matchSnap = await getDocs(
-    query(collection(db, 'matches'), where('tournamentId', '==', sourceTournamentId))
-  );
+  const matchSnap = await getDocs(collection(db, 'tournaments', sourceTournamentId, 'matches'));
   const allMatches = matchSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
   const nonRubbers = allMatches.filter((m) => !m.data.parentMatchId);
   const rubbers = allMatches.filter((m) => m.data.parentMatchId);
 
   const cloneMatch = async (match: { id: string; data: Record<string, unknown> }) => {
     const data = match.data;
-    const newMatchRef = await addDoc(collection(db, 'matches'), {
+    const newMatchRef = await addDoc(tournamentMatchesRef(newTournamentId), {
       ...stripFirestoreId(data),
       tournamentId: newTournamentId,
       player1Id: regIdMap.get(data.player1Id as string) ?? data.player1Id,
@@ -222,10 +225,12 @@ export async function cloneTournament(
 
   // 6. Live scores
   for (const [oldMatchId, newMatchId] of matchIdMap) {
-    const liveScoreSnap = await getDoc(doc(db, 'liveScores', oldMatchId));
+    const liveScoreSnap = await getDoc(
+      tournamentLiveScoreRef(sourceTournamentId, oldMatchId)
+    );
     if (liveScoreSnap.exists()) {
       const liveData = liveScoreSnap.data();
-      await setDoc(doc(db, 'liveScores', newMatchId), {
+      await setDoc(tournamentLiveScoreRef(newTournamentId, newMatchId), {
         ...stripFirestoreId(liveData as Record<string, unknown>),
         matchId: newMatchId,
         tournamentId: newTournamentId,
@@ -286,18 +291,18 @@ export async function cloneTournament(
 }
 
 export async function deleteTournament(tournamentId: string): Promise<void> {
-  const matchSnap = await getDocs(
-    query(collection(db, 'matches'), where('tournamentId', '==', tournamentId))
+  const matchSnap = await getDocs(collection(db, 'tournaments', tournamentId, 'matches'));
+  const liveScoreSnap = await getDocs(
+    collection(db, 'tournaments', tournamentId, 'liveScores')
   );
-  const matchIds = matchSnap.docs.map((d) => d.id);
 
   const deleteRefs: { path: string }[] = [];
 
-  for (const matchId of matchIds) {
-    deleteRefs.push({ path: `liveScores/${matchId}` });
+  for (const liveDoc of liveScoreSnap.docs) {
+    deleteRefs.push({ path: `tournaments/${tournamentId}/liveScores/${liveDoc.id}` });
   }
   for (const matchDoc of matchSnap.docs) {
-    deleteRefs.push({ path: `matches/${matchDoc.id}` });
+    deleteRefs.push({ path: `tournaments/${tournamentId}/matches/${matchDoc.id}` });
   }
 
   const bracketSnap = await getDocs(

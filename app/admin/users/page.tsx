@@ -68,10 +68,21 @@ export default function UserManagementPage() {
   useEffect(() => {
     if (!authLoading && !canManageUsers) {
       router.push('/login');
-    } else if (canManageUsers) {
+      return;
+    }
+    if (!authLoading && user?.role === 'tournament-admin') {
+      const firstTournament = user.assignedTournaments?.[0];
+      router.push(
+        firstTournament
+          ? `/admin/tournaments/${firstTournament}/users`
+          : '/admin/tournaments'
+      );
+      return;
+    }
+    if (canManageUsers) {
       loadData();
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, canManageUsers]);
 
   // Filter users based on search and filters
   useEffect(() => {

@@ -5,6 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  findMatchById,
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+} from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,24 +82,22 @@ export default function LiveScoringPage() {
       router.push('/login');
     } else if (user && canAccessScoring && matchId) {
       loadMatch();
-      setupLiveScoreListener();
     }
   }, [user, authLoading, router, matchId, canAccessScoring]);
 
   const loadMatch = async () => {
     try {
-      const docRef = doc(db, 'matches', matchId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      const resolved = await findMatchById(matchId);
+
+      if (resolved) {
+        const data = resolved.data;
         const matchData = {
-          id: docSnap.id,
+          id: matchId,
           ...data,
-          scheduledTime: data.scheduledTime?.toDate(),
-          actualStartTime: data.actualStartTime?.toDate(),
-          actualEndTime: data.actualEndTime?.toDate(),
-          updatedAt: data.updatedAt?.toDate(),
+          scheduledTime: (data.scheduledTime as { toDate?: () => Date })?.toDate?.(),
+          actualStartTime: (data.actualStartTime as { toDate?: () => Date })?.toDate?.(),
+          actualEndTime: (data.actualEndTime as { toDate?: () => Date })?.toDate?.(),
+          updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.(),
         } as Match;
         const scopedRole = user?.role === 'tournament-admin' || user?.role === 'referee';
         if (scopedRole && user.assignedTournaments?.length) {
@@ -126,6 +129,7 @@ export default function LiveScoringPage() {
           }
         }
         setMatchFormat(resolveMatchFormat(matchData, loadedTournament));
+        setupLiveScoreListener(resolved.tournamentId);
 
         // Initialize scores if match is live
         if (matchData.status === 'live') {
@@ -151,7 +155,11 @@ export default function LiveScoringPage() {
         }
       } else {
         alert('Match not found');
-        router.push('/admin/matches');
+        router.push(
+          isReferee && user?.assignedTournaments?.[0]
+            ? `/admin/tournaments/${user.assignedTournaments[0]}/matches`
+            : '/admin/matches'
+        );
       }
     } catch (error) {
       console.error('Error loading match:', error);
@@ -161,9 +169,8 @@ export default function LiveScoringPage() {
     }
   };
 
-  const setupLiveScoreListener = () => {
-    const liveScoreRef = doc(db, 'liveScores', matchId);
-    return onSnapshot(liveScoreRef, (docSnap) => {
+  const setupLiveScoreListener = (tournamentId: string) => {
+    return onSnapshot(tournamentLiveScoreRef(tournamentId, matchId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setSidesSwapped(data.sidesSwapped ?? false);
@@ -193,14 +200,14 @@ export default function LiveScoringPage() {
   const startMatch = async () => {
     try {
       setUpdating(true);
-      await updateDoc(doc(db, 'matches', matchId), {
+      await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), {
         status: 'live',
         actualStartTime: new Date(),
         updatedAt: new Date(),
       });
       
       // Create initial live score (doc id = matchId so updates and listeners work)
-      await setDoc(doc(db, 'liveScores', matchId), {
+      await setDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
         matchId,
         tournamentId: match!.tournamentId,
         currentSet: 1,
@@ -239,7 +246,7 @@ export default function LiveScoringPage() {
   }) => {
     if (!match) return;
     const names = getMatchLiveDisplayNames(match, regById);
-    await updateDoc(doc(db, 'liveScores', matchId), {
+    await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
       matchId,
       tournamentId: match.tournamentId,
       currentSet: overrides.set,
@@ -268,7 +275,7 @@ export default function LiveScoringPage() {
     };
     const updatedSets = [...(match.sets || []), newSet];
     setMatch({ ...match, sets: updatedSets });
-    await updateDoc(doc(db, 'matches', matchId), {
+    await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), {
       sets: updatedSets,
       updatedAt: new Date(),
     });
@@ -388,7 +395,7 @@ export default function LiveScoringPage() {
       const p1 = setsP1 ?? player1Sets;
       const p2 = setsP2 ?? player2Sets;
       const completedAt = new Date();
-      await updateDoc(doc(db, 'matches', matchId), {
+      await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), {
         status: 'completed',
         winner: matchWinner,
         player1Score: p1,
@@ -402,7 +409,7 @@ export default function LiveScoringPage() {
           : m
       );
 
-      await updateDoc(doc(db, 'liveScores', matchId), {
+      await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
         isLive: false,
         winnerName: matchWinner,
         matchCompletedAt: completedAt,
@@ -423,7 +430,7 @@ export default function LiveScoringPage() {
     try {
       setUpdating(true);
       setSidesSwapped(next);
-      await updateDoc(doc(db, 'liveScores', matchId), {
+      await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
         sidesSwapped: next,
         lastUpdated: new Date(),
         updatedBy: user?.id,
@@ -482,9 +489,9 @@ export default function LiveScoringPage() {
       };
       if (sets.length > 0) update.sets = sets;
       if (!match.actualStartTime) update.actualStartTime = new Date();
-      await updateDoc(doc(db, 'matches', matchId), update);
+      await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), update);
       try {
-        await updateDoc(doc(db, 'liveScores', matchId), {
+        await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
           isLive: false,
           winnerName: matchWinner,
           matchCompletedAt: new Date(),
@@ -514,7 +521,7 @@ export default function LiveScoringPage() {
       setUpdating(true);
       setPlayer1Score(0);
       setPlayer2Score(0);
-      await updateDoc(doc(db, 'liveScores', matchId), {
+      await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
         player1CurrentScore: 0,
         player2CurrentScore: 0,
         lastUpdated: new Date(),
@@ -550,7 +557,13 @@ export default function LiveScoringPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Match Not Found</h1>
-          <Button onClick={() => router.push('/admin/matches')}>
+          <Button
+            onClick={() => router.push(
+              isReferee && user?.assignedTournaments?.[0]
+                ? `/admin/tournaments/${user.assignedTournaments[0]}/matches`
+                : '/admin/matches'
+            )}
+          >
             Back to Matches
           </Button>
         </div>

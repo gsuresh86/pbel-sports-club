@@ -1,8 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+  tournamentMatchesRef,
+} from '@/lib/firestore-paths';
 import {
   useTournamentTeams,
   useTournamentPools,
@@ -165,9 +170,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         updatedAt: new Date(),
       });
 
-      const matchesSnap = await getDocs(
-        query(collection(db, 'matches'), where('tournamentId', '==', tournament.id))
-      );
+      const matchesSnap = await getDocs(collection(db, 'tournaments', tournament.id, 'matches'));
       for (const matchDoc of matchesSnap.docs) {
         const data = matchDoc.data();
         const isP1 = data.player1Id === editingTeam.id;
@@ -177,15 +180,15 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         if (isP1) matchUpdate.player1Name = newName;
         if (isP2) matchUpdate.player2Name = newName;
         if (data.winner === oldName) matchUpdate.winner = newName;
-        await updateDoc(doc(db, 'matches', matchDoc.id), matchUpdate);
-        const liveSnap = await getDoc(doc(db, 'liveScores', matchDoc.id));
+        await updateDoc(tournamentMatchRef(tournament.id, matchDoc.id), matchUpdate);
+        const liveSnap = await getDoc(tournamentLiveScoreRef(tournament.id, matchDoc.id));
         if (liveSnap.exists()) {
           const liveUpdate: Record<string, unknown> = {};
           if (isP1) liveUpdate.player1Name = newName;
           if (isP2) liveUpdate.player2Name = newName;
           if (Object.keys(liveUpdate).length) {
             liveUpdate.lastUpdated = new Date();
-            await updateDoc(doc(db, 'liveScores', matchDoc.id), liveUpdate);
+            await updateDoc(tournamentLiveScoreRef(tournament.id, matchDoc.id), liveUpdate);
           }
         }
       }

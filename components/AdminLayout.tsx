@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,8 +20,6 @@ import {
   Users, 
   Trophy, 
   Target, 
-  Play, 
-  Award, 
   Settings, 
   Menu, 
   X, 
@@ -52,18 +51,11 @@ const adminMenuItems = [
     roles: ['admin', 'super-admin', 'tournament-admin']
   },
   {
-    title: 'Registrations',
-    href: '/admin/participants',
-    icon: Users,
-    description: 'View and manage registrations',
-    roles: ['admin', 'super-admin', 'tournament-admin']
-  },
-  {
     title: 'User Management',
     href: '/admin/users',
     icon: User,
     description: 'Manage admin users and permissions',
-    roles: ['admin', 'super-admin', 'tournament-admin']
+    roles: ['admin', 'super-admin']
   },
   {
     title: 'Leads',
@@ -80,27 +72,6 @@ const adminMenuItems = [
     roles: ['admin', 'super-admin']
   },
   {
-    title: 'Live Scores',
-    href: '/admin/live-scores',
-    icon: Play,
-    description: 'Update live match scores',
-    roles: ['admin', 'super-admin']
-  },
-  {
-    title: 'Brackets',
-    href: '/admin/brackets',
-    icon: Trophy,
-    description: 'Generate and manage brackets',
-    roles: ['admin', 'super-admin']
-  },
-  {
-    title: 'Winners',
-    href: '/admin/winners',
-    icon: Award,
-    description: 'Announce tournament winners',
-    roles: ['admin', 'super-admin']
-  },
-  {
     title: 'Settings',
     href: '/admin/settings',
     icon: Settings,
@@ -111,6 +82,7 @@ const adminMenuItems = [
 
 export default function AdminLayout({ children, moduleName }: AdminLayoutProps) {
   const { user, signOut } = useAuth();
+  const { openProfile } = useProfileSidebar();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -206,7 +178,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
         <div className="p-3 border-t border-gray-200">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="" />
+              <AvatarImage src={user?.profilePhotoUrl || ''} />
               <AvatarFallback>
                 {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
               </AvatarFallback>
@@ -269,7 +241,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src="" />
+                        <AvatarImage src={user?.profilePhotoUrl || ''} />
                         <AvatarFallback>
                           {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
                         </AvatarFallback>
@@ -288,7 +260,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={openProfile} className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>

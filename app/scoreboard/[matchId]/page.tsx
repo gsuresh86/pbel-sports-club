@@ -2,8 +2,13 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { collection, doc, getDoc, getDocFromServer, getDocs, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  findMatchById,
+  tournamentLiveScoreRef,
+  tournamentMatchRef,
+} from '@/lib/firestore-paths';
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
 import { fetchTournamentRegistrations, toTournament } from '@/lib/tournament-api';
@@ -47,43 +52,60 @@ function ScoreboardPageInner() {
   useEffect(() => {
     if (!matchId) return;
 
-    const matchUnsub = onSnapshot(doc(db, 'matches', matchId), (matchDoc) => {
-      if (!matchDoc.exists()) {
+    let matchUnsub: (() => void) | undefined;
+    let liveUnsub: (() => void) | undefined;
+    let cancelled = false;
+
+    (async () => {
+      const resolved = await findMatchById(matchId, queryTournamentId);
+      if (cancelled) return;
+
+      if (!resolved) {
         setMatch(null);
         setMatchLoading(false);
         return;
       }
-      const matchData = matchDoc.data();
-      setMatch({
-        id: matchDoc.id,
-        ...matchData,
-        scheduledTime: matchData.scheduledTime?.toDate(),
-        actualStartTime: matchData.actualStartTime?.toDate(),
-        actualEndTime: matchData.actualEndTime?.toDate(),
-        updatedAt: matchData.updatedAt?.toDate(),
-      } as Match);
-      setMatchLoading(false);
-    });
 
-    const liveUnsub = onSnapshot(doc(db, 'liveScores', matchId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setLiveScore({
-          ...data,
-          lastUpdated: data.lastUpdated?.toDate(),
-          matchCompletedAt: data.matchCompletedAt?.toDate(),
-        } as LiveScore);
-      } else {
-        setLiveScore(null);
-      }
-      setLiveScoreReady(true);
-    });
+      const tid = resolved.tournamentId;
+      matchUnsub = onSnapshot(tournamentMatchRef(tid, matchId), (matchDoc) => {
+        if (!matchDoc.exists()) {
+          setMatch(null);
+          setMatchLoading(false);
+          return;
+        }
+        const matchData = matchDoc.data();
+        setMatch({
+          id: matchDoc.id,
+          ...matchData,
+          scheduledTime: matchData.scheduledTime?.toDate(),
+          actualStartTime: matchData.actualStartTime?.toDate(),
+          actualEndTime: matchData.actualEndTime?.toDate(),
+          updatedAt: matchData.updatedAt?.toDate(),
+        } as Match);
+        setMatchLoading(false);
+      });
+
+      liveUnsub = onSnapshot(tournamentLiveScoreRef(tid, matchId), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setLiveScore({
+            ...data,
+            lastUpdated: data.lastUpdated?.toDate(),
+            matchCompletedAt: data.matchCompletedAt?.toDate(),
+          } as LiveScore);
+        } else {
+          setLiveScore(null);
+        }
+        setLiveScoreReady(true);
+      });
+    })();
 
     return () => {
-      matchUnsub();
-      liveUnsub();
+      cancelled = true;
+      matchUnsub?.();
+      liveUnsub?.();
     };
-  }, [matchId]);
+  }, [matchId, queryTournamentId]);
 
   useEffect(() => {
     if (!effectiveTournamentId) {

@@ -44,6 +44,7 @@ export function useTournamentMatches(tournamentId: string | null, options?: { en
     queryKey: queryKeys.tournaments.matches(tournamentId ?? ''),
     queryFn: () => fetchTournamentMatches(tournamentId!),
     enabled: !!tournamentId && (options?.enabled !== false),
+    staleTime: 0,
   });
 }
 
@@ -63,11 +64,12 @@ export function useTournamentPools(tournamentId: string | null, options?: { enab
   });
 }
 
-/** Invalidate all tournament-related queries for a given tournament (e.g. after team/pool/match update). */
+/** Invalidate tournament queries (detail, matches, teams, pools, registrations). */
 export function useInvalidateTournament() {
   const queryClient = useQueryClient();
-  return (tournamentId: string) =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.detail(tournamentId) });
+  return (tournamentId: string) => {
+    queryClient.invalidateQueries({ queryKey: ['tournament', tournamentId] });
+  };
 }
 
 export function useUpdateTournamentMutation() {

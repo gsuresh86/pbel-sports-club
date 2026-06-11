@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, getDoc, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
 import { getMatchSideDisplay, getInitials, firstName, toTitleCase, type MatchSideDisplay } from '@/lib/utils';
@@ -66,8 +67,7 @@ export default function TournamentDetailPage() {
 
   const loadMatches = async () => {
     try {
-      const q = query(collection(db, 'matches'), where('tournamentId', '==', tournamentId), orderBy('scheduledTime', 'asc'));
-      const snap = await getDocs(q);
+      const snap = await getDocs(tournamentMatchesOrderedQuery(tournamentId));
       setMatches((snap.docs.map(d => ({
         id: d.id, ...d.data(),
         scheduledTime: d.data().scheduledTime?.toDate(),

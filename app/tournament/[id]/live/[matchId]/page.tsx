@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { tournamentLiveScoreRef, tournamentMatchRef } from '@/lib/firestore-paths';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,7 @@ export default function LiveMatchPage() {
 
     loadTournament();
 
-    const matchUnsub = onSnapshot(doc(db, 'matches', matchId), (matchDoc) => {
+    const matchUnsub = onSnapshot(tournamentMatchRef(tournamentId, matchId), (matchDoc) => {
       if (matchDoc.exists()) {
         const matchData = matchDoc.data();
         setMatch({
@@ -59,7 +60,7 @@ export default function LiveMatchPage() {
       setLoading(false);
     });
 
-    const liveUnsub = onSnapshot(doc(db, 'liveScores', matchId), (snap) => {
+    const liveUnsub = onSnapshot(tournamentLiveScoreRef(tournamentId, matchId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
         setLiveScore({
