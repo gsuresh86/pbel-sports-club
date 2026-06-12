@@ -1,4 +1,34 @@
-export type UserRole = 'admin' | 'public' | 'tournament-admin' | 'super-admin' | 'referee';
+export type UserRole =
+  | 'admin'
+  | 'public'
+  | 'tournament-admin'
+  | 'super-admin'
+  | 'referee'
+  | 'staff';
+
+export type Permission =
+  | 'tournament.overview'
+  | 'tournament.participants'
+  | 'tournament.players'
+  | 'tournament.tshirt-distribution'
+  | 'tournament.teams'
+  | 'tournament.spin-wheel'
+  | 'tournament.matches'
+  | 'tournament.matches.write'
+  | 'tournament.results'
+  | 'tournament.finance'
+  | 'tournament.users';
+
+export interface Role {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  permissions: Permission[];
+  isSystem: boolean;
+  createdAt: Date;
+  updatedAt?: Date;
+}
 
 export interface User {
   id: string;
@@ -6,10 +36,14 @@ export interface User {
   name: string;
   role: UserRole;
   profilePhotoUrl?: string;
-  assignedTournaments?: string[]; // Array of tournament IDs this user can manage
+  assignedTournaments?: string[];
+  /** Role slugs assigned per tournament (e.g. referee, registration-manager). */
+  tournamentRoles?: Record<string, string[]>;
+  /** Denormalized permissions per tournament for Firestore rules and fast checks. */
+  tournamentPermissions?: Record<string, Permission[]>;
   createdAt: Date;
   updatedAt?: Date;
-  createdBy?: string; // ID of the admin who created this user
+  createdBy?: string;
   isActive?: boolean;
   fcmToken?: string;
   fcmTokenUpdatedAt?: Date;

@@ -1,18 +1,12 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTournament } from '@/hooks/use-tournament-queries';
 import TeamManagement from '@/components/TeamManagement';
-
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 export default function TeamsPage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('teams');
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const tournament = tournamentData ?? null;

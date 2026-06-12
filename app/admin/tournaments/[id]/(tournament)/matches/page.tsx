@@ -3,6 +3,8 @@
 import { Fragment, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/use-permissions';
+import { canAccessTournamentConsole, isFullTournamentAdmin } from '@/lib/permissions';
 import { updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -47,12 +49,6 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 const toISTLocal = (date: Date) => new Date(date.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
 const fromISTLocal = (value: string) => new Date(new Date(value + ':00Z').getTime() - IST_OFFSET_MS);
 
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
-
-const canAccessTournamentConsole = (role: string) =>
-  isAdminRole(role) || role === 'referee';
-
 function getMatchStatusColor(status: string) {
   switch (status) {
     case 'completed': return 'bg-green-100 text-green-800';
@@ -95,10 +91,15 @@ export default function MatchesPage() {
   const { user } = useAuth();
   const params = useParams();
   const tournamentId = params.id as string;
-  const isReferee = user?.role === 'referee';
-  const isFullAdmin = !!user && isAdminRole(user.role);
-  const canRunMatches = isFullAdmin || isReferee;
-  const queriesEnabled = !!user && canAccessTournamentConsole(user.role) && !!tournamentId;
+  const { canWriteMatches, canAccessRoute } = usePermissions(tournamentId);
+  const isFullAdmin = !!user && isFullTournamentAdmin(user, tournamentId);
+  const isMatchStaffOnly = !!user && canWriteMatches() && !isFullAdmin;
+  const canRunMatches = canWriteMatches();
+  const queriesEnabled =
+    !!user &&
+    canAccessTournamentConsole(user, tournamentId) &&
+    canAccessRoute('matches') &&
+    !!tournamentId;
   const { alert, AlertDialogComponent } = useAlertDialog();
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
@@ -870,7 +871,7 @@ export default function MatchesPage() {
                 <>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
                   <p className="text-gray-600">
-                    {isReferee
+                    {isMatchStaffOnly
                       ? 'No matches have been scheduled for this tournament yet.'
                       : <>Click <strong>Generate</strong> to create matches from pools.</>}
                   </p>

@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
-import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -21,9 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CategoryType } from '@/types';
 import { Camera, Check, Download, Edit, Loader2, Users, X } from 'lucide-react';
 import Image from 'next/image';
-
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 type UniquePlayerRow = {
   name: string;
@@ -45,10 +41,7 @@ function formatCategoryLabel(category: string) {
 }
 
 export default function PlayersPage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('players');
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const { data: registrationsData = [] } = useTournamentRegistrations(tournamentId, { enabled: queriesEnabled });
@@ -221,8 +214,8 @@ export default function PlayersPage() {
   return (
     <div className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
       {/* Toolbar */}
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col gap-0.5">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <h3 className="text-base font-semibold sm:text-lg">
             Players ({(playerSearch || playerCategoryFilter !== 'all') ? `${filteredPlayers.length} of ${uniquePlayers.length}` : uniquePlayers.length})
           </h3>
@@ -230,9 +223,9 @@ export default function PlayersPage() {
             Unique players — click <Edit className="inline h-3 w-3" /> to edit level, T-shirt size or photo
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <Select value={playerCategoryFilter} onValueChange={setPlayerCategoryFilter}>
-            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="All categories" /></SelectTrigger>
+            <SelectTrigger className="hidden h-8 w-36 text-xs sm:flex"><SelectValue placeholder="All categories" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All categories</SelectItem>
               {allPlayerCategories.map((cat) => (
@@ -240,7 +233,7 @@ export default function PlayersPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="relative w-44 sm:w-52">
+          <div className="relative w-full sm:w-52">
             <Input
               placeholder="Search players…"
               value={playerSearch}
@@ -255,7 +248,7 @@ export default function PlayersPage() {
           </div>
           <Button
             variant="outline" size="sm"
-            className="h-8 gap-1.5 text-xs"
+            className="hidden h-8 gap-1.5 text-xs sm:flex"
             onClick={() => exportPlayersCsv(filteredPlayers)}
             disabled={filteredPlayers.length === 0}
           >

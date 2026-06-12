@@ -1,18 +1,11 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTournament } from '@/hooks/use-tournament-queries';
 import SpinWheel from '@/components/SpinWheel';
-
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 export default function SpinWheelPage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('spin-wheel');
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const tournament = tournamentData ?? null;

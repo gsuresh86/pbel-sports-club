@@ -1,21 +1,14 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTournament, useTournamentMatches } from '@/hooks/use-tournament-queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy } from 'lucide-react';
 import { Match } from '@/types';
-
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 export default function ResultsPage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('results');
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const { data: matchesData = [] } = useTournamentMatches(tournamentId, { enabled: queriesEnabled });

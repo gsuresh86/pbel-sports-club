@@ -23,6 +23,21 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'referee';
     }
 
+    function isStaff() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['staff', 'referee'];
+    }
+
+    function hasTournamentPermission(tournamentId, permission) {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return 'tournamentPermissions' in userData
+        && userData.tournamentPermissions is map
+        && tournamentId in userData.tournamentPermissions
+        && userData.tournamentPermissions[tournamentId] is list
+        && userData.tournamentPermissions[tournamentId].hasAny([permission]);
+    }
+
     function isAssignedToTournament(tournamentId) {
       let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return 'assignedTournaments' in userData
@@ -31,7 +46,9 @@ service cloud.firestore {
     }
 
     function canManageTournamentMatches(tournamentId) {
-      return isTournamentAdmin() || (isReferee() && isAssignedToTournament(tournamentId));
+      return isTournamentAdmin()
+        || (isReferee() && isAssignedToTournament(tournamentId))
+        || (isStaff() && isAssignedToTournament(tournamentId) && hasTournamentPermission(tournamentId, 'tournament.matches.write'));
     }
     
 
@@ -42,23 +59,22 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
         isAdmin() ||
-        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin'])
+        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin', 'staff'])
       );
       allow create: if request.auth != null;
-      // Tournament-admins may update referee/tournament-admin accounts without changing role
       allow update: if request.auth != null && (
         request.auth.uid == userId ||
         isAdmin() ||
         (isTournamentAdmin() &&
-          resource.data.role == 'referee' &&
-          request.resource.data.role == 'referee') ||
+          resource.data.role in ['referee', 'staff'] &&
+          request.resource.data.role in ['referee', 'staff']) ||
         (isTournamentAdmin() &&
           resource.data.role == 'tournament-admin' &&
           request.resource.data.role == 'tournament-admin')
       );
       allow delete: if request.auth != null && (
         isAdmin() ||
-        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin'])
+        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin', 'staff'])
       );
     }
 
@@ -226,11 +242,32 @@ service cloud.firestore {
 
     // App Settings - admin only
     match /appSettings/{settingsId} {
-      allow read: if request.auth != null && isAdmin(); // Only admins can read settings
-      allow write: if request.auth != null && isAdmin(); // Only admins can write settings
+      allow read: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && isAdmin();
       allow create: if request.auth != null && isAdmin();
       allow update: if request.auth != null && isAdmin();
       allow delete: if request.auth != null && isAdmin();
+    }
+
+    // Tournament roles - admins and tournament-admins manage custom roles
+    match /roles/{roleId} {
+      allow read: if request.auth != null && (
+        isAdmin() || isTournamentAdmin()
+      );
+      allow create: if request.auth != null && (
+        isAdmin() ||
+        (isTournamentAdmin() && request.resource.data.isSystem == false)
+      );
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        (isTournamentAdmin() &&
+          resource.data.isSystem == false &&
+          request.resource.data.isSystem == false)
+      );
+      allow delete: if request.auth != null && (
+        isAdmin() ||
+        (isTournamentAdmin() && resource.data.isSystem == false)
+      );
     }
 
     // Notifications - users can read/update their own notifications

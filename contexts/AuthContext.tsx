@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(userDataWithId);
           
           // Initialize notifications for authenticated users
-          if (userDataWithId.role === 'admin' || userDataWithId.role === 'super-admin' || userDataWithId.role === 'tournament-admin') {
+          if (userDataWithId.role === 'admin' || userDataWithId.role === 'super-admin' || userDataWithId.role === 'tournament-admin' || userDataWithId.role === 'staff') {
             try {
               const { initializeNotifications } = await import('@/lib/notifications');
               await initializeNotifications(userDataWithId);

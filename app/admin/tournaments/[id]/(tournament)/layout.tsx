@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
 import { useTournament, useTournaments } from '@/hooks/use-tournament-queries';
+import { usePermissions } from '@/hooks/use-permissions';
+import {
+  canAccessTournamentConsole,
+  isSystemAdmin,
+  isTournamentStaff,
+  NAV_ROUTE_ITEMS,
+  TournamentRoute,
+} from '@/lib/permissions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,27 +40,27 @@ import {
   Shuffle,
   Award,
   Wallet,
+  Shirt,
   LogOut,
   User,
   UserCog,
   Settings,
   AlertCircle,
+  LucideIcon,
 } from 'lucide-react';
 
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin' || role === 'referee';
-
-const NAV_ITEMS = [
-  { label: 'Overview', href: 'overview', icon: LayoutDashboard },
-  { label: 'Registrations', href: 'participants', icon: Users },
-  { label: 'Players', href: 'players', icon: User },
-  { label: 'Teams', href: 'teams', icon: Users2 },
-  { label: 'Spin Wheel', href: 'spin-wheel', icon: Shuffle },
-  { label: 'Matches', href: 'matches', icon: Target },
-  { label: 'Results', href: 'results', icon: Award },
-  { label: 'Finance', href: 'finance', icon: Wallet },
-  { label: 'Users', href: 'users', icon: UserCog },
-];
+const ROUTE_ICONS: Record<TournamentRoute, LucideIcon> = {
+  overview: LayoutDashboard,
+  participants: Users,
+  players: User,
+  'tshirt-distribution': Shirt,
+  teams: Users2,
+  'spin-wheel': Shuffle,
+  matches: Target,
+  results: Award,
+  finance: Wallet,
+  users: UserCog,
+};
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -74,26 +82,41 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const { allowedNavItems, canAccessRoute } = usePermissions(tournamentId);
+
+  const navItems = useMemo(
+    () =>
+      allowedNavItems.map((item) => ({
+        ...item,
+        icon: ROUTE_ICONS[item.href],
+      })),
+    [allowedNavItems]
+  );
+
+  const isScopedStaff =
+    isTournamentStaff(user?.role) && !isSystemAdmin(user?.role) && user?.role !== 'tournament-admin';
+  const showAllTournamentsLink = !isScopedStaff || user?.role === 'tournament-admin';
+
   useEffect(() => { setMounted(true); }, []);
 
-  const queriesEnabled = !authLoading && !!user && isAdminRole(user.role) && !!tournamentId;
+  const canAccess = !!user && canAccessTournamentConsole(user, tournamentId);
+  const queriesEnabled = !authLoading && canAccess && !!tournamentId;
   const { data: tournamentData, isLoading: tournamentLoading } = useTournament(tournamentId, { enabled: queriesEnabled });
   const tournament = tournamentData ?? null;
 
-  const isReferee = user?.role === 'referee';
   const assignedIds =
-    user?.role === 'tournament-admin' || isReferee
-      ? (user.assignedTournaments ?? undefined)
+    user?.role === 'tournament-admin' || isTournamentStaff(user?.role)
+      ? (user?.assignedTournaments ?? undefined)
       : undefined;
   const { data: tournaments = [] } = useTournaments({ assignedIds, enabled: queriesEnabled });
 
   const loading = authLoading || (queriesEnabled && tournamentLoading);
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdminRole(user.role))) {
+    if (!authLoading && (!user || !canAccessTournamentConsole(user, tournamentId))) {
       router.push('/login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, tournamentId]);
 
   useEffect(() => {
     if (authLoading || !queriesEnabled || tournamentLoading) return;
@@ -101,19 +124,38 @@ export default function TournamentSidebarLayout({ children }: { children: React.
       router.push('/admin/tournaments');
       return;
     }
-    const scopedRole = user?.role === 'tournament-admin' || user?.role === 'referee';
+    const scopedRole =
+      user?.role === 'tournament-admin' || isTournamentStaff(user?.role);
     if (
       tournament &&
       scopedRole &&
       user.assignedTournaments &&
       !user.assignedTournaments.includes(tournamentId)
     ) {
-      router.push(isReferee ? '/login' : '/admin/tournaments');
+      router.push(isScopedStaff ? '/login' : '/admin/tournaments');
     }
-    if (isReferee && !pathname.endsWith('/matches')) {
-      router.push(`/admin/tournaments/${tournamentId}/matches`);
+
+    const currentRoute = pathname.split('/').pop() as TournamentRoute | undefined;
+    if (currentRoute && NAV_ROUTE_ITEMS.some((i) => i.href === currentRoute)) {
+      if (!canAccessRoute(currentRoute)) {
+        const firstAllowed = navItems[0]?.href ?? 'matches';
+        router.push(`/admin/tournaments/${tournamentId}/${firstAllowed}`);
+      }
     }
-  }, [authLoading, queriesEnabled, tournamentLoading, tournamentData, tournament, user, tournamentId, router, pathname, isReferee]);
+  }, [
+    authLoading,
+    queriesEnabled,
+    tournamentLoading,
+    tournamentData,
+    tournament,
+    user,
+    tournamentId,
+    router,
+    pathname,
+    isScopedStaff,
+    canAccessRoute,
+    navItems,
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -183,7 +225,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         </div>
 
         {/* Back link */}
-        {!isReferee && (
+        {showAllTournamentsLink && (
           <div className="px-3 pt-3">
             <Link
               href="/admin/tournaments"
@@ -200,7 +242,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
             Tournament
           </p>
-          {(isReferee ? NAV_ITEMS.filter((item) => item.href === 'matches') : NAV_ITEMS).map((item) => {
+          {navItems.map((item) => {
             const href = `/admin/tournaments/${tournamentId}/${item.href}`;
             const isActive = pathname === href;
             const Icon = item.icon;

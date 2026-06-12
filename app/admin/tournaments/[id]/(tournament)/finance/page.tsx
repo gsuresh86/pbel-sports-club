@@ -1,8 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   useTournament,
   useTournamentRegistrations,
@@ -60,8 +58,7 @@ import {
   Users,
 } from 'lucide-react';
 
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 const INCOME_LABELS: Record<string, string> = {
   sponsor: 'Sponsor',
@@ -114,10 +111,7 @@ const formatDisplayDate = (d?: Date) =>
     : '—';
 
 export default function FinancePage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('finance');
 
   const { alert, AlertDialogComponent } = useAlertDialog();
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();

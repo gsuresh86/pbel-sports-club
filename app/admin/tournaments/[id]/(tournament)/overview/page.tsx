@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   doc,
   updateDoc,
@@ -47,17 +45,12 @@ import {
   Trophy,
 } from 'lucide-react';
 import VolunteersListDrawer from '@/components/admin/VolunteersListDrawer';
+import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 
 const TSHIRT_SIZE_ORDER = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] as const;
 
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
-
 export default function OverviewPage() {
-  const { user } = useAuth();
-  const params = useParams();
-  const tournamentId = params.id as string;
-  const queriesEnabled = !!user && isAdminRole(user.role) && !!tournamentId;
+  const { user, tournamentId, queriesEnabled } = useTournamentPageGate('overview');
 
   const { data: tournamentData } = useTournament(tournamentId, { enabled: queriesEnabled });
   const { data: registrationsData = [] } = useTournamentRegistrations(tournamentId, { enabled: queriesEnabled });

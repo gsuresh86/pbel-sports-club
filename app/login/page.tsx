@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { getLoginRedirect } from '@/lib/permissions';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,22 +18,11 @@ export default function LoginPage() {
   const { signIn, user, loading } = useAuth();
   const router = useRouter();
 
-  // Redirect to admin if user is already logged in
   useEffect(() => {
     if (!loading && user) {
-      if (user.role === 'admin' || user.role === 'super-admin') {
-        console.log('User already logged in, redirecting to admin dashboard...');
-        router.push('/admin');
-      } else if (user.role === 'tournament-admin') {
-        console.log('Tournament admin logged in, redirecting to tournaments...');
-        router.push('/admin/tournaments');
-      } else if (user.role === 'referee') {
-        const firstTournament = user.assignedTournaments?.[0];
-        router.push(
-          firstTournament
-            ? `/admin/tournaments/${firstTournament}/matches`
-            : '/login'
-        );
+      const href = getLoginRedirect(user);
+      if (href !== '/login') {
+        router.push(href);
       }
     }
   }, [user, loading, router]);

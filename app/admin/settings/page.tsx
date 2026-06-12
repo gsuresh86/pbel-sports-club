@@ -25,6 +25,7 @@ import {
   Save,
   X
 } from 'lucide-react';
+import { RolesManager } from '@/components/admin/RolesManager';
 
 interface Sport {
   id?: string;
@@ -335,8 +336,10 @@ export default function SettingsPage() {
       <div className="p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Application Settings</h1>
-          <p className="text-gray-600">Manage sports types, categories, and system settings</p>
+          <p className="text-gray-600">Manage sports types, categories, roles, and system settings</p>
         </div>
+
+        <RolesManager />
 
         {/* General Settings */}
         <Card className="mb-6">

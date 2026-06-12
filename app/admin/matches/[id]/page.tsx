@@ -34,6 +34,12 @@ import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Chec
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { useTournamentRegistrations } from '@/hooks/use-tournament-queries';
 import { getMatchLiveDisplayNames } from '@/lib/utils';
+import {
+  canAccessTournamentConsole,
+  canWriteMatches,
+  isFullTournamentAdmin,
+  isTournamentStaff,
+} from '@/lib/permissions';
 
 export default function LiveScoringPage() {
   const params = useParams();
@@ -68,14 +74,16 @@ export default function LiveScoringPage() {
     ? getMatchLiveDisplayNames(match, regById)
     : { player1Name: '', player2Name: '' };
 
-  const canAccessScoring =
-    user?.role === 'admin' ||
-    user?.role === 'super-admin' ||
-    user?.role === 'tournament-admin' ||
-    user?.role === 'referee';
-  const isReferee = user?.role === 'referee';
-  const isFullAdmin =
-    user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin';
+  const tournamentIdForAccess = match?.tournamentId ?? '';
+  const canAccessScoring = !!user && (
+    canAccessTournamentConsole(user, tournamentIdForAccess) &&
+    canWriteMatches(user, tournamentIdForAccess)
+  );
+  const isMatchStaffOnly =
+    !!user &&
+    canWriteMatches(user, tournamentIdForAccess) &&
+    !isFullTournamentAdmin(user, tournamentIdForAccess);
+  const isFullAdmin = !!user && isFullTournamentAdmin(user, tournamentIdForAccess);
 
   useEffect(() => {
     if (!authLoading && (!user || !canAccessScoring)) {
@@ -99,10 +107,11 @@ export default function LiveScoringPage() {
           actualEndTime: (data.actualEndTime as { toDate?: () => Date })?.toDate?.(),
           updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.(),
         } as Match;
-        const scopedRole = user?.role === 'tournament-admin' || user?.role === 'referee';
-        if (scopedRole && user.assignedTournaments?.length) {
+        const scopedRole =
+          user?.role === 'tournament-admin' || isTournamentStaff(user?.role);
+        if (scopedRole && user?.assignedTournaments?.length) {
           if (!user.assignedTournaments.includes(matchData.tournamentId)) {
-            router.push(isReferee ? '/login' : '/admin/tournaments');
+            router.push(isMatchStaffOnly ? '/login' : '/admin/tournaments');
             return;
           }
         }
@@ -156,7 +165,7 @@ export default function LiveScoringPage() {
       } else {
         alert('Match not found');
         router.push(
-          isReferee && user?.assignedTournaments?.[0]
+          isMatchStaffOnly && user?.assignedTournaments?.[0]
             ? `/admin/tournaments/${user.assignedTournaments[0]}/matches`
             : '/admin/matches'
         );
@@ -559,7 +568,7 @@ export default function LiveScoringPage() {
           <h1 className="text-2xl font-bold text-red-600 mb-4">Match Not Found</h1>
           <Button
             onClick={() => router.push(
-              isReferee && user?.assignedTournaments?.[0]
+              isMatchStaffOnly && user?.assignedTournaments?.[0]
                 ? `/admin/tournaments/${user.assignedTournaments[0]}/matches`
                 : '/admin/matches'
             )}
@@ -742,13 +751,13 @@ export default function LiveScoringPage() {
         )}
 
         {/* Secondary sections */}
-        <Tabs defaultValue={isReferee ? 'history' : 'more'} className="mt-2">
+        <Tabs defaultValue={isMatchStaffOnly ? 'history' : 'more'} className="mt-2">
           <TabsList className="w-full grid grid-cols-2">
-            {!isReferee && <TabsTrigger value="more">More</TabsTrigger>}
-            <TabsTrigger value="history" className={isReferee ? 'col-span-2' : ''}>History</TabsTrigger>
+            {!isMatchStaffOnly && <TabsTrigger value="more">More</TabsTrigger>}
+            <TabsTrigger value="history" className={isMatchStaffOnly ? 'col-span-2' : ''}>History</TabsTrigger>
           </TabsList>
 
-          {!isReferee && (
+          {!isMatchStaffOnly && (
           <TabsContent value="more" className="mt-4 space-y-4">
             {/* Set score directly */}
             {(match.status === 'scheduled' || (match.status === 'live' && !winner)) && (

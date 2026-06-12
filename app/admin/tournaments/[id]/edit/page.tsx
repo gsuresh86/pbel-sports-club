@@ -25,9 +25,7 @@ import {
 } from '@/lib/utils';
 import { ArrowLeft, Save, User } from 'lucide-react';
 import Link from 'next/link';
-
-const isAdminRole = (role: string) =>
-  role === 'admin' || role === 'tournament-admin' || role === 'super-admin';
+import { isFullTournamentAdmin } from '@/lib/permissions';
 
 const toDateInputValue = (d: Date | string | undefined): string => {
   if (d == null) return '';
@@ -43,7 +41,11 @@ export default function EditTournamentPage() {
   const tournamentId = params.id as string;
   const { alert, AlertDialogComponent } = useAlertDialog();
 
-  const queriesEnabled = !authLoading && !!user && isAdminRole(user.role) && !!tournamentId;
+  const queriesEnabled =
+    !authLoading &&
+    !!user &&
+    isFullTournamentAdmin(user, tournamentId) &&
+    !!tournamentId;
   const { data: tournamentData, isLoading: tournamentLoading } = useTournament(
     tournamentId,
     { enabled: queriesEnabled }
@@ -82,10 +84,10 @@ export default function EditTournamentPage() {
   const [formPopulated, setFormPopulated] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdminRole(user.role))) {
+    if (!authLoading && (!user || !isFullTournamentAdmin(user, tournamentId))) {
       router.push('/login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, tournamentId]);
 
   useEffect(() => {
     if (authLoading || !queriesEnabled) return;
