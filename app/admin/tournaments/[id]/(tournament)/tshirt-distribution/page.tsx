@@ -108,8 +108,8 @@ export default function TshirtDistributionPage() {
   if (!tournament) return null;
 
   return (
-    <div className="flex h-[calc(100dvh-14rem)] min-h-[320px] flex-col gap-3 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-3">
+    <div className="flex flex-col gap-3 sm:h-[calc(100dvh-14rem)] sm:min-h-[320px] sm:overflow-hidden">
+      <div className="sticky top-0 z-10 flex shrink-0 flex-col gap-3 bg-background pb-1 sm:static sm:pb-0">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-semibold sm:text-lg">T-Shirt Distribution</h3>
@@ -174,8 +174,8 @@ export default function TshirtDistributionPage() {
         }}
       />
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-none">
-        <CardContent className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
+      <Card className="flex flex-col rounded-none border-x-0 sm:min-h-0 sm:flex-1 sm:overflow-hidden">
+        <CardContent className="flex-1 p-3 sm:min-h-0 sm:overflow-auto sm:p-4">
           {uniquePlayers.length === 0 ? (
             <div className="flex h-full min-h-[200px] flex-col items-center justify-center text-center">
               <User className="mb-3 h-10 w-10 text-muted-foreground" />
