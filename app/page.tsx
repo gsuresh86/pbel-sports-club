@@ -155,9 +155,8 @@ export default function Home() {
               <Link key={ql.href + ql.label} href={ql.href}>
                 <div className={`group h-full bg-black/30 backdrop-blur-md rounded-2xl border border-white/5 ${ql.border} p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer`}>
                   <div className="text-3xl mb-3">{ql.emoji}</div>
-                  <h3 className="text-sm font-black text-white mb-1 group-hover:text-yellow-400 transition-colors flex items-center gap-1.5">
+                  <h3 className="text-sm font-black text-white mb-1 group-hover:text-yellow-400 transition-colors">
                     {ql.label}
-                    {ql.live && <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />}
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">{ql.desc}</p>
                 </div>
