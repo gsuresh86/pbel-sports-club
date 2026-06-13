@@ -570,7 +570,7 @@ export default function LiveScoringPage() {
   const formatLabel = getFormatLabel(matchFormat);
 
   const matchesBackHref = match?.tournamentId
-    ? `/admin/tournaments/${match.tournamentId}/matches`
+    ? `/admin/tournaments/${match.tournamentId}/matches/${matchId}`
     : '/admin/matches';
 
   if (loading || authLoading) {

@@ -13,7 +13,7 @@ test('computeNrr returns ratio of points for to against', () => {
   assert.equal(computeNrr(21, 0), 21);
 });
 
-test('computeIndividualPoolStandings ranks by points then NRR', () => {
+test('computeIndividualPoolStandings ranks by points then game difference then point difference', () => {
   const pool: Pool = {
     id: 'p1', tournamentId: 't1', name: 'Pool A', category: 'mens-single',
     teams: ['a', 'b'], maxTeams: 4, status: 'active', createdAt: new Date(), createdBy: 'u1',
@@ -32,9 +32,14 @@ test('computeIndividualPoolStandings ranks by points then NRR', () => {
   assert.equal(rows[0].won, 1);
   assert.equal(rows[0].lost, 0);
   assert.equal(rows[0].points, 2);
+  assert.equal(rows[0].gamesWon, 2);
+  assert.equal(rows[0].gamesLost, 0);
   assert.equal(rows[0].pointsFor, 42);
   assert.equal(rows[0].pointsAgainst, 33);
+  assert.equal(rows[0].pointDifference, -9);
   assert.equal(rows[1].lost, 1);
+  assert.equal(rows[1].gamesWon, 0);
+  assert.equal(rows[1].gamesLost, 2);
 });
 
 test('computeTeamPoolStandings uses rubber wins for W/L and set points for NRR', () => {
@@ -84,6 +89,9 @@ test('computeTeamPoolStandings uses rubber wins for W/L and set points for NRR',
   assert.equal(alpha.won, 1);
   assert.equal(beta.lost, 1);
   assert.equal(alpha.points, 2);
+  assert.equal(alpha.gamesWon, 3);
+  assert.equal(alpha.gamesLost, 0);
   assert.equal(alpha.pointsFor, 63);
-  assert.equal(alpha.pointsAgainst, 29);
+  assert.equal(alpha.pointsAgainst, 47);
+  assert.equal(alpha.pointDifference, -16);
 });

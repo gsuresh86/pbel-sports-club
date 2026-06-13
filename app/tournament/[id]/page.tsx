@@ -7,10 +7,10 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool } from '@/types';
-import { getMatchSideDisplay, getInitials, firstName, toTitleCase, type MatchSideDisplay } from '@/lib/utils';
+import { getMatchSideDisplay, getInitials, firstName, toTitleCase, formatMatchSideLabel, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
-  Shield, Users2, ScrollText, ChevronRight,
+  Shield, Users2, ScrollText, ChevronRight, ChevronDown,
   Flame, Star, Activity, ArrowLeft,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 import { TeamLogo } from '@/components/TeamLogo';
 import { formatCategoryLabel } from '@/lib/categoryLabels';
+import { isRubberMatch, isTeamTieMatch, rubberTypeLabel } from '@/lib/teamMatchRubbers';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -30,13 +31,13 @@ export default function TournamentDetailPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'teams' | 'pools'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'results' | 'teams' | 'pools'>('overview');
   const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
   const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
   const [matchCategoryFilter, setMatchCategoryFilter] = useState<string>('all');
-  const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'scheduled' | 'completed'>('all');
   const [matchSearch, setMatchSearch] = useState('');
   const [matchDateFilter, setMatchDateFilter] = useState('');
+  const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
 
   useEffect(() => {
     if (tournamentId) {
@@ -128,14 +129,32 @@ export default function TournamentDetailPage() {
   const fmt = (d: Date) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   const fmtTime = (d: Date) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
+  // Public fixtures show team ties and individual matches only — not rubber sub-matches
+  const displayMatches = matches.filter(m => !isRubberMatch(m));
+  const fixtureMatches = displayMatches.filter(m => m.status === 'live' || m.status === 'scheduled');
+  const resultMatches = displayMatches.filter(m => m.status === 'completed');
+
+  const teamIds = new Set(teams.map(t => t.id));
+  const rubbersByParent = matches.filter(isRubberMatch).reduce((map, rubber) => {
+    const parentId = rubber.parentMatchId!;
+    const list = map.get(parentId) ?? [];
+    list.push(rubber);
+    map.set(parentId, list);
+    return map;
+  }, new Map<string, Match[]>());
+  for (const list of rubbersByParent.values()) {
+    list.sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0));
+  }
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Trophy },
-    { id: 'matches',  label: `Fixtures (${matches.length})`, icon: Activity },
+    { id: 'matches',  label: `Fixtures (${fixtureMatches.length})`, icon: Activity },
+    { id: 'results',  label: `Results (${resultMatches.length})`, icon: Target },
     { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
     { id: 'pools',   label: `Points (${pools.length})`, icon: Users2 },
   ] as const;
 
-  const matchDistinctRounds = Array.from(new Set(matches.map(m => m.round))).sort();
+  const matchDistinctRounds = Array.from(new Set(displayMatches.map(m => m.round))).sort();
   const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
 
   const getMatchCategory = (m: Match): string | undefined => {
@@ -153,7 +172,7 @@ export default function TournamentDetailPage() {
   };
 
   const matchDistinctCategories = Array.from(
-    new Set(matches.map(getMatchCategory).filter((c): c is string => !!c))
+    new Set(displayMatches.map(getMatchCategory).filter((c): c is string => !!c))
   ).sort();
 
   // Registration lookup so doubles matches can show both partners + avatars
@@ -161,17 +180,14 @@ export default function TournamentDetailPage() {
   const teamsById = new Map(teams.map(t => [t.id, { logoUrl: t.logoUrl, name: t.name }]));
 
   // Unfiltered — used by overview tab
-  const allScheduledMatches = matches.filter(m => m.status === 'scheduled');
+  const allScheduledMatches = displayMatches.filter(m => m.status === 'scheduled');
 
   const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
   const toISTDate = (d: Date) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
 
-  const fixturesFiltered = matches.filter(m => {
+  const applyMatchFilters = (list: Match[]) => list.filter(m => {
     if (matchRoundFilter !== 'all' && m.round !== matchRoundFilter) return false;
     if (matchCategoryFilter !== 'all' && getMatchCategory(m) !== matchCategoryFilter) return false;
-    if (matchStatusFilter === 'live') { if (m.status !== 'live') return false; }
-    else if (matchStatusFilter === 'scheduled') { if (m.status !== 'scheduled') return false; }
-    else if (matchStatusFilter === 'completed') { if (m.status !== 'completed') return false; }
     if (matchSearch) {
       const q = matchSearch.toLowerCase();
       if (![m.player1Name, m.player2Name, m.round].some(s => s.toLowerCase().includes(q))) return false;
@@ -180,9 +196,22 @@ export default function TournamentDetailPage() {
     return true;
   });
 
-  const liveMatches = fixturesFiltered.filter(m => m.status === 'live');
+  const fixturesFiltered = applyMatchFilters(fixtureMatches);
+  const resultsFiltered = applyMatchFilters(resultMatches);
+
+  const liveMatches = displayMatches.filter(m => m.status === 'live');
   const scheduledMatches = fixturesFiltered.filter(m => m.status === 'scheduled');
-  const completedMatches = fixturesFiltered.filter(m => m.status === 'completed');
+  const liveFixtures = fixturesFiltered.filter(m => m.status === 'live');
+
+  const clearMatchFilters = () => {
+    setMatchRoundFilter('all');
+    setMatchCategoryFilter('all');
+    setMatchSearch('');
+    setMatchDateFilter('');
+  };
+
+  const hasActiveMatchFilters =
+    matchRoundFilter !== 'all' || matchCategoryFilter !== 'all' || matchSearch || matchDateFilter;
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -298,7 +327,7 @@ export default function TournamentDetailPage() {
                 {[
                   { label: 'Players', value: participants.length, icon: Users, color: 'text-blue-400' },
                   { label: 'Teams', value: teams.length, icon: Shield, color: 'text-purple-400' },
-                  { label: 'Matches', value: matches.length, icon: Activity, color: 'text-yellow-400' },
+                  { label: 'Matches', value: displayMatches.length, icon: Activity, color: 'text-yellow-400' },
                   { label: 'Pools', value: pools.length, icon: Users2, color: 'text-emerald-400' },
                 ].map(s => (
                   <div key={s.label} className="flex items-center gap-3">
@@ -391,14 +420,14 @@ export default function TournamentDetailPage() {
                   </div>
 
                   {/* Match summary bar */}
-                  {matches.length > 0 && (
+                  {displayMatches.length > 0 && (
                     <div className="mt-6 pt-4 border-t border-white/5">
                       <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-3">Match Progress</h3>
                       <div className="flex gap-4 text-sm flex-wrap">
                         {[
-                          { label: 'Completed', value: completedMatches.length, color: 'text-green-400' },
+                          { label: 'Completed', value: resultMatches.length, color: 'text-green-400' },
                           { label: 'Live', value: liveMatches.length, color: 'text-emerald-400' },
-                          { label: 'Upcoming', value: scheduledMatches.length, color: 'text-blue-400' },
+                          { label: 'Upcoming', value: allScheduledMatches.length, color: 'text-blue-400' },
                         ].map(s => (
                           <div key={s.label} className="flex items-center gap-2">
                             <span className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</span>
@@ -407,12 +436,21 @@ export default function TournamentDetailPage() {
                         ))}
                       </div>
                       {/* Progress bar */}
-                      {matches.length > 0 && (
+                      {displayMatches.length > 0 && (
                         <div className="mt-3 h-2 bg-white/5 rounded-full overflow-hidden flex">
-                          <div className="h-full bg-green-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'completed').length / matches.length) * 100}%` }} />
-                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(matches.filter(m => m.status === 'live').length / matches.length) * 100}%` }} />
-                          <div className="h-full bg-blue-500 transition-all" style={{ width: `${(allScheduledMatches.length / matches.length) * 100}%` }} />
+                          <div className="h-full bg-green-500 transition-all" style={{ width: `${(displayMatches.filter(m => m.status === 'completed').length / displayMatches.length) * 100}%` }} />
+                          <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(displayMatches.filter(m => m.status === 'live').length / displayMatches.length) * 100}%` }} />
+                          <div className="h-full bg-blue-500 transition-all" style={{ width: `${(allScheduledMatches.length / displayMatches.length) * 100}%` }} />
                         </div>
+                      )}
+                      {resultMatches.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('results')}
+                          className="mt-4 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+                        >
+                          View all results →
+                        </button>
                       )}
                     </div>
                   )}
@@ -455,98 +493,37 @@ export default function TournamentDetailPage() {
             </div>
           )}
 
-          {/* MATCHES ──────────────────────────────────────────── */}
+          {/* FIXTURES ─────────────────────────────────────────── */}
           {activeTab === 'matches' && (
             <div className="space-y-6">
-              {/* Filters */}
-              {matches.length > 0 && (
-                <div className="space-y-2">
-                  {/* Search + date — first row */}
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <div className="relative flex-1 min-w-[160px] max-w-xs">
-                      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                      <input
-                        type="text"
-                        value={matchSearch}
-                        onChange={e => setMatchSearch(e.target.value)}
-                        placeholder="Search player / team…"
-                        className="w-full bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
-                      />
-                    </div>
-                    <input
-                      type="date"
-                      value={matchDateFilter}
-                      onChange={e => setMatchDateFilter(e.target.value)}
-                      title="Filter by date (IST)"
-                      className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                    />
-                  </div>
-                  {/* Selects + count — second row */}
-                  <div className="flex flex-wrap gap-2 items-center">
-                    {matchDistinctCategories.length > 0 && (
-                      <select
-                        value={matchCategoryFilter}
-                        onChange={e => setMatchCategoryFilter(e.target.value)}
-                        className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                      >
-                        <option value="all">All Categories</option>
-                        {matchDistinctCategories.map(c => (
-                          <option key={c} value={c}>{formatCategoryLabel(c)}</option>
-                        ))}
-                      </select>
-                    )}
-                    {matchDistinctRounds.length > 1 && (
-                      <select
-                        value={matchRoundFilter}
-                        onChange={e => setMatchRoundFilter(e.target.value)}
-                        className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                      >
-                        <option value="all">All Rounds</option>
-                        {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    )}
-                    <select
-                      value={matchStatusFilter}
-                      onChange={e => setMatchStatusFilter(e.target.value as typeof matchStatusFilter)}
-                      className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
-                    >
-                      <option value="all">All Matches</option>
-                      <option value="live">Live</option>
-                      <option value="scheduled">Upcoming</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                    {(matchRoundFilter !== 'all' || matchCategoryFilter !== 'all' || matchStatusFilter !== 'all' || matchSearch || matchDateFilter) && (
-                      <button
-                        onClick={() => {
-                          setMatchRoundFilter('all');
-                          setMatchCategoryFilter('all');
-                          setMatchStatusFilter('all');
-                          setMatchSearch('');
-                          setMatchDateFilter('');
-                        }}
-                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                      >
-                        Clear all
-                      </button>
-                    )}
-                    <span className="text-xs text-slate-500 ml-auto">
-                      {fixturesFiltered.length} of {matches.length} match{matches.length === 1 ? '' : 'es'}
-                    </span>
-                  </div>
-                </div>
+              {fixtureMatches.length > 0 && (
+                <MatchFiltersBar
+                  matchDistinctCategories={matchDistinctCategories}
+                  matchDistinctRounds={matchDistinctRounds}
+                  matchCategoryFilter={matchCategoryFilter}
+                  matchRoundFilter={matchRoundFilter}
+                  matchSearch={matchSearch}
+                  matchDateFilter={matchDateFilter}
+                  onCategoryChange={setMatchCategoryFilter}
+                  onRoundChange={setMatchRoundFilter}
+                  onSearchChange={setMatchSearch}
+                  onDateChange={setMatchDateFilter}
+                  onClear={clearMatchFilters}
+                  hasActiveFilters={hasActiveMatchFilters}
+                  shownCount={fixturesFiltered.length}
+                  totalCount={fixtureMatches.length}
+                />
               )}
-              {/* Live */}
-              {liveMatches.length > 0 && (
+              {liveFixtures.length > 0 && (
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-emerald-400 font-bold mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" /> Live Matches
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {liveMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
+                    {liveFixtures.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
-              {/* Upcoming */}
               {scheduledMatches.length > 0 && (
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Upcoming</h3>
@@ -555,22 +532,63 @@ export default function TournamentDetailPage() {
                   </div>
                 </section>
               )}
-              {/* Completed */}
-              {completedMatches.length > 0 && (
-                <section>
-                  <h3 className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-3">Results</h3>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {completedMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
-                  </div>
-                </section>
-              )}
               {fixturesFiltered.length === 0 && (
                 <div className="text-center py-24">
                   <Activity className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                  {matches.length === 0 ? (
-                    <p className="text-slate-400">No matches scheduled yet</p>
+                  {fixtureMatches.length === 0 ? (
+                    <p className="text-slate-400">No upcoming fixtures yet</p>
                   ) : (
-                    <p className="text-slate-400">No matches match your filters</p>
+                    <p className="text-slate-400">No fixtures match your filters</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RESULTS ────────────────────────────────────────────── */}
+          {activeTab === 'results' && (
+            <div className="space-y-6">
+              {resultMatches.length > 0 && (
+                <MatchFiltersBar
+                  matchDistinctCategories={matchDistinctCategories}
+                  matchDistinctRounds={matchDistinctRounds}
+                  matchCategoryFilter={matchCategoryFilter}
+                  matchRoundFilter={matchRoundFilter}
+                  matchSearch={matchSearch}
+                  matchDateFilter={matchDateFilter}
+                  onCategoryChange={setMatchCategoryFilter}
+                  onRoundChange={setMatchRoundFilter}
+                  onSearchChange={setMatchSearch}
+                  onDateChange={setMatchDateFilter}
+                  onClear={clearMatchFilters}
+                  hasActiveFilters={hasActiveMatchFilters}
+                  shownCount={resultsFiltered.length}
+                  totalCount={resultMatches.length}
+                />
+              )}
+              {resultsFiltered.length > 0 ? (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {resultsFiltered.map(m => (
+                    <ResultMatchCard
+                      key={m.id}
+                      match={m}
+                      tournamentId={tournamentId}
+                      regById={regById}
+                      teamsById={teamsById}
+                      teamIds={teamIds}
+                      rubbers={rubbersByParent.get(m.id) ?? []}
+                      expanded={expandedResultId === m.id}
+                      onToggle={() => setExpandedResultId(prev => (prev === m.id ? null : m.id))}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-24">
+                  <Trophy className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                  {resultMatches.length === 0 ? (
+                    <p className="text-slate-400">No completed matches yet</p>
+                  ) : (
+                    <p className="text-slate-400">No results match your filters</p>
                   )}
                 </div>
               )}
@@ -909,6 +927,210 @@ function MatchCard({
             </Button>
           </Link>
         </div>
+      )}
+    </div>
+  );
+}
+
+function rubberWinnerSide(rubber: Match): 1 | 2 | null {
+  if (rubber.status !== 'completed') return null;
+  if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
+  if ((rubber.player2Score ?? 0) > (rubber.player1Score ?? 0)) return 2;
+  return null;
+}
+
+function MatchFiltersBar({
+  matchDistinctCategories,
+  matchDistinctRounds,
+  matchCategoryFilter,
+  matchRoundFilter,
+  matchSearch,
+  matchDateFilter,
+  onCategoryChange,
+  onRoundChange,
+  onSearchChange,
+  onDateChange,
+  onClear,
+  hasActiveFilters,
+  shownCount,
+  totalCount,
+}: {
+  matchDistinctCategories: string[];
+  matchDistinctRounds: string[];
+  matchCategoryFilter: string;
+  matchRoundFilter: string;
+  matchSearch: string;
+  matchDateFilter: string;
+  onCategoryChange: (v: string) => void;
+  onRoundChange: (v: string) => void;
+  onSearchChange: (v: string) => void;
+  onDateChange: (v: string) => void;
+  onClear: () => void;
+  hasActiveFilters: boolean;
+  shownCount: number;
+  totalCount: number;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-[160px] max-w-xs">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input
+            type="text"
+            value={matchSearch}
+            onChange={e => onSearchChange(e.target.value)}
+            placeholder="Search player / team…"
+            className="w-full bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
+          />
+        </div>
+        <input
+          type="date"
+          value={matchDateFilter}
+          onChange={e => onDateChange(e.target.value)}
+          title="Filter by date (IST)"
+          className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+        />
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        {matchDistinctCategories.length > 0 && (
+          <select
+            value={matchCategoryFilter}
+            onChange={e => onCategoryChange(e.target.value)}
+            className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+          >
+            <option value="all">All Categories</option>
+            {matchDistinctCategories.map(c => (
+              <option key={c} value={c}>{formatCategoryLabel(c)}</option>
+            ))}
+          </select>
+        )}
+        {matchDistinctRounds.length > 1 && (
+          <select
+            value={matchRoundFilter}
+            onChange={e => onRoundChange(e.target.value)}
+            className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+          >
+            <option value="all">All Rounds</option>
+            {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        )}
+        {hasActiveFilters && (
+          <button type="button" onClick={onClear} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+            Clear all
+          </button>
+        )}
+        <span className="text-xs text-slate-500 ml-auto">
+          {shownCount} of {totalCount} match{totalCount === 1 ? '' : 'es'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TeamRubberDetails({
+  rubbers,
+  regById,
+}: {
+  rubbers: Match[];
+  regById: Map<string, Registration>;
+}) {
+  if (rubbers.length === 0) {
+    return (
+      <div className="px-4 py-3 text-xs text-slate-500 italic border-t border-white/10 bg-slate-900/95">
+        Game details not available yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-white/10 bg-slate-900/95 px-3 py-3 space-y-2">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 px-1">Games</p>
+      {rubbers.map(rubber => {
+        const side1 = formatMatchSideLabel(rubber, 1, regById);
+        const side2 = formatMatchSideLabel(rubber, 2, regById);
+        const winner = rubberWinnerSide(rubber);
+        const setScores = rubber.sets?.map(s => `${s.player1Score}–${s.player2Score}`).join(', ');
+
+        return (
+          <div
+            key={rubber.id}
+            className="rounded-xl bg-slate-800/80 border border-white/5 px-3 py-2.5"
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                Game {rubber.rubberNumber} · {rubberTypeLabel(rubber.rubberType ?? 'single')}
+              </span>
+              {rubber.status === 'completed' ? (
+                <span className="text-[10px] font-bold text-green-400/90 uppercase">Done</span>
+              ) : (
+                <span className="text-[10px] font-bold text-slate-500 uppercase">{rubber.status}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs">
+              <span className={`truncate font-medium ${winner === 1 ? 'text-yellow-300' : 'text-white'}`} title={side1}>
+                {side1}
+              </span>
+              <span className="font-black tabular-nums text-white whitespace-nowrap px-1">
+                {rubber.player1Score ?? 0}
+                <span className="text-slate-500 mx-0.5">–</span>
+                {rubber.player2Score ?? 0}
+              </span>
+              <span className={`truncate font-medium text-right ${winner === 2 ? 'text-yellow-300' : 'text-white'}`} title={side2}>
+                {side2}
+              </span>
+            </div>
+            {setScores && (
+              <p className="text-[10px] text-slate-500 mt-1.5 tabular-nums">({setScores})</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ResultMatchCard({
+  match,
+  tournamentId,
+  regById,
+  teamsById,
+  teamIds,
+  rubbers,
+  expanded,
+  onToggle,
+}: {
+  match: Match;
+  tournamentId: string;
+  regById: Map<string, Registration>;
+  teamsById: Map<string, { logoUrl?: string; name?: string }>;
+  teamIds: Set<string>;
+  rubbers: Match[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const isTeamTie = isTeamTieMatch(match, teamIds);
+  const canExpand = isTeamTie && (rubbers.length > 0 || !!match.rubbersGenerated);
+
+  return (
+    <div className={`rounded-2xl overflow-hidden border transition-colors ${expanded ? 'border-yellow-400/30' : 'border-white/5'}`}>
+      <div
+        className={canExpand ? 'cursor-pointer group' : undefined}
+        onClick={canExpand ? onToggle : undefined}
+        onKeyDown={canExpand ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } } : undefined}
+        role={canExpand ? 'button' : undefined}
+        tabIndex={canExpand ? 0 : undefined}
+        aria-expanded={canExpand ? expanded : undefined}
+      >
+        <MatchCard match={match} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
+        {canExpand && (
+          <div className="flex items-center justify-center gap-1.5 py-2 -mt-1 bg-slate-950/40 text-[10px] font-bold uppercase tracking-wide text-slate-400 group-hover:text-yellow-400 transition-colors">
+            <span>{expanded ? 'Hide games' : 'View games'}</span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </div>
+        )}
+      </div>
+      {expanded && isTeamTie && (
+        <TeamRubberDetails rubbers={rubbers} regById={regById} />
       )}
     </div>
   );

@@ -4,7 +4,6 @@ import type { Match, Pool, Registration, Team } from '@/types';
 import { TeamLogo } from '@/components/TeamLogo';
 import {
   computePoolStandings,
-  formatNrr,
   type PoolStandingRow,
 } from '@/lib/poolStandings';
 
@@ -21,6 +20,10 @@ function entityLabel(isTeamCat: boolean, isDoubles?: boolean) {
   if (isTeamCat) return 'Team';
   if (isDoubles) return 'Pair';
   return 'Player';
+}
+
+function formatDiff(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
 }
 
 const stickyCell =
@@ -46,20 +49,22 @@ function PoolPointsTableInner({
 
   return (
     <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
-      <table className="w-full min-w-[340px] text-[10px] sm:text-sm">
+      <table className="w-full min-w-[520px] text-[10px] sm:text-sm">
         <thead>
           <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[9px] sm:text-[10px]">
             <th className={`text-left font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-8 ${stickyCell}`}>#</th>
             <th className={`text-left font-bold px-1.5 sm:px-2 py-2 sm:py-2.5 min-w-[88px] max-w-[120px] sm:max-w-none ${stickyCellSecond}`}>
               {label}
             </th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Played">P</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9" title="Matches played">MP</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-green-400" title="Won">W</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-red-400" title="Lost">L</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9 text-amber-400" title="Standings points (2 per win)">Pts</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Point Given">PG</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points Taken">PT</th>
-            <th className="text-center font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-12 text-sky-400" title="Net run rate (PG ÷ PT)">NRR</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games won">GW</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games lost">GL</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points given">PG</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points taken">PT</th>
+            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Point difference">PD</th>
+            <th className="text-center font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-9 text-amber-400" title="Standings points (2 per win)">PTS</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
@@ -86,12 +91,14 @@ function PoolPointsTableInner({
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-300 tabular-nums">{row.played}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-green-400 tabular-nums">{row.won}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-red-400 tabular-nums">{row.lost}</td>
-                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-bold text-amber-400 tabular-nums">{row.points}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-purple-400 tabular-nums">{row.gamesWon}</td>
+                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-orange-400 tabular-nums">{row.gamesLost}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsFor}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsAgainst}</td>
-                <td className={`px-1.5 sm:px-4 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.nrr >= 1 ? 'text-sky-400' : 'text-slate-400'}`}>
-                  {formatNrr(row.nrr)}
+                <td className={`px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.pointDifference <= 0 ? 'text-sky-400' : 'text-red-400'}`}>
+                  {formatDiff(row.pointDifference)}
                 </td>
+                <td className="px-1.5 sm:px-4 py-2 sm:py-2.5 text-center font-bold text-amber-400 tabular-nums">{row.points}</td>
               </tr>
             );
           })}

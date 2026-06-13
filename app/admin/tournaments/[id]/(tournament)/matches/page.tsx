@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -42,7 +42,7 @@ import {
 import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
-  Edit, FilterX, Monitor, Play, Search, Square, Swords, Trash2, X, ClipboardList,
+  CheckCircle, Edit, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -291,15 +291,46 @@ export default function MatchesPage() {
     }
   };
 
-  const handleStopMatch = async (match: Match) => {
-    if (!confirm('Stop this match and return it to scheduled? Live scores will be cleared.')) return;
+  const handleCompleteMatch = async (match: Match) => {
+    const isTeamMatch = isTeamTieMatch(match, teamIds);
+    let winner = match.winner ?? '';
+    let p1Score = match.player1Score;
+    let p2Score = match.player2Score;
+
+    if (isTeamMatch) {
+      const rubbers = rubbersByParent.get(match.id) ?? [];
+      const { team1, team2 } = countRubbersWon(rubbers);
+      if (team1 === team2 && !winner) {
+        alert({ title: 'Tie', description: 'Rubber scores are tied. Use the match details page to override the winner.', variant: 'error' });
+        return;
+      }
+      p1Score = team1;
+      p2Score = team2;
+      if (!winner) winner = team1 > team2 ? match.player1Name : match.player2Name;
+    } else {
+      if (!winner) {
+        const p1 = match.player1Score ?? 0;
+        const p2 = match.player2Score ?? 0;
+        winner = p1 > p2 ? match.player1Name : p2 > p1 ? match.player2Name : '';
+      }
+    }
+
+    const label = winner ? `Winner: ${winner}` : 'Winner not yet determined — you can set it from the match details page.';
+    if (!confirm(`Complete this match?\n${label}`)) return;
+
     try {
-      await updateDoc(tournamentMatchRef(tournamentId, match.id), { status: 'scheduled', actualStartTime: null, updatedAt: new Date() });
-      await deleteDoc(tournamentLiveScoreRef(tournamentId, match.id));
+      await updateDoc(tournamentMatchRef(tournamentId, match.id), {
+        status: 'completed',
+        ...(winner && { winner }),
+        ...(p1Score !== undefined && { player1Score: p1Score }),
+        ...(p2Score !== undefined && { player2Score: p2Score }),
+        actualEndTime: new Date(),
+        updatedAt: new Date(),
+      });
       invalidateTournament(tournamentId);
     } catch (e) {
       console.error(e);
-      alert({ title: 'Error', description: 'Failed to stop match', variant: 'error' });
+      alert({ title: 'Error', description: 'Failed to complete match', variant: 'error' });
     }
   };
 
@@ -400,12 +431,6 @@ export default function MatchesPage() {
     return <span className="font-semibold">{team1}-{team2}</span>;
   };
 
-  const renderRubberLabel = (rubber: Match) => {
-    const p1 = formatMatchSideLabel(rubber, 1, regById);
-    const p2 = formatMatchSideLabel(rubber, 2, regById);
-    return `${p1} vs ${p2}`;
-  };
-
   const renderLineupButton = (match: Match, compact = false) => {
     if (!isTeamTieMatch(match, teamIds) || !match.rubbersGenerated) return null;
     return (
@@ -429,34 +454,6 @@ export default function MatchesPage() {
     if (match.status === 'live' && match.sets?.length)
       return <span className="text-green-600 text-xs">{match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}</span>;
     return <span className="text-gray-400">-</span>;
-  };
-
-  const renderRubbers = (match: Match) => {
-    const rubbers = rubbersByParent.get(match.id);
-    if (!rubbers?.length) return null;
-    return (
-      <div className="mt-2 space-y-1.5 border-t border-gray-100 pt-2">
-        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Rubbers</p>
-        {rubbers.map(rubber => (
-          <div key={rubber.id} className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-gray-600 shrink-0">#{rubber.rubberNumber} {rubber.rubberType}</span>
-            <span className="truncate text-gray-800">{renderRubberLabel(rubber)}</span>
-            <div className="flex items-center gap-1 shrink-0">
-              <Badge className={`text-[10px] px-1 ${getMatchStatusColor(rubber.status)}`}>
-                {getMatchStatusLabel(rubber.status)}
-              </Badge>
-              {(rubber.status === 'scheduled' || rubber.status === 'live') && (
-                <Link href={adminMatchScorePath(rubber.id, tournamentId)}>
-                  <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px]">
-                    Score
-                  </Button>
-                </Link>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
   };
 
   return (
@@ -655,7 +652,6 @@ export default function MatchesPage() {
                       <span className="text-xs text-gray-500">{formatDateShort(new Date(match.scheduledTime))}</span>
                       <span className="text-xs">{renderScore(match)}</span>
                     </div>
-                    {isTeamTieMatch(match, teamIds) && renderRubbers(match)}
                   </div>
                 </div>
                 {/* Action buttons */}
@@ -673,14 +669,14 @@ export default function MatchesPage() {
                   {canRunMatches && match.status === 'live' && (
                     <Button
                       size="sm"
-                      className="h-9 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
-                      onClick={() => handleStopMatch(match)}
+                      className="h-9 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                      onClick={() => handleCompleteMatch(match)}
                     >
-                      <Square className="h-3.5 w-3.5 mr-1" />
-                      Stop
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      Complete
                     </Button>
                   )}
-                  {canRunMatches && renderLineupButton(match, true)}
+                  {canRunMatches && match.status !== 'completed' && renderLineupButton(match, true)}
                   {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                     <Link href={adminMatchScorePath(match.id, tournamentId)} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
@@ -696,6 +692,12 @@ export default function MatchesPage() {
                       </Button>
                     </Link>
                   )}
+                  <Link href={`/admin/tournaments/${tournamentId}/matches/${match.id}`} className="ml-auto">
+                    <Button size="sm" variant="outline" className="h-9 px-3 text-xs touch-manipulation gap-1">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View
+                    </Button>
+                  </Link>
                   {isFullAdmin && (
                     <>
                       <Button
@@ -765,8 +767,7 @@ export default function MatchesPage() {
               </TableHeader>
               <TableBody>
                 {sortedMatches.map((match) => (
-                  <Fragment key={match.id}>
-                  <TableRow data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
+                  <TableRow key={match.id} data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
                     {isFullAdmin && (
                       <TableCell className="py-2">
                         <Checkbox
@@ -777,7 +778,12 @@ export default function MatchesPage() {
                       </TableCell>
                     )}
                     <TableCell className="font-medium text-xs py-2">
-                      #{match.matchNumber}
+                      <Link
+                        href={`/admin/tournaments/${tournamentId}/matches/${match.id}`}
+                        className="hover:underline hover:text-blue-600"
+                      >
+                        #{match.matchNumber}
+                      </Link>
                       {isTeamTieMatch(match, teamIds) && (
                         <Badge variant="outline" className="ml-1 text-[10px]">Team</Badge>
                       )}
@@ -807,14 +813,14 @@ export default function MatchesPage() {
                         {canRunMatches && match.status === 'live' && (
                           <Button
                             size="sm"
-                            className="h-7 px-2 text-xs bg-orange-500 hover:bg-orange-600 touch-manipulation"
-                            onClick={() => handleStopMatch(match)}
+                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                            onClick={() => handleCompleteMatch(match)}
                           >
-                            <Square className="h-3 w-3 mr-1" />
-                            Stop
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Complete
                           </Button>
                         )}
-                        {canRunMatches && renderLineupButton(match)}
+                        {canRunMatches && match.status !== 'completed' && renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={adminMatchScorePath(match.id, tournamentId)} className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
@@ -830,6 +836,11 @@ export default function MatchesPage() {
                             </Button>
                           </Link>
                         )}
+                        <Link href={`/admin/tournaments/${tournamentId}/matches/${match.id}`} className="inline-block">
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 touch-manipulation" title="View match details">
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </Link>
                         {isFullAdmin && (
                           <>
                             <Button
@@ -851,14 +862,6 @@ export default function MatchesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                  {isTeamTieMatch(match, teamIds) && rubbersByParent.get(match.id)?.length ? (
-                    <TableRow key={`${match.id}-rubbers`} className="bg-gray-50/80 hover:bg-gray-50/80">
-                      <TableCell colSpan={9} className="py-2 px-4">
-                        {renderRubbers(match)}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  </Fragment>
                 ))}
               </TableBody>
             </Table>

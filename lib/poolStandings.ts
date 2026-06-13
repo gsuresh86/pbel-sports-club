@@ -15,16 +15,19 @@ export interface PoolStandingRow {
   played: number;
   won: number;
   lost: number;
-  points: number;
+  gamesWon: number;
+  gamesLost: number;
   pointsFor: number;
   pointsAgainst: number;
+  pointDifference: number;
+  points: number;
   nrr: number;
 }
 
 function emptyRow(id: string, name: string): PoolStandingRow {
   return {
-    id, name, played: 0, won: 0, lost: 0, points: 0,
-    pointsFor: 0, pointsAgainst: 0, nrr: 0,
+    id, name, played: 0, won: 0, lost: 0, gamesWon: 0, gamesLost: 0, points: 0,
+    pointsFor: 0, pointsAgainst: 0, pointDifference: 0, nrr: 0,
   };
 }
 
@@ -86,6 +89,10 @@ function applyIndividualResult(
   w.played++; l.played++;
   w.won++; l.lost++;
   w.points += 2;
+  w.gamesWon += winnerSets;
+  w.gamesLost += loserSets;
+  l.gamesWon += loserSets;
+  l.gamesLost += winnerSets;
   w.pointsFor += winnerPoints;
   w.pointsAgainst += loserPoints;
   l.pointsFor += loserPoints;
@@ -106,6 +113,10 @@ function applyTeamTieResult(
   const t1 = ensureRow(map, team1Id, team1Name);
   const t2 = ensureRow(map, team2Id, team2Name);
   t1.played++; t2.played++;
+  t1.gamesWon += team1Rubbers;
+  t1.gamesLost += team2Rubbers;
+  t2.gamesWon += team2Rubbers;
+  t2.gamesLost += team1Rubbers;
   t1.pointsFor += team1Points;
   t1.pointsAgainst += team2Points;
   t2.pointsFor += team2Points;
@@ -122,11 +133,15 @@ function applyTeamTieResult(
 
 function finalizeRows(map: Map<string, PoolStandingRow>): PoolStandingRow[] {
   for (const row of map.values()) {
+    row.pointDifference = row.pointsAgainst - row.pointsFor;
     row.nrr = computeNrr(row.pointsFor, row.pointsAgainst);
   }
   return Array.from(map.values()).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
-    if (b.nrr !== a.nrr) return b.nrr - a.nrr;
+    const aGameDiff = a.gamesWon - a.gamesLost;
+    const bGameDiff = b.gamesWon - b.gamesLost;
+    if (bGameDiff !== aGameDiff) return bGameDiff - aGameDiff;
+    if (a.pointDifference !== b.pointDifference) return a.pointDifference - b.pointDifference;
     if (b.won !== a.won) return b.won - a.won;
     return a.name.localeCompare(b.name);
   });
