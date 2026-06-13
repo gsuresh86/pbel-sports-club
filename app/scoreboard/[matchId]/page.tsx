@@ -2,7 +2,15 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { doc, getDoc, getDocFromServer, onSnapshot } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocFromServer,
+  onSnapshot,
+  query,
+  where,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   findMatchById,
@@ -10,8 +18,10 @@ import {
   tournamentMatchRef,
 } from '@/lib/firestore-paths';
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
+import { TeamTieScoreboardDisplay } from '@/components/scoring/TeamTieScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
 import { fetchTournamentRegistrations, toTournament } from '@/lib/tournament-api';
+import { countRubbersWon } from '@/lib/teamMatchRubbers';
 import { getMatchLiveDisplayNames } from '@/lib/utils';
 import { Match, Tournament, LiveScore, Registration } from '@/types';
 
@@ -39,6 +49,9 @@ function ScoreboardPageInner() {
   const [liveScoreReady, setLiveScoreReady] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(true);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [parentTeamMatch, setParentTeamMatch] = useState<Match | null>(null);
+  const [teamRubbers, setTeamRubbers] = useState<Match[]>([]);
+  const [rubberLiveScores, setRubberLiveScores] = useState<Map<string, LiveScore>>(new Map());
 
   const effectiveTournamentId = useMemo(
     () =>
@@ -186,10 +199,113 @@ function ScoreboardPageInner() {
   useEffect(() => {
     if (match) {
       const regById = new Map(registrations.map(r => [r.id, r]));
-      const names = getMatchLiveDisplayNames(match, regById);
-      document.title = `${names.player1Name} vs ${names.player2Name} | Live Scoreboard`;
+      if (match.matchKind === 'team-tie') {
+        document.title = `${match.player1Name} vs ${match.player2Name} | Team Tie Scoreboard`;
+      } else {
+        const names = getMatchLiveDisplayNames(match, regById);
+        document.title = `${names.player1Name} vs ${names.player2Name} | Live Scoreboard`;
+      }
     }
   }, [match, registrations]);
+
+  // The team-tie match whose rubbers determine the tie score: the match itself
+  // when it's the tie, or the parent when this match is a rubber.
+  const teamTieParentId = useMemo(() => {
+    if (!match) return null;
+    if (match.matchKind === 'team-tie') return match.id;
+    if (match.matchKind === 'rubber' || match.parentMatchId) return match.parentMatchId ?? null;
+    return null;
+  }, [match]);
+
+  // When viewing a rubber, watch the parent tie match to get the team names.
+  useEffect(() => {
+    const parentId = match?.parentMatchId;
+    if (!parentId || !effectiveTournamentId) {
+      setParentTeamMatch(null);
+      return;
+    }
+    const unsub = onSnapshot(
+      tournamentMatchRef(effectiveTournamentId, parentId),
+      (snap) => {
+        setParentTeamMatch(snap.exists() ? ({ id: snap.id, ...snap.data() } as Match) : null);
+      }
+    );
+    return () => unsub();
+  }, [match?.parentMatchId, effectiveTournamentId]);
+
+  // Watch all rubbers in the tie to compute the live rubber tally.
+  useEffect(() => {
+    if (!teamTieParentId || !effectiveTournamentId) {
+      setTeamRubbers([]);
+      return;
+    }
+    const rubbersQuery = query(
+      collection(db, 'tournaments', effectiveTournamentId, 'matches'),
+      where('parentMatchId', '==', teamTieParentId)
+    );
+    const unsub = onSnapshot(rubbersQuery, (snap) => {
+      setTeamRubbers(
+        snap.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              ...data,
+              scheduledTime: data.scheduledTime?.toDate?.(),
+              actualStartTime: data.actualStartTime?.toDate?.(),
+              actualEndTime: data.actualEndTime?.toDate?.(),
+              updatedAt: data.updatedAt?.toDate?.(),
+            } as Match;
+          })
+          .sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0))
+      );
+    });
+    return () => unsub();
+  }, [teamTieParentId, effectiveTournamentId]);
+
+  const rubberIdsKey = teamRubbers.map((r) => r.id).join(',');
+
+  useEffect(() => {
+    if (!effectiveTournamentId || !rubberIdsKey) {
+      setRubberLiveScores(new Map());
+      return;
+    }
+
+    const rubberIds = rubberIdsKey.split(',');
+    const unsubs = rubberIds.map((rubberId) =>
+      onSnapshot(tournamentLiveScoreRef(effectiveTournamentId, rubberId), (docSnap) => {
+        setRubberLiveScores((prev) => {
+          const next = new Map(prev);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            next.set(rubberId, {
+              ...data,
+              lastUpdated: data.lastUpdated?.toDate(),
+              matchCompletedAt: data.matchCompletedAt?.toDate(),
+            } as LiveScore);
+          } else {
+            next.delete(rubberId);
+          }
+          return next;
+        });
+      })
+    );
+
+    return () => unsubs.forEach((unsub) => unsub());
+  }, [effectiveTournamentId, rubberIdsKey]);
+
+  const teamMatchStats = useMemo(() => {
+    if (!teamTieParentId) return null;
+    const tie = match?.matchKind === 'team-tie' ? match : parentTeamMatch;
+    if (!tie) return null;
+    const wins = countRubbersWon(teamRubbers);
+    return {
+      team1Name: tie.player1Name,
+      team2Name: tie.player2Name,
+      team1Wins: wins.team1,
+      team2Wins: wins.team2,
+    };
+  }, [teamTieParentId, match, parentTeamMatch, teamRubbers]);
 
   const regById = useMemo(() => new Map(registrations.map(r => [r.id, r])), [registrations]);
   const matchDisplayNames = match ? getMatchLiveDisplayNames(match, regById) : null;
@@ -231,9 +347,30 @@ function ScoreboardPageInner() {
   const player1DisplayName = matchDisplayNames?.player1Name ?? match.player1Name;
   const player2DisplayName = matchDisplayNames?.player2Name ?? match.player2Name;
 
+  if (match.matchKind === 'team-tie' && teamMatchStats) {
+    return (
+      <TeamTieScoreboardDisplay
+        tournamentName={tournament?.name ?? 'Tournament'}
+        tournamentId={effectiveTournamentId ?? match.tournamentId}
+        bannerUrl={bannerUrl}
+        round={match.round}
+        matchNumber={match.matchNumber}
+        team1Name={teamMatchStats.team1Name}
+        team2Name={teamMatchStats.team2Name}
+        team1Wins={teamMatchStats.team1Wins}
+        team2Wins={teamMatchStats.team2Wins}
+        rubbers={teamRubbers}
+        regById={regById}
+        rubberLiveScores={rubberLiveScores}
+        court={match.court}
+      />
+    );
+  }
+
   return (
     <ScoreboardDisplay
       tournamentName={tournament?.name ?? 'Tournament'}
+      tournamentId={effectiveTournamentId ?? match.tournamentId}
       bannerUrl={bannerUrl}
       round={match.round}
       matchNumber={match.matchNumber}
@@ -248,6 +385,7 @@ function ScoreboardPageInner() {
       winner={winner}
       court={match.court}
       sidesSwapped={liveScore?.sidesSwapped ?? false}
+      teamMatch={teamMatchStats}
     />
   );
 }

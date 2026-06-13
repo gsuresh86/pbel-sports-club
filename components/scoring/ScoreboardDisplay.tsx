@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef } from 'react';
-import { Play, Trophy } from 'lucide-react';
+import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDisplaySides } from '@/lib/match-scoring';
+import { publicTournamentPath } from '@/lib/tournament-banner';
 
 function formatScore(score: number) {
   return score.toString().padStart(2, '0');
@@ -11,6 +13,7 @@ function formatScore(score: number) {
 
 export interface ScoreboardDisplayProps {
   tournamentName: string;
+  tournamentId?: string | null;
   round: string;
   matchNumber: number;
   player1Name: string;
@@ -25,11 +28,19 @@ export interface ScoreboardDisplayProps {
   court?: string;
   sidesSwapped?: boolean;
   bannerUrl?: string;
+  /** When this match is part of a team tie, show the team names and rubber tally. */
+  teamMatch?: {
+    team1Name: string;
+    team2Name: string;
+    team1Wins: number;
+    team2Wins: number;
+  } | null;
   className?: string;
 }
 
 export function ScoreboardDisplay({
   tournamentName,
+  tournamentId,
   round,
   matchNumber,
   player1Name,
@@ -44,6 +55,7 @@ export function ScoreboardDisplay({
   court,
   sidesSwapped = false,
   bannerUrl,
+  teamMatch,
   className,
 }: ScoreboardDisplayProps) {
   const sides = getDisplaySides(
@@ -62,12 +74,12 @@ export function ScoreboardDisplay({
     prevRight.current = sides.right.score;
   }, [sides.left.score, sides.right.score]);
 
-  const leftBg = sides.left.color === 'blue' ? 'bg-blue-950/20' : 'bg-red-950/20';
-  const rightBg = sides.right.color === 'blue' ? 'bg-blue-950/20' : 'bg-red-950/20';
-  const leftText = sides.left.color === 'blue' ? 'text-blue-300' : 'text-red-300';
-  const rightText = sides.right.color === 'blue' ? 'text-blue-300' : 'text-red-300';
-  const leftScoreText = sides.left.color === 'blue' ? 'text-blue-400' : 'text-red-400';
-  const rightScoreText = sides.right.color === 'blue' ? 'text-blue-400' : 'text-red-400';
+  const leftBg = sides.left.color === 'blue' ? 'bg-blue-950/55' : 'bg-red-950/55';
+  const rightBg = sides.right.color === 'blue' ? 'bg-blue-950/55' : 'bg-red-950/55';
+  const leftText = sides.left.color === 'blue' ? 'text-blue-200' : 'text-red-200';
+  const rightText = sides.right.color === 'blue' ? 'text-blue-200' : 'text-red-200';
+  const leftScoreText = sides.left.color === 'blue' ? 'text-blue-300' : 'text-red-300';
+  const rightScoreText = sides.right.color === 'blue' ? 'text-blue-300' : 'text-red-300';
 
   return (
     <div
@@ -87,16 +99,30 @@ export function ScoreboardDisplay({
             referrerPolicy="no-referrer"
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/30 via-zinc-950/40 to-zinc-950/55" />
+          <div className="absolute inset-0 bg-gradient-to-b from-zinc-950/65 via-zinc-950/75 to-zinc-950/85" />
+          <div className="absolute inset-0 bg-black/25" />
         </div>
       )}
 
       <div className="relative z-10 flex flex-col h-full min-h-0">
-      <header className="shrink-0 flex items-center justify-between gap-4 px-4 sm:px-8 py-3 sm:py-5 bg-zinc-900/45 backdrop-blur-sm border-b border-zinc-800/60">
+      <header className="shrink-0 flex items-center justify-between gap-4 px-4 sm:px-8 py-3 sm:py-5 bg-zinc-950/75 backdrop-blur-md border-b border-zinc-800/80">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold truncate drop-shadow-md">
-            {tournamentName}
-          </h1>
+          {tournamentId ? (
+            <Link
+              href={publicTournamentPath(tournamentId)}
+              className="group inline-flex items-center gap-2 max-w-full hover:text-zinc-200 transition-colors"
+              title="View public tournament page"
+            >
+              <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold truncate drop-shadow-md">
+                {tournamentName}
+              </h1>
+              <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-zinc-400 group-hover:text-zinc-200" />
+            </Link>
+          ) : (
+            <h1 className="text-xl sm:text-3xl lg:text-4xl font-bold truncate drop-shadow-md">
+              {tournamentName}
+            </h1>
+          )}
           <p className="text-base sm:text-xl lg:text-2xl text-zinc-300 truncate drop-shadow-sm">
             {round} · Match #{matchNumber}
             {court ? ` · Court ${court}` : ''}
@@ -132,50 +158,71 @@ export function ScoreboardDisplay({
         </div>
       )}
 
-      <div className="relative flex-1 grid grid-cols-2 min-h-0">
-        <div className={cn('flex flex-col items-center justify-center border-r border-zinc-800/60 backdrop-blur-[2px] p-4', leftBg)}>
+      <div className="relative flex-1 grid grid-cols-2 min-h-0 bg-black/40">
+        <div className={cn('flex flex-col items-center justify-center border-r border-zinc-800/80 backdrop-blur-sm p-4', leftBg)}>
           <h2 className={cn('text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-center truncate max-w-full px-2 mb-4 sm:mb-10', leftText)}>
             {sides.left.name}
           </h2>
           <div
             className={cn(
-              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200',
+              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)]',
               leftScoreText,
               leftBump && 'scale-110'
             )}
           >
             {formatScore(sides.left.score)}
           </div>
-          <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
-            Sets <span className="text-white font-bold tabular-nums">{sides.left.sets}</span>
-          </div>
+          {sides.left.sets > 0 && (
+            <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
+              Sets <span className="text-white font-bold tabular-nums">{sides.left.sets}</span>
+            </div>
+          )}
         </div>
 
-        <div className={cn('flex flex-col items-center justify-center backdrop-blur-[2px] p-4', rightBg)}>
+        <div className={cn('flex flex-col items-center justify-center backdrop-blur-sm p-4', rightBg)}>
           <h2 className={cn('text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-center truncate max-w-full px-2 mb-4 sm:mb-10', rightText)}>
             {sides.right.name}
           </h2>
           <div
             className={cn(
-              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200',
+              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)]',
               rightScoreText,
               rightBump && 'scale-110'
             )}
           >
             {formatScore(sides.right.score)}
           </div>
-          <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
-            Sets <span className="text-white font-bold tabular-nums">{sides.right.sets}</span>
-          </div>
+          {sides.right.sets > 0 && (
+            <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
+              Sets <span className="text-white font-bold tabular-nums">{sides.right.sets}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <footer className="relative shrink-0 py-4 sm:py-6 text-center bg-zinc-900/45 backdrop-blur-sm border-t border-zinc-800/60">
+      <footer className="relative shrink-0 py-4 sm:py-6 text-center bg-zinc-950/75 backdrop-blur-md border-t border-zinc-800/80">
         {winner ? (
           <p className="text-2xl sm:text-4xl lg:text-5xl font-bold text-yellow-400 flex items-center justify-center gap-3">
             <Trophy className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
             Winner: {winner}
           </p>
+        ) : teamMatch ? (
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-xs sm:text-sm uppercase tracking-widest text-zinc-400">
+              Team Tie · Rubbers won
+            </span>
+            <div className="flex items-center justify-center gap-3 sm:gap-6">
+              <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-blue-300 truncate max-w-[34vw]">
+                {teamMatch.team1Name}
+              </span>
+              <span className="text-2xl sm:text-4xl lg:text-5xl font-bold tabular-nums text-white">
+                {teamMatch.team1Wins} <span className="text-zinc-500">–</span> {teamMatch.team2Wins}
+              </span>
+              <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-red-300 truncate max-w-[34vw]">
+                {teamMatch.team2Name}
+              </span>
+            </div>
+          </div>
         ) : isLive ? (
           <p className="text-zinc-400 text-lg sm:text-2xl lg:text-3xl">
             Set {currentSet} · Match in progress

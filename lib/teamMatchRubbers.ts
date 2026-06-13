@@ -98,3 +98,10 @@ export function countRubbersWon(rubbers: Match[]): { team1: number; team2: numbe
   }
   return { team1, team2 };
 }
+
+export function rubberWinnerSide(rubber: Match): 1 | 2 | null {
+  if (rubber.status !== 'completed') return null;
+  if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
+  if ((rubber.player2Score ?? 0) > (rubber.player1Score ?? 0)) return 2;
+  return null;
+}

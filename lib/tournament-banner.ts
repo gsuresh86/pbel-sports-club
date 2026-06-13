@@ -15,6 +15,10 @@ export function scoreboardPath(matchId: string, tournamentId?: string | null): s
   return `/scoreboard/${matchId}?tournamentId=${encodeURIComponent(id)}`;
 }
 
+export function publicTournamentPath(tournamentId: string): string {
+  return `/tournament/${tournamentId.trim()}`;
+}
+
 export function getSportBanner(sport: string): string {
   switch (sport) {
     case 'badminton':

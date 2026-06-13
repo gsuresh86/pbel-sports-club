@@ -71,7 +71,9 @@ export function LiveScoreHeader({
           <div className={cn(scoreClass, leftColor, 'mt-1')}>
             {formatScore(sides.left.score)}
           </div>
-          <div className="text-xs text-gray-500 mt-1">Sets: {sides.left.sets}</div>
+          {sides.left.sets > 0 && (
+            <div className="text-xs text-gray-500 mt-1">Sets: {sides.left.sets}</div>
+          )}
         </div>
 
         <div className="flex flex-col items-center justify-center shrink-0 px-1">
@@ -90,7 +92,9 @@ export function LiveScoreHeader({
           <div className={cn(scoreClass, rightColor, 'mt-1')}>
             {formatScore(sides.right.score)}
           </div>
-          <div className="text-xs text-gray-500 mt-1">Sets: {sides.right.sets}</div>
+          {sides.right.sets > 0 && (
+            <div className="text-xs text-gray-500 mt-1">Sets: {sides.right.sets}</div>
+          )}
         </div>
       </div>
 

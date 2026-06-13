@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 import { TeamLogo } from '@/components/TeamLogo';
 import { formatCategoryLabel } from '@/lib/categoryLabels';
+import { scoreboardPath } from '@/lib/tournament-banner';
 import { isRubberMatch, isTeamTieMatch, rubberTypeLabel } from '@/lib/teamMatchRubbers';
 
 export default function TournamentDetailPage() {
@@ -147,11 +148,11 @@ export default function TournamentDetailPage() {
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Trophy },
     { id: 'matches',  label: `Fixtures (${fixtureMatches.length})`, icon: Activity },
     { id: 'results',  label: `Results (${resultMatches.length})`, icon: Target },
-    { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
     { id: 'pools',   label: `Points (${pools.length})`, icon: Users2 },
+    { id: 'overview', label: 'Overview', icon: Trophy },
+    { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
   ] as const;
 
   const matchDistinctRounds = Array.from(new Set(displayMatches.map(m => m.round))).sort();
@@ -313,7 +314,7 @@ export default function TournamentDetailPage() {
                   </Link>
                 )}
                 {liveMatches.length > 0 && (
-                  <Link href={`/tournament/${tournamentId}/live/${liveMatches[0].id}`}>
+                  <Link href={scoreboardPath(liveMatches[0].id, tournamentId)} target="_blank" rel="noopener noreferrer">
                     <Button className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-11 rounded-full px-6 text-sm">
                       <Flame className="h-4 w-4 mr-2" /> Watch Live
                     </Button>
@@ -352,7 +353,7 @@ export default function TournamentDetailPage() {
                     <span className="w-2 h-2 rounded-full bg-emerald-300" /> Live
                   </span>
                   {liveMatches.map(m => (
-                    <Link key={m.id} href={`/tournament/${tournamentId}/live/${m.id}`}
+                    <Link key={m.id} href={scoreboardPath(m.id, tournamentId)} target="_blank" rel="noopener noreferrer"
                       className="flex-shrink-0 text-xs text-white/90 hover:text-white font-medium">
                       {m.player1Name} vs {m.player2Name}
                       {m.sets?.length ? ` · ${m.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}` : ''}
@@ -918,7 +919,7 @@ function MatchCard({
       {/* Live action button */}
       {isLive && (
         <div className="px-3 pb-3">
-          <Link href={`/tournament/${tournamentId}/live/${match.id}`} className="block">
+          <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer" className="block">
             <Button className="w-full h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">
               <Target className="h-3.5 w-3.5 mr-1.5" /> Watch Live Score
             </Button>
