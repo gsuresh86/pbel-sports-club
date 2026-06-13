@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import {
   tournamentLiveScoreRef,
   tournamentMatchRef,
+  adminMatchScorePath,
 } from '@/lib/firestore-paths';
 import {
   useTournament,
@@ -445,7 +446,7 @@ export default function MatchesPage() {
                 {getMatchStatusLabel(rubber.status)}
               </Badge>
               {(rubber.status === 'scheduled' || rubber.status === 'live') && (
-                <Link href={`/admin/matches/${rubber.id}`}>
+                <Link href={adminMatchScorePath(rubber.id, tournamentId)}>
                   <Button size="sm" variant="outline" className="h-6 px-1.5 text-[10px]">
                     Score
                   </Button>
@@ -681,7 +682,7 @@ export default function MatchesPage() {
                   )}
                   {canRunMatches && renderLineupButton(match, true)}
                   {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
-                    <Link href={`/admin/matches/${match.id}`} className="flex-1">
+                    <Link href={adminMatchScorePath(match.id, tournamentId)} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
                         <Swords className="h-3.5 w-3.5 mr-1" />
                         {match.status === 'scheduled' ? 'Score' : 'Update'}
@@ -815,7 +816,7 @@ export default function MatchesPage() {
                         )}
                         {canRunMatches && renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
-                          <Link href={`/admin/matches/${match.id}`} className="inline-block">
+                          <Link href={adminMatchScorePath(match.id, tournamentId)} className="inline-block">
                             <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
                               <Swords className="h-3 w-3 mr-1" />
                               {match.status === 'scheduled' ? 'Score' : 'Update'}

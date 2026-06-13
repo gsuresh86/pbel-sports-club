@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -38,14 +38,20 @@ import {
   canAccessTournamentConsole,
   canWriteMatches,
   isFullTournamentAdmin,
+  isSystemAdmin,
   isTournamentStaff,
 } from '@/lib/permissions';
 
 export default function LiveScoringPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const matchId = params.id as string;
+  const queryTournamentId =
+    searchParams.get('tournamentId')?.trim() ||
+    searchParams.get('tournament')?.trim() ||
+    null;
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -75,10 +81,16 @@ export default function LiveScoringPage() {
     : { player1Name: '', player2Name: '' };
 
   const tournamentIdForAccess = match?.tournamentId ?? '';
-  const canAccessScoring = !!user && (
+  const canAccessScoring =
+    !!user &&
+    !!tournamentIdForAccess &&
     canAccessTournamentConsole(user, tournamentIdForAccess) &&
-    canWriteMatches(user, tournamentIdForAccess)
-  );
+    canWriteMatches(user, tournamentIdForAccess);
+  const canAttemptScoring =
+    !!user &&
+    (isSystemAdmin(user.role) ||
+      user.role === 'tournament-admin' ||
+      (isTournamentStaff(user.role) && (user.assignedTournaments?.length ?? 0) > 0));
   const isMatchStaffOnly =
     !!user &&
     canWriteMatches(user, tournamentIdForAccess) &&
@@ -86,16 +98,23 @@ export default function LiveScoringPage() {
   const isFullAdmin = !!user && isFullTournamentAdmin(user, tournamentIdForAccess);
 
   useEffect(() => {
-    if (!authLoading && (!user || !canAccessScoring)) {
+    if (authLoading) return;
+    if (!user) {
       router.push('/login');
-    } else if (user && canAccessScoring && matchId) {
+      return;
+    }
+    if (!canAttemptScoring) {
+      router.push('/login');
+      return;
+    }
+    if (matchId) {
       loadMatch();
     }
-  }, [user, authLoading, router, matchId, canAccessScoring]);
+  }, [user, authLoading, router, matchId, queryTournamentId, canAttemptScoring]);
 
   const loadMatch = async () => {
     try {
-      const resolved = await findMatchById(matchId);
+      const resolved = await findMatchById(matchId, queryTournamentId);
 
       if (resolved) {
         const data = resolved.data;
@@ -107,6 +126,10 @@ export default function LiveScoringPage() {
           actualEndTime: (data.actualEndTime as { toDate?: () => Date })?.toDate?.(),
           updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.(),
         } as Match;
+        if (!canWriteMatches(user, matchData.tournamentId)) {
+          router.push('/login');
+          return;
+        }
         const scopedRole =
           user?.role === 'tournament-admin' || isTournamentStaff(user?.role);
         if (scopedRole && user?.assignedTournaments?.length) {

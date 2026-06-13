@@ -45,10 +45,16 @@ service cloud.firestore {
         && userData.assignedTournaments.hasAny([tournamentId]);
     }
 
+    function matchDocTournamentId() {
+      return request.resource.data.tournamentId != null
+        ? request.resource.data.tournamentId
+        : resource.data.tournamentId;
+    }
+
     function canManageTournamentMatches(tournamentId) {
       return isTournamentAdmin()
         || (isReferee() && isAssignedToTournament(tournamentId))
-        || (isStaff() && isAssignedToTournament(tournamentId) && hasTournamentPermission(tournamentId, 'tournament.matches.write'));
+        || (isAssignedToTournament(tournamentId) && hasTournamentPermission(tournamentId, 'tournament.matches.write'));
     }
     
 
@@ -103,10 +109,23 @@ service cloud.firestore {
       allow delete: if request.auth != null && canManageTournamentMatches(tournamentId);
     }
 
+    // Collection group queries on `matches` (e.g. find match by id without tournament in URL)
+    match /{path=**}/matches/{matchId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && canManageTournamentMatches(matchDocTournamentId());
+    }
+
     // Live Scores - public read; tournament-admin or assigned referee write
     match /tournaments/{tournamentId}/liveScores/{scoreId} {
       allow read: if true;
       allow create, update, delete: if request.auth != null && canManageTournamentMatches(tournamentId);
+    }
+
+    match /{path=**}/liveScores/{scoreId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && canManageTournamentMatches(matchDocTournamentId());
     }
 
     // Legacy top-level matches (read-only during migration)

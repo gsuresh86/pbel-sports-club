@@ -43,6 +43,12 @@ export type ResolvedMatchDoc = {
   data: Record<string, unknown>;
 };
 
+export function adminMatchScorePath(matchId: string, tournamentId?: string | null) {
+  const base = `/admin/matches/${matchId}`;
+  const tid = tournamentId?.trim();
+  return tid ? `${base}?tournamentId=${encodeURIComponent(tid)}` : base;
+}
+
 /**
  * Resolve a match document. Uses a direct path when tournamentId is known;
  * otherwise scans the matches collection group (for legacy URLs with match id only).

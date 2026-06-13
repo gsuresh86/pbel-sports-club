@@ -10,6 +10,7 @@ import {
   allMatchesOrderedQuery,
   tournamentMatchRef,
   tournamentMatchesRef,
+  adminMatchScorePath,
 } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -697,7 +698,7 @@ export default function ManageMatchesPage() {
                                 Complete
                               </Button>
                             )}
-                            <Link href={`/admin/matches/${match.id}`}>
+                            <Link href={adminMatchScorePath(match.id, match.tournamentId)}>
                               <Button size="sm" variant="outline">
                                 <Target className="h-4 w-4 mr-1" />
                                 Score
