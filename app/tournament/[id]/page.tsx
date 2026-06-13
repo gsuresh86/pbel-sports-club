@@ -210,8 +210,9 @@ export default function TournamentDetailPage() {
     setMatchDateFilter('');
   };
 
-  const hasActiveMatchFilters =
-    matchRoundFilter !== 'all' || matchCategoryFilter !== 'all' || matchSearch || matchDateFilter;
+  const hasActiveMatchFilters = !!(
+    matchRoundFilter !== 'all' || matchCategoryFilter !== 'all' || matchSearch || matchDateFilter
+  );
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
