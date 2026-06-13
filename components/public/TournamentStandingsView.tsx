@@ -112,7 +112,7 @@ export default function TournamentStandingsView({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <p className="text-xs text-slate-500">
-            2 pts per win · PG = points given · PT = points taken · NRR = PG ÷ PT
+            2 pts per win · PG = points given · PT = points taken · PD = PT − PG
           </p>
         </div>
         {showFullPageLink && (

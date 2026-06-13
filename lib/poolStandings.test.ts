@@ -36,7 +36,7 @@ test('computeIndividualPoolStandings ranks by points then game difference then p
   assert.equal(rows[0].gamesLost, 0);
   assert.equal(rows[0].pointsFor, 42);
   assert.equal(rows[0].pointsAgainst, 33);
-  assert.equal(rows[0].pointDifference, -9);
+  assert.equal(rows[0].pointDifference, 9);
   assert.equal(rows[1].lost, 1);
   assert.equal(rows[1].gamesWon, 0);
   assert.equal(rows[1].gamesLost, 2);
@@ -93,5 +93,5 @@ test('computeTeamPoolStandings uses rubber wins for W/L and set points for NRR',
   assert.equal(alpha.gamesLost, 0);
   assert.equal(alpha.pointsFor, 63);
   assert.equal(alpha.pointsAgainst, 47);
-  assert.equal(alpha.pointDifference, -16);
+  assert.equal(alpha.pointDifference, 16);
 });

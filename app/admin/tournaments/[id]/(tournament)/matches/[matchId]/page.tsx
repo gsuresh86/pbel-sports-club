@@ -371,10 +371,10 @@ export default function MatchDetailPage() {
               </div>
 
               {/* Main content: score | meta + actions */}
-              <div className="flex gap-6 items-start">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
 
                 {/* Score block */}
-                <div className="shrink-0 min-w-[260px]">
+                <div className="shrink-0 w-full sm:min-w-[260px] sm:w-auto">
                   <div className="flex items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <p className={cn(
@@ -447,8 +447,9 @@ export default function MatchDetailPage() {
                   )}
                 </div>
 
-                {/* Divider */}
-                <div className="w-px self-stretch bg-gray-100 shrink-0" />
+                {/* Divider — vertical on desktop, horizontal on mobile */}
+                <div className="hidden sm:block w-px self-stretch bg-gray-100 shrink-0" />
+                <div className="block sm:hidden h-px w-full bg-gray-100" />
 
                 {/* Meta */}
                 <div className="flex-1 min-w-0 flex flex-wrap gap-x-6 gap-y-1.5 content-start">
@@ -878,13 +879,13 @@ export default function MatchDetailPage() {
                                 <TableCell className="text-xs py-3">
                                   <p className={cn('leading-snug', ws === 1 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r1}</p>
                                   {rubber.sets?.map((s, i) => (
-                                    <p key={i} className="text-[10px] text-gray-400 tabular-nums mt-0.5">{s.player1Score}</p>
+                                    <p key={i} className="text-xs text-gray-500 tabular-nums mt-0.5">{s.player1Score}</p>
                                   ))}
                                 </TableCell>
                                 <TableCell className="text-xs py-3">
                                   <p className={cn('leading-snug', ws === 2 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r2}</p>
                                   {rubber.sets?.map((s, i) => (
-                                    <p key={i} className="text-[10px] text-gray-400 tabular-nums mt-0.5">{s.player2Score}</p>
+                                    <p key={i} className="text-xs text-gray-500 tabular-nums mt-0.5">{s.player2Score}</p>
                                   ))}
                                 </TableCell>
                                 <TableCell className="text-xs py-3">
@@ -974,7 +975,7 @@ export default function MatchDetailPage() {
                               <div>
                                 <p className={cn('text-sm font-medium', ws === 1 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r1}</p>
                                 {rubber.sets?.map((s, i) => (
-                                  <p key={i} className="text-xs text-gray-400 tabular-nums mt-0.5">{s.player1Score}</p>
+                                  <p key={i} className="text-sm text-gray-500 tabular-nums mt-0.5">{s.player1Score}</p>
                                 ))}
                               </div>
                               <div className="text-xs shrink-0 mt-0.5 text-center">
@@ -985,7 +986,7 @@ export default function MatchDetailPage() {
                               <div className="text-right">
                                 <p className={cn('text-sm font-medium', ws === 2 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r2}</p>
                                 {rubber.sets?.map((s, i) => (
-                                  <p key={i} className="text-xs text-gray-400 tabular-nums mt-0.5 text-right">{s.player2Score}</p>
+                                  <p key={i} className="text-sm text-gray-500 tabular-nums mt-0.5 text-right">{s.player2Score}</p>
                                 ))}
                               </div>
                             </div>

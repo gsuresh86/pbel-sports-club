@@ -848,10 +848,6 @@ function MatchCard({
       className="relative rounded-2xl overflow-hidden transition-all hover:scale-[1.01] bg-cover bg-center"
       style={{ backgroundImage: `url(${MATCH_CARD_BG_IMAGE})` }}
     >
-      {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 z-10 bg-gradient-to-r from-emerald-600 via-emerald-400 to-emerald-600" />
-      )}
-
       {/* Players on the edges + center info (UEFA-style) */}
       <div className="flex items-stretch min-h-[172px]">
         {/* Player 1 photo — left edge */}

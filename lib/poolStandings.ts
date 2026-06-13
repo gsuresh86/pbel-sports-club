@@ -133,7 +133,7 @@ function applyTeamTieResult(
 
 function finalizeRows(map: Map<string, PoolStandingRow>): PoolStandingRow[] {
   for (const row of map.values()) {
-    row.pointDifference = row.pointsAgainst - row.pointsFor;
+    row.pointDifference = row.pointsFor - row.pointsAgainst;
     row.nrr = computeNrr(row.pointsFor, row.pointsAgainst);
   }
   return Array.from(map.values()).sort((a, b) => {
@@ -141,7 +141,7 @@ function finalizeRows(map: Map<string, PoolStandingRow>): PoolStandingRow[] {
     const aGameDiff = a.gamesWon - a.gamesLost;
     const bGameDiff = b.gamesWon - b.gamesLost;
     if (bGameDiff !== aGameDiff) return bGameDiff - aGameDiff;
-    if (a.pointDifference !== b.pointDifference) return a.pointDifference - b.pointDifference;
+    if (b.pointDifference !== a.pointDifference) return b.pointDifference - a.pointDifference;
     if (b.won !== a.won) return b.won - a.won;
     return a.name.localeCompare(b.name);
   });
