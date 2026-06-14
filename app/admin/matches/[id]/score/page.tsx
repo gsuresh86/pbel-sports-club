@@ -100,10 +100,12 @@ export default function LiveScoringPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
+      setLoading(false);
       router.push('/login');
       return;
     }
     if (!canAttemptScoring) {
+      setLoading(false);
       router.push('/login');
       return;
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import { canAccessTournamentConsole, isFullTournamentAdmin } from '@/lib/permissions';
@@ -91,6 +91,7 @@ type SortKey = 'matchNumber' | 'round' | 'status' | 'scheduledTime';
 export default function MatchesPage() {
   const { user } = useAuth();
   const params = useParams();
+  const router = useRouter();
   const tournamentId = params.id as string;
   const { canWriteMatches, canAccessRoute } = usePermissions(tournamentId);
   const isFullAdmin = !!user && isFullTournamentAdmin(user, tournamentId);
@@ -285,6 +286,9 @@ export default function MatchesPage() {
         lastUpdated: new Date(),
       });
       invalidateTournament(tournamentId);
+      if (!isTeamTieMatch(match, teamIds)) {
+        router.push(adminMatchScorePath(match.id, tournamentId));
+      }
     } catch (e) {
       console.error(e);
       alert({ title: 'Error', description: 'Failed to start match', variant: 'error' });

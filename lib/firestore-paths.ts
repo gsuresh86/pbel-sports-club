@@ -43,8 +43,12 @@ export type ResolvedMatchDoc = {
   data: Record<string, unknown>;
 };
 
-export function adminMatchScorePath(matchId: string, _tournamentId?: string | null) {
-  return `/admin/matches/${matchId}/score`;
+export function adminMatchScorePath(matchId: string, tournamentId?: string | null) {
+  const base = `/admin/matches/${matchId}/score`;
+  if (tournamentId) {
+    return `${base}?tournamentId=${encodeURIComponent(tournamentId)}`;
+  }
+  return base;
 }
 
 /** Admin match detail page (team tie or individual match). */
