@@ -21,6 +21,7 @@ export default function ResultsPage() {
   const completed = matches.filter((m) => m.status === 'completed');
   type RowStat = { name: string; played: number; won: number; lost: number; pts: number; gw: number; gl: number; gd: number; pw: number; pl: number; pd: number };
   const groupToStats = new Map<string, Map<string, RowStat>>();
+  const groupIsTeam = new Map<string, boolean>();
 
   const ensureStat = (round: string, name: string): RowStat => {
     if (!groupToStats.has(round)) groupToStats.set(round, new Map());
@@ -31,6 +32,8 @@ export default function ResultsPage() {
 
   completed.forEach((m) => {
     const round = (m.round || 'Standings').trim() || 'Standings';
+    const isTeamMatch = m.matchKind === 'team-tie' || m.matchKind === 'rubber' || !!m.team1Id;
+    groupIsTeam.set(round, (groupIsTeam.get(round) ?? false) || isTeamMatch);
     const p1 = m.player1Name || 'TBD';
     const p2 = m.player2Name || 'TBD';
     const s1 = m.player1Score ?? 0;
@@ -76,6 +79,7 @@ export default function ResultsPage() {
         <div className="space-y-4 sm:space-y-6">
           {groups.map((round) => {
             const map = groupToStats.get(round)!;
+            const isTeam = groupIsTeam.get(round) ?? false;
             const rows = Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.pd - a.pd);
             return (
               <Card key={round} className="rounded-none">
@@ -90,7 +94,7 @@ export default function ResultsPage() {
                       <TableHeader>
                         <TableRow className="bg-muted/60">
                           <TableHead className="font-semibold text-xs sm:text-sm">TEAM</TableHead>
-                          {['MP', 'W', 'L', 'PTS', 'GW', 'GL', 'GD', 'PW', 'PL', 'PD'].map((h) => (
+                          {(isTeam ? ['MP', 'W', 'L', 'PTS', 'GW', 'GL', 'GD', 'PW', 'PL', 'PD'] : ['MP', 'W', 'L', 'PTS', 'PW', 'PL', 'PD']).map((h) => (
                             <TableHead key={h} className="text-center w-8 sm:w-12 font-semibold text-xs sm:text-sm">{h}</TableHead>
                           ))}
                         </TableRow>
@@ -103,9 +107,13 @@ export default function ResultsPage() {
                             <TableCell className="text-center font-semibold text-green-600 text-xs sm:text-sm py-2">{row.won}</TableCell>
                             <TableCell className="text-center font-semibold text-red-600 text-xs sm:text-sm py-2">{row.lost}</TableCell>
                             <TableCell className="text-center font-semibold text-amber-600 text-xs sm:text-sm py-2">{row.pts}</TableCell>
-                            <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-2">{row.gw}</TableCell>
-                            <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-2">{row.gl}</TableCell>
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                            {isTeam && (
+                              <>
+                                <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-2">{row.gw}</TableCell>
+                                <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-2">{row.gl}</TableCell>
+                                <TableCell className="text-center text-xs sm:text-sm py-2">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                              </>
+                            )}
                             <TableCell className="text-center text-xs sm:text-sm py-2">{row.pw}</TableCell>
                             <TableCell className="text-center text-xs sm:text-sm py-2">{row.pl}</TableCell>
                             <TableCell className={`text-center font-medium text-xs sm:text-sm py-2 ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>

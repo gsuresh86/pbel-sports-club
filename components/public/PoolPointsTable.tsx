@@ -49,7 +49,7 @@ function PoolPointsTableInner({
 
   return (
     <div className="overflow-x-auto -mx-1 px-1 scrollbar-hide">
-      <table className="w-full min-w-[560px] text-[10px] sm:text-sm">
+      <table className={`w-full ${isTeamCat ? 'min-w-[560px]' : 'min-w-[420px]'} text-[10px] sm:text-sm`}>
         <thead>
           <tr className="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[9px] sm:text-[10px]">
             <th className={`text-left font-bold px-1.5 sm:px-4 py-2 sm:py-2.5 w-8 ${stickyCell}`}>#</th>
@@ -59,9 +59,13 @@ function PoolPointsTableInner({
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9" title="Matches played">MP</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-green-400" title="Won">W</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8 text-red-400" title="Lost">L</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games won">GW</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games lost">GL</th>
-            <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9" title="Game difference (GW − GL)">GD</th>
+            {isTeamCat && (
+              <>
+                <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games won">GW</th>
+                <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-8" title="Games lost">GL</th>
+                <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-9" title="Game difference (GW − GL)">GD</th>
+              </>
+            )}
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points taken (scored)">PT</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Points given (conceded)">PG</th>
             <th className="text-center font-bold px-1 sm:px-2 py-2 sm:py-2.5 w-10" title="Point difference (PT − PG)">PD</th>
@@ -92,11 +96,15 @@ function PoolPointsTableInner({
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-300 tabular-nums">{row.played}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-green-400 tabular-nums">{row.won}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold text-red-400 tabular-nums">{row.lost}</td>
-                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-purple-400 tabular-nums">{row.gamesWon}</td>
-                <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-orange-400 tabular-nums">{row.gamesLost}</td>
-                <td className={`px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.gamesWon - row.gamesLost >= 0 ? 'text-sky-400' : 'text-red-400'}`}>
-                  {formatDiff(row.gamesWon - row.gamesLost)}
-                </td>
+                {isTeamCat && (
+                  <>
+                    <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-purple-400 tabular-nums">{row.gamesWon}</td>
+                    <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-orange-400 tabular-nums">{row.gamesLost}</td>
+                    <td className={`px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.gamesWon - row.gamesLost >= 0 ? 'text-sky-400' : 'text-red-400'}`}>
+                      {formatDiff(row.gamesWon - row.gamesLost)}
+                    </td>
+                  </>
+                )}
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsFor}</td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-400 tabular-nums">{row.pointsAgainst}</td>
                 <td className={`px-1 sm:px-2 py-2 sm:py-2.5 text-center font-semibold tabular-nums ${row.pointDifference >= 0 ? 'text-sky-400' : 'text-red-400'}`}>
