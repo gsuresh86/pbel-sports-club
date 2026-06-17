@@ -9,6 +9,7 @@ import { useTournament, useTournaments } from '@/hooks/use-tournament-queries';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
   canAccessTournamentConsole,
+  canSubmitTestimonials,
   isSystemAdmin,
   isTournamentStaff,
   NAV_ROUTE_ITEMS,
@@ -46,6 +47,7 @@ import {
   UserCog,
   Settings,
   AlertCircle,
+  MessageSquareQuote,
   LucideIcon,
 } from 'lucide-react';
 
@@ -60,6 +62,7 @@ const ROUTE_ICONS: Record<TournamentRoute, LucideIcon> = {
   results: Award,
   finance: Wallet,
   users: UserCog,
+  testimonials: MessageSquareQuote,
 };
 
 function getStatusColor(status: string) {
@@ -136,6 +139,10 @@ export default function TournamentSidebarLayout({ children }: { children: React.
     }
 
     const currentRoute = pathname.split('/').pop() as TournamentRoute | undefined;
+    if (currentRoute === 'testimonials') {
+      router.replace(`/admin/testimonials?tournament=${tournamentId}`);
+      return;
+    }
     if (currentRoute && NAV_ROUTE_ITEMS.some((i) => i.href === currentRoute)) {
       if (!canAccessRoute(currentRoute)) {
         const firstAllowed = navItems[0]?.href ?? 'matches';
@@ -239,6 +246,26 @@ export default function TournamentSidebarLayout({ children }: { children: React.
 
         {/* Tournament nav */}
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+          {(isSystemAdmin(user?.role) || canSubmitTestimonials(user)) && (
+            <>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
+                Platform
+              </p>
+              <Link
+                href="/admin/testimonials"
+                onClick={() => setSidebarOpen(false)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  pathname.startsWith('/admin/testimonials')
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+                )}
+              >
+                <MessageSquareQuote className="h-4 w-4 flex-shrink-0" />
+                Testimonials
+              </Link>
+            </>
+          )}
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
             Tournament
           </p>
@@ -269,7 +296,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         <div className="p-3 border-t border-gray-200">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.profilePhotoUrl || ''} />
+              <AvatarImage src={user?.profilePhotoUrl} />
               <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
@@ -348,7 +375,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                       <Avatar className="h-9 w-9">
-                        <AvatarImage src={user?.profilePhotoUrl || ''} />
+                        <AvatarImage src={user?.profilePhotoUrl} />
                         <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
                       </Avatar>
                     </Button>
@@ -380,7 +407,6 @@ export default function TournamentSidebarLayout({ children }: { children: React.
               {!mounted && (
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src="" />
                     <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
                   </Avatar>
                 </Button>

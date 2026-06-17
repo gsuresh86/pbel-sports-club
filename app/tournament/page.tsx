@@ -83,10 +83,12 @@ function FeaturedCard({ t, players }: { t: Tournament; players: number }) {
                   <MapPin className="h-3.5 w-3.5 text-yellow-400" />
                   {t.venue}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-yellow-400" />
-                  {players} players
-                </span>
+                {players > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-yellow-400" />
+                    {players} players
+                  </span>
+                )}
               </div>
               <div className="flex gap-2 mt-4">
                 <span className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-xs font-bold px-4 py-2 rounded-full transition-colors">
@@ -145,8 +147,12 @@ function TournamentCard({ t, players }: { t: Tournament; players: number }) {
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="flex items-center gap-2 text-slate-400">
-              <Users className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0" />
-              {players} players
+              {players > 0 && (
+                <>
+                  <Users className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0" />
+                  {players} players
+                </>
+              )}
             </span>
             {t.entryFee ? (
               <span className="text-yellow-400 font-bold">₹{t.entryFee}</span>

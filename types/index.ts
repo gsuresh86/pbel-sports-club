@@ -17,7 +17,8 @@ export type Permission =
   | 'tournament.matches.write'
   | 'tournament.results'
   | 'tournament.finance'
-  | 'tournament.users';
+  | 'tournament.users'
+  | 'tournament.testimonials';
 
 export interface Role {
   id: string;
@@ -439,4 +440,18 @@ export interface FinanceEntry {
   createdBy?: string;
   createdAt: Date;
   updatedAt?: Date;
+}
+
+export interface Testimonial {
+  id: string;
+  tournamentId: string;
+  tournamentName: string;
+  author: string;
+  authorRole: string;
+  quote: string;
+  rating: number;
+  sport: string;
+  published: boolean;
+  createdAt: { toDate: () => Date } | null;
+  createdBy: string;
 }

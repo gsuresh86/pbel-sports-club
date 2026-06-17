@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   'tournament.results': { route: 'results' },
   'tournament.finance': { route: 'finance' },
   'tournament.users': { route: 'users' },
+  'tournament.testimonials': { route: 'testimonials' },
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -27,7 +28,8 @@ export type TournamentRoute =
   | 'matches'
   | 'results'
   | 'finance'
-  | 'users';
+  | 'users'
+  | 'testimonials';
 
 export interface RoleDefinition {
   slug: string;
@@ -61,6 +63,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       'tournament.results',
       'tournament.finance',
       'tournament.users',
+      'tournament.testimonials',
     ],
     isSystem: true,
   },
@@ -95,6 +98,7 @@ export const ALL_TOURNAMENT_ROUTES: TournamentRoute[] = [
   'results',
   'finance',
   'users',
+  'testimonials',
 ];
 
 export const NAV_ROUTE_ITEMS: { label: string; href: TournamentRoute; permission: Permission }[] = [
@@ -108,7 +112,13 @@ export const NAV_ROUTE_ITEMS: { label: string; href: TournamentRoute; permission
   { label: 'Results', href: 'results', permission: 'tournament.results' },
   { label: 'Finance', href: 'finance', permission: 'tournament.finance' },
   { label: 'Users', href: 'users', permission: 'tournament.users' },
+  { label: 'Testimonials', href: 'testimonials', permission: 'tournament.testimonials' },
 ];
+
+/** Tournament console sidebar — testimonials live under /admin/testimonials instead. */
+export const TOURNAMENT_SIDEBAR_ITEMS = NAV_ROUTE_ITEMS.filter(
+  (item) => item.href !== 'testimonials',
+);
 
 /** UI groupings for the role access mapping dialog. */
 export const PERMISSION_GROUPS: {
@@ -170,6 +180,11 @@ export const PERMISSION_GROUPS: {
     label: 'Users',
     description: 'Tournament staff assignment',
     permissions: [{ key: 'tournament.users', label: 'Manage tournament staff' }],
+  },
+  {
+    label: 'Testimonials',
+    description: 'Add and publish testimonials for the public site',
+    permissions: [{ key: 'tournament.testimonials', label: 'Manage testimonials' }],
   },
 ];
 
@@ -333,12 +348,24 @@ export function canManageTournamentUsers(user: User | null, tournamentId: string
 }
 
 export function getAllowedNavItems(user: User | null, tournamentId: string) {
-  if (isSystemAdmin(user?.role)) return NAV_ROUTE_ITEMS;
+  if (isSystemAdmin(user?.role)) return TOURNAMENT_SIDEBAR_ITEMS;
   if (user?.role === 'tournament-admin' && !user.tournamentRoles && user.assignedTournaments?.includes(tournamentId)) {
-    return NAV_ROUTE_ITEMS;
+    return TOURNAMENT_SIDEBAR_ITEMS;
   }
   const perms = resolvePermissions(user, tournamentId);
-  return NAV_ROUTE_ITEMS.filter((item) => perms.has(item.permission));
+  return TOURNAMENT_SIDEBAR_ITEMS.filter((item) => perms.has(item.permission));
+}
+
+export function canSubmitTestimonials(user: User | null | undefined): boolean {
+  if (!user) return false;
+  if (user.role === 'tournament-admin') return true;
+  return (user.assignedTournaments ?? []).some((id) =>
+    hasPermission(user, 'tournament.testimonials', id),
+  );
+}
+
+export function canReviewTestimonials(user: User | null | undefined): boolean {
+  return user?.role === 'super-admin';
 }
 
 export function getLoginRedirect(user: User): string {

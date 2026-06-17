@@ -15,69 +15,94 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Trophy, 
-  Target, 
-  Settings, 
-  Menu, 
-  X, 
-  LogOut, 
-  User,
+import {
+  LayoutDashboard,
+  Users,
+  Trophy,
+  Settings,
+  Menu,
+  X,
+  LogOut,
+  User as UserIcon,
   Search,
-  UserPlus
+  UserPlus,
+  MessageSquareQuote,
+  Activity,
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
+import { canReviewTestimonials, canSubmitTestimonials } from '@/lib/permissions';
+import type { User, UserRole } from '@/types';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
   moduleName?: string;
 }
 
-const adminMenuItems = [
+type AdminMenuItem = {
+  title: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  description: string;
+  roles?: UserRole[];
+  visible?: (user: User | null | undefined) => boolean;
+};
+
+function isAdminMenuItemVisible(user: User | null | undefined, item: AdminMenuItem): boolean {
+  if (item.visible) return item.visible(user);
+  if (!item.roles) return true;
+  return !!user?.role && item.roles.includes(user.role);
+}
+
+const adminMenuItems: AdminMenuItem[] = [
   {
     title: 'Dashboard',
     href: '/admin',
     icon: LayoutDashboard,
     description: 'Overview and statistics',
-    roles: ['admin', 'super-admin']
+    roles: ['admin', 'super-admin'],
   },
   {
     title: 'Tournaments',
     href: '/admin/tournaments',
     icon: Trophy,
     description: 'Create and manage tournaments',
-    roles: ['admin', 'super-admin', 'tournament-admin']
+    roles: ['admin', 'super-admin', 'tournament-admin'],
   },
   {
     title: 'User Management',
     href: '/admin/users',
-    icon: User,
+    icon: UserIcon,
     description: 'Manage admin users and permissions',
-    roles: ['admin', 'super-admin']
+    roles: ['admin', 'super-admin'],
+  },
+  {
+    title: 'User Activity',
+    href: '/admin/user-activity',
+    icon: Activity,
+    description: 'Track user actions and engagement',
+    roles: ['super-admin'],
   },
   {
     title: 'Leads',
     href: '/admin/leads',
     icon: UserPlus,
     description: 'Review and manage tournament leads',
-    roles: ['admin', 'super-admin']
+    roles: ['admin', 'super-admin'],
   },
   {
-    title: 'Matches',
-    href: '/admin/matches',
-    icon: Target,
-    description: 'Schedule and manage matches',
-    roles: ['admin', 'super-admin']
+    title: 'Testimonials',
+    href: '/admin/testimonials',
+    icon: MessageSquareQuote,
+    description: 'Manage testimonials for the public site',
+    visible: (u) => canReviewTestimonials(u) || canSubmitTestimonials(u),
   },
   {
     title: 'Settings',
     href: '/admin/settings',
     icon: Settings,
     description: 'Manage sports, categories, and system settings',
-    roles: ['admin', 'super-admin']
-  }
+    roles: ['admin', 'super-admin'],
+  },
 ];
 
 export default function AdminLayout({ children, moduleName }: AdminLayoutProps) {
@@ -126,7 +151,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 flex flex-col ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Sidebar header */}
@@ -148,7 +173,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {adminMenuItems
-            .filter(item => !item.roles || item.roles.includes(user?.role || 'public'))
+            .filter((item) => isAdminMenuItemVisible(user, item))
             .map((item) => {
             const Icon = item.icon;
             const isActive = isActiveRoute(item.href);
@@ -178,7 +203,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
         <div className="p-3 border-t border-gray-200">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.profilePhotoUrl || ''} />
+              <AvatarImage src={user?.profilePhotoUrl} />
               <AvatarFallback>
                 {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
               </AvatarFallback>
@@ -187,8 +212,19 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               <div className="text-sm font-medium text-gray-900 truncate">
                 {user?.name || 'Admin User'}
               </div>
-              <div className="text-xs text-gray-500 truncate">
-                {user?.email}
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Badge
+                  className={`text-[10px] px-1.5 py-0 h-4 font-semibold ${
+                    user?.role === 'super-admin'
+                      ? 'bg-purple-100 text-purple-700 border-purple-200'
+                      : user?.role === 'admin'
+                      ? 'bg-blue-100 text-blue-700 border-blue-200'
+                      : 'bg-gray-100 text-gray-600 border-gray-200'
+                  }`}
+                  variant="outline"
+                >
+                  {user?.role ?? 'loading…'}
+                </Badge>
               </div>
             </div>
           </div>
@@ -241,7 +277,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user?.profilePhotoUrl || ''} />
+                        <AvatarImage src={user?.profilePhotoUrl} />
                         <AvatarFallback>
                           {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
                         </AvatarFallback>
@@ -261,7 +297,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={openProfile} className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
+                    <UserIcon className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
@@ -279,7 +315,6 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               {!mounted && (
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src="" />
                     <AvatarFallback>
                       {user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}
                     </AvatarFallback>

@@ -289,6 +289,31 @@ service cloud.firestore {
       );
     }
 
+    // Helper: super-admin only
+    function isSuperAdmin() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super-admin';
+    }
+
+    // Testimonials - public read; tournament-admin create/edit content; super-admin can publish
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      // Tournament admins can create, but must set published: false
+      allow create: if request.auth != null && isTournamentAdmin()
+                    && request.resource.data.published == false;
+      // Tournament admins can update content fields but NOT change published flag
+      // Super-admins can update anything (including published)
+      allow update: if request.auth != null && (
+        isSuperAdmin() ||
+        (isTournamentAdmin() && request.resource.data.published == resource.data.published)
+      );
+      allow delete: if request.auth != null && (
+        isSuperAdmin() ||
+        (isTournamentAdmin() && resource.data.published == false)
+      );
+    }
+
     // Notifications - users can read/update their own notifications
     match /notifications/{notificationId} {
       // Allow read if user is authenticated and owns the notification
