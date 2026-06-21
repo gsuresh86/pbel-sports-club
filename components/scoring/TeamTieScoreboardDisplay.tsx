@@ -161,6 +161,7 @@ export function TeamTieScoreboardDisplay({
               {sortedRubbers.map(rubber => {
                 const liveScore = rubberLiveScores.get(rubber.id);
                 const isLive = rubber.status === 'live' || (liveScore?.isLive && !liveScore.winnerName);
+                const servingSide = isLive ? liveScore?.lastPointWonBy ?? null : null;
                 const winner = rubberWinnerSide(rubber);
                 const side1 = formatMatchSideLabel(rubber, 1, regById);
                 const side2 = formatMatchSideLabel(rubber, 2, regById);
@@ -207,26 +208,36 @@ export function TeamTieScoreboardDisplay({
                     </div>
 
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4">
-                      <span
-                        className={cn(
-                          'truncate text-sm sm:text-xl lg:text-2xl font-medium',
-                          winner === 1 ? 'text-yellow-300' : 'text-white'
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={cn(
+                            'truncate text-sm sm:text-xl lg:text-2xl font-medium',
+                            winner === 1 ? 'text-yellow-300' : 'text-white'
+                          )}
+                          title={side1}
+                        >
+                          {side1}
+                        </span>
+                        {servingSide === 'player1' && (
+                          <span className="shrink-0 text-sm sm:text-xl leading-none" title="Serving">🏸</span>
                         )}
-                        title={side1}
-                      >
-                        {side1}
                       </span>
                       <span className="font-black tabular-nums text-white whitespace-nowrap text-base sm:text-2xl lg:text-3xl px-1 sm:px-2">
                         {scoreLine}
                       </span>
-                      <span
-                        className={cn(
-                          'truncate text-sm sm:text-xl lg:text-2xl font-medium text-right',
-                          winner === 2 ? 'text-yellow-300' : 'text-white'
+                      <span className="flex items-center justify-end gap-1.5 min-w-0">
+                        {servingSide === 'player2' && (
+                          <span className="shrink-0 text-sm sm:text-xl leading-none" title="Serving">🏸</span>
                         )}
-                        title={side2}
-                      >
-                        {side2}
+                        <span
+                          className={cn(
+                            'truncate text-sm sm:text-xl lg:text-2xl font-medium text-right',
+                            winner === 2 ? 'text-yellow-300' : 'text-white'
+                          )}
+                          title={side2}
+                        >
+                          {side2}
+                        </span>
                       </span>
                     </div>
                   </Link>
