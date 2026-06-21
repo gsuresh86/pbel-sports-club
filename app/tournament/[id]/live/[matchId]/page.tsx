@@ -13,6 +13,7 @@ import { Play, Clock, MapPin, Target, Trophy, Users, ArrowLeft, RefreshCw, Monit
 import Link from 'next/link';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { scoreboardPath } from '@/lib/tournament-banner';
+import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
 
 export default function LiveMatchPage() {
   const params = useParams();
@@ -214,9 +215,14 @@ export default function LiveMatchPage() {
                       >
                         {sides.left.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="h-6 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
+                      <div className="h-8 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
                         {showServing && sides.left.serving && (
-                          <span className="text-xl leading-none" title="Serving">🏸</span>
+                          <ShuttlecockIcon
+                            className={`h-6 w-6 sm:h-8 sm:w-8 animate-pulse ${
+                              sides.left.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                            }`}
+                            title="Serving"
+                          />
                         )}
                       </div>
                       <div className="text-sm text-gray-600 mt-1">Sets: {sides.left.sets}</div>
@@ -242,9 +248,14 @@ export default function LiveMatchPage() {
                       >
                         {sides.right.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="h-6 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
+                      <div className="h-8 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
                         {showServing && sides.right.serving && (
-                          <span className="text-xl leading-none" title="Serving">🏸</span>
+                          <ShuttlecockIcon
+                            className={`h-6 w-6 sm:h-8 sm:w-8 animate-pulse ${
+                              sides.right.color === 'blue' ? 'text-blue-600' : 'text-red-600'
+                            }`}
+                            title="Serving"
+                          />
                         )}
                       </div>
                       <div className="text-sm text-gray-600 mt-1">Sets: {sides.right.sets}</div>

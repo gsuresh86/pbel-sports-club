@@ -6,6 +6,7 @@ import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { publicTournamentPath } from '@/lib/tournament-banner';
+import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
 
 function formatScore(score: number) {
   return score.toString().padStart(2, '0');
@@ -177,9 +178,9 @@ export function ScoreboardDisplay({
           >
             {formatScore(sides.left.score)}
           </div>
-          <div className="h-10 sm:h-16 mt-3 sm:mt-5 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
+          <div className="h-12 sm:h-24 lg:h-32 mt-3 sm:mt-6 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
             {showServing && sides.left.serving && (
-              <span className="text-4xl sm:text-6xl leading-none animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]" title="Serving">🏸</span>
+              <ShuttlecockIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
             )}
           </div>
           {sides.left.sets > 0 && (
@@ -202,9 +203,9 @@ export function ScoreboardDisplay({
           >
             {formatScore(sides.right.score)}
           </div>
-          <div className="h-10 sm:h-16 mt-3 sm:mt-5 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
+          <div className="h-12 sm:h-24 lg:h-32 mt-3 sm:mt-6 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
             {showServing && sides.right.serving && (
-              <span className="text-4xl sm:text-6xl leading-none animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]" title="Serving">🏸</span>
+              <ShuttlecockIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
             )}
           </div>
           {sides.right.sets > 0 && (
