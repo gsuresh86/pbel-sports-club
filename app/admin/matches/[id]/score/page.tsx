@@ -252,6 +252,7 @@ export default function LiveScoringPage() {
         ...getMatchLiveDisplayNames(match!, regById),
         isLive: true,
         sidesSwapped: false,
+        lastPointWonBy: null,
         lastUpdated: new Date(),
         updatedBy: user?.id,
       });
@@ -277,6 +278,8 @@ export default function LiveScoringPage() {
     sets2: number;
     set: number;
     live?: boolean;
+    /** Side that won the last point; null clears the serving indicator (e.g. new set). */
+    lastPointWonBy?: 'player1' | 'player2' | null;
   }) => {
     if (!match) return;
     const names = getMatchLiveDisplayNames(match, regById);
@@ -291,6 +294,7 @@ export default function LiveScoringPage() {
       ...names,
       isLive: overrides.live !== false,
       sidesSwapped,
+      lastPointWonBy: overrides.lastPointWonBy ?? null,
       lastUpdated: new Date(),
       updatedBy: user?.id,
     });
@@ -350,6 +354,14 @@ export default function LiveScoringPage() {
       else newP2 = Math.max(0, curP2 - 1);
     }
 
+    // Rally-point scoring: the winner of the last rally serves next. On a
+    // correction (decrement) the genuine last point belongs to the opponent.
+    const lastPointWonBy: 'player1' | 'player2' = increment
+      ? player
+      : player === 'player1'
+        ? 'player2'
+        : 'player1';
+
     try {
       setUpdating(true);
       setPlayer1Score(newP1);
@@ -360,6 +372,7 @@ export default function LiveScoringPage() {
         sets1: player1Sets,
         sets2: player2Sets,
         set: currentSet,
+        lastPointWonBy,
       });
 
       if (increment && canCloseSet(newP1, newP2, matchFormat)) {
@@ -388,6 +401,7 @@ export default function LiveScoringPage() {
         sets1: player1Sets,
         sets2: player2Sets,
         set: currentSet,
+        lastPointWonBy: player,
       });
       if (canCloseSet(newP1, newP2, matchFormat)) {
         await applySetWin(newP1, newP2);
@@ -558,6 +572,7 @@ export default function LiveScoringPage() {
       await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
         player1CurrentScore: 0,
         player2CurrentScore: 0,
+        lastPointWonBy: null,
         lastUpdated: new Date(),
         updatedBy: user?.id,
       });

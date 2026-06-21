@@ -27,6 +27,8 @@ export interface ScoreboardDisplayProps {
   winner?: string;
   court?: string;
   sidesSwapped?: boolean;
+  /** Side that won the last point — drives the serving-side indicator. */
+  lastPointWonBy?: 'player1' | 'player2' | null;
   bannerUrl?: string;
   /** When this match is part of a team tie, show the team names and rubber tally. */
   teamMatch?: {
@@ -54,6 +56,7 @@ export function ScoreboardDisplay({
   winner,
   court,
   sidesSwapped = false,
+  lastPointWonBy,
   bannerUrl,
   teamMatch,
   className,
@@ -61,8 +64,10 @@ export function ScoreboardDisplay({
   const sides = getDisplaySides(
     { player1Name, player2Name },
     { p1: player1Score, p2: player2Score, sets1: player1Sets, sets2: player2Sets },
-    sidesSwapped
+    sidesSwapped,
+    lastPointWonBy
   );
+  const showServing = isLive && !winner;
 
   const prevLeft = useRef(sides.left.score);
   const prevRight = useRef(sides.right.score);
@@ -172,8 +177,13 @@ export function ScoreboardDisplay({
           >
             {formatScore(sides.left.score)}
           </div>
+          <div className="h-10 sm:h-16 mt-3 sm:mt-5 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
+            {showServing && sides.left.serving && (
+              <span className="text-4xl sm:text-6xl leading-none animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]" title="Serving">🏸</span>
+            )}
+          </div>
           {sides.left.sets > 0 && (
-            <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
+            <div className="mt-4 sm:mt-6 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
               Sets <span className="text-white font-bold tabular-nums">{sides.left.sets}</span>
             </div>
           )}
@@ -192,8 +202,13 @@ export function ScoreboardDisplay({
           >
             {formatScore(sides.right.score)}
           </div>
+          <div className="h-10 sm:h-16 mt-3 sm:mt-5 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
+            {showServing && sides.right.serving && (
+              <span className="text-4xl sm:text-6xl leading-none animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]" title="Serving">🏸</span>
+            )}
+          </div>
           {sides.right.sets > 0 && (
-            <div className="mt-6 sm:mt-10 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
+            <div className="mt-4 sm:mt-6 text-zinc-400 text-xl sm:text-3xl lg:text-4xl">
               Sets <span className="text-white font-bold tabular-nums">{sides.right.sets}</span>
             </div>
           )}

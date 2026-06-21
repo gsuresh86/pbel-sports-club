@@ -129,9 +129,12 @@ export default function LiveMatchPage() {
           sets1: liveScore.player1Sets,
           sets2: liveScore.player2Sets,
         },
-        liveScore.sidesSwapped ?? false
+        liveScore.sidesSwapped ?? false,
+        liveScore.lastPointWonBy
       )
     : null;
+
+  const showServing = !!liveScore?.isLive && !winner;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -211,7 +214,12 @@ export default function LiveMatchPage() {
                       >
                         {sides.left.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="text-sm text-gray-600 mt-2">Sets: {sides.left.sets}</div>
+                      <div className="h-6 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
+                        {showServing && sides.left.serving && (
+                          <span className="text-xl leading-none" title="Serving">🏸</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">Sets: {sides.left.sets}</div>
                     </div>
                   </div>
                   <div className="text-center">
@@ -234,7 +242,12 @@ export default function LiveMatchPage() {
                       >
                         {sides.right.score.toString().padStart(2, '0')}
                       </div>
-                      <div className="text-sm text-gray-600 mt-2">Sets: {sides.right.sets}</div>
+                      <div className="h-6 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
+                        {showServing && sides.right.serving && (
+                          <span className="text-xl leading-none" title="Serving">🏸</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">Sets: {sides.right.sets}</div>
                     </div>
                   </div>
                 </div>

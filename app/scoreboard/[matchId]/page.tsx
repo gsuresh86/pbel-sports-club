@@ -385,6 +385,7 @@ function ScoreboardPageInner() {
       winner={winner}
       court={match.court}
       sidesSwapped={liveScore?.sidesSwapped ?? false}
+      lastPointWonBy={liveScore?.lastPointWonBy}
       teamMatch={teamMatchStats}
     />
   );

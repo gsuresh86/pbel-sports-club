@@ -298,6 +298,12 @@ export interface LiveScore {
   /** Set when match completes for instant congratulations on live views */
   winnerName?: string;
   matchCompletedAt?: Date;
+  /**
+   * Side that won the most recent point. In rally-point scoring the winner of
+   * the last rally serves next, so this drives the serving-side indicator on
+   * public live views. Null/undefined when unknown (e.g. start of a set).
+   */
+  lastPointWonBy?: 'player1' | 'player2' | null;
 }
 
 export interface TournamentBracket {

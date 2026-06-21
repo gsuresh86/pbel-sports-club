@@ -75,16 +75,18 @@ export function displayPlayerToStored(
 export function getDisplaySides(
   match: Pick<Match, 'player1Name' | 'player2Name'>,
   scores: { p1: number; p2: number; sets1: number; sets2: number },
-  sidesSwapped: boolean
+  sidesSwapped: boolean,
+  /** Side that won the last point — drives the serving indicator. */
+  lastPointWonBy?: 'player1' | 'player2' | null
 ) {
   if (!sidesSwapped) {
     return {
-      left: { name: match.player1Name, score: scores.p1, sets: scores.sets1, color: 'blue' as const },
-      right: { name: match.player2Name, score: scores.p2, sets: scores.sets2, color: 'red' as const },
+      left: { name: match.player1Name, score: scores.p1, sets: scores.sets1, color: 'blue' as const, serving: lastPointWonBy === 'player1' },
+      right: { name: match.player2Name, score: scores.p2, sets: scores.sets2, color: 'red' as const, serving: lastPointWonBy === 'player2' },
     };
   }
   return {
-    left: { name: match.player2Name, score: scores.p2, sets: scores.sets2, color: 'red' as const },
-    right: { name: match.player1Name, score: scores.p1, sets: scores.sets1, color: 'blue' as const },
+    left: { name: match.player2Name, score: scores.p2, sets: scores.sets2, color: 'red' as const, serving: lastPointWonBy === 'player2' },
+    right: { name: match.player1Name, score: scores.p1, sets: scores.sets1, color: 'blue' as const, serving: lastPointWonBy === 'player1' },
   };
 }
