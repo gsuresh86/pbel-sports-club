@@ -1,4 +1,4 @@
-import type { Match, Registration } from '@/types';
+import type { LiveScore, Match, Registration } from '@/types';
 
 export type RubberType = 'doubles' | 'single';
 
@@ -85,23 +85,71 @@ export function lineupFromRubbers(rubbers: Match[]): RubberLineupSlot[] {
     }));
 }
 
-export function countRubbersWon(rubbers: Match[]): { team1: number; team2: number } {
+function team1PlayerNames(rubber: Match): Set<string> {
+  return new Set([rubber.player1Name, rubber.player1PartnerName].filter(Boolean) as string[]);
+}
+
+function winnerNameOnTeam1(rubber: Match, winnerName: string): boolean {
+  return team1PlayerNames(rubber).has(winnerName);
+}
+
+function formatPointScore(score: number) {
+  return score.toString().padStart(2, '0');
+}
+
+export function countRubbersWon(
+  rubbers: Match[],
+  rubberLiveScores?: Map<string, LiveScore>
+): { team1: number; team2: number } {
   let team1 = 0;
   let team2 = 0;
   for (const rubber of rubbers) {
-    if (rubber.status !== 'completed' || !rubber.winner) continue;
-    const team1Names = new Set(
-      [rubber.player1Name, rubber.player1PartnerName].filter(Boolean) as string[],
-    );
-    if (team1Names.has(rubber.winner)) team1++;
-    else team2++;
+    const side = rubberWinnerSide(rubber, rubberLiveScores?.get(rubber.id));
+    if (side === 1) team1++;
+    else if (side === 2) team2++;
   }
   return { team1, team2 };
 }
 
-export function rubberWinnerSide(rubber: Match): 1 | 2 | null {
-  if (rubber.status !== 'completed') return null;
-  if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
-  if ((rubber.player2Score ?? 0) > (rubber.player1Score ?? 0)) return 2;
+export function rubberWinnerSide(rubber: Match, liveScore?: LiveScore | null): 1 | 2 | null {
+  if (liveScore?.winnerName) {
+    return winnerNameOnTeam1(rubber, liveScore.winnerName) ? 1 : 2;
+  }
+  if (rubber.status === 'completed') {
+    if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
+    if ((rubber.player2Score ?? 0) > (rubber.player1Score ?? 0)) return 2;
+    if (rubber.winner) {
+      return winnerNameOnTeam1(rubber, rubber.winner) ? 1 : 2;
+    }
+  }
   return null;
+}
+
+/** Score line for a rubber row — prefers live score doc when present. */
+export function rubberScoreLine(rubber: Match, liveScore?: LiveScore | null): string {
+  if (liveScore) {
+    const inProgress = liveScore.isLive && !liveScore.winnerName;
+    const setsWon = inProgress
+      ? `${liveScore.player1Sets}–${liveScore.player2Sets}`
+      : `${rubber.player1Score ?? liveScore.player1Sets}–${rubber.player2Score ?? liveScore.player2Sets}`;
+    const p1 = liveScore.player1CurrentScore ?? 0;
+    const p2 = liveScore.player2CurrentScore ?? 0;
+    if (p1 > 0 || p2 > 0 || inProgress) {
+      return `${setsWon} (${formatPointScore(p1)}–${formatPointScore(p2)})`;
+    }
+  }
+  if (rubber.status === 'completed') {
+    const setsWon = `${rubber.player1Score ?? 0}–${rubber.player2Score ?? 0}`;
+    const setScores = rubber.sets?.map(s => `${s.player1Score}–${s.player2Score}`).join(', ');
+    return setScores ? `${setsWon} (${setScores})` : setsWon;
+  }
+  if (rubber.status === 'live') {
+    const lastSet = rubber.sets?.[rubber.sets.length - 1];
+    const setsWon = `${rubber.player1Score ?? 0}–${rubber.player2Score ?? 0}`;
+    if (lastSet) {
+      return `${setsWon} (${lastSet.player1Score}–${lastSet.player2Score})`;
+    }
+    return setsWon;
+  }
+  return '—';
 }

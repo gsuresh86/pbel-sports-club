@@ -1,12 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { publicTournamentPath } from '@/lib/tournament-banner';
 import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
+import { TeamLogo } from '@/components/TeamLogo';
+import {
+  MatchWinCelebration,
+  resolveWinnerDisplaySide,
+} from '@/components/scoring/MatchWinCelebration';
 
 function formatScore(score: number) {
   return score.toString().padStart(2, '0');
@@ -35,6 +40,8 @@ export interface ScoreboardDisplayProps {
   teamMatch?: {
     team1Name: string;
     team2Name: string;
+    team1LogoUrl?: string | null;
+    team2LogoUrl?: string | null;
     team1Wins: number;
     team2Wins: number;
   } | null;
@@ -84,8 +91,38 @@ export function ScoreboardDisplay({
   const rightBg = sides.right.color === 'blue' ? 'bg-blue-950/55' : 'bg-red-950/55';
   const leftText = sides.left.color === 'blue' ? 'text-blue-200' : 'text-red-200';
   const rightText = sides.right.color === 'blue' ? 'text-blue-200' : 'text-red-200';
-  const leftScoreText = sides.left.color === 'blue' ? 'text-blue-300' : 'text-red-300';
-  const rightScoreText = sides.right.color === 'blue' ? 'text-blue-300' : 'text-red-300';
+  const leftScoreText = 'text-white';
+  const rightScoreText = 'text-white';
+  const leftTeamLogo = teamMatch
+    ? (sidesSwapped ? teamMatch.team2LogoUrl : teamMatch.team1LogoUrl)
+    : null;
+  const rightTeamLogo = teamMatch
+    ? (sidesSwapped ? teamMatch.team1LogoUrl : teamMatch.team2LogoUrl)
+    : null;
+  const leftTeamName = teamMatch
+    ? (sidesSwapped ? teamMatch.team2Name : teamMatch.team1Name)
+    : sides.left.name;
+  const rightTeamName = teamMatch
+    ? (sidesSwapped ? teamMatch.team1Name : teamMatch.team2Name)
+    : sides.right.name;
+
+  const winnerSide = resolveWinnerDisplaySide(
+    winner,
+    sides.left.name,
+    sides.right.name,
+    player1Sets,
+    player2Sets,
+    sidesSwapped,
+  );
+  const [celebrating, setCelebrating] = useState(false);
+  const leftWon = winnerSide === 'left';
+  const rightWon = winnerSide === 'right';
+  const loserName =
+    winnerSide === 'left'
+      ? sides.right.name
+      : winnerSide === 'right'
+        ? sides.left.name
+        : null;
 
   return (
     <div
@@ -146,34 +183,50 @@ export function ScoreboardDisplay({
               <Play className="h-4 w-4 animate-pulse" />
               <span className="font-semibold text-sm sm:text-base">LIVE</span>
             </div>
-          ) : winner ? (
-            <div className="flex items-center gap-2 bg-yellow-600/20 text-yellow-400 px-3 py-1.5 rounded-full border border-yellow-500/30">
-              <Trophy className="h-4 w-4" />
-              <span className="font-semibold text-sm sm:text-base">FINAL</span>
+          ) : (
+            <div className="text-right max-w-[40vw] sm:max-w-none">
+              <div className="text-xs sm:text-sm uppercase tracking-widest text-zinc-500">Round</div>
+              <div className="text-lg sm:text-2xl lg:text-3xl font-bold text-zinc-200 truncate">
+                {round}
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
       </header>
 
       {winner && (
         <div className="relative shrink-0 py-5 sm:py-8 text-center bg-yellow-950/35 backdrop-blur-sm border-b border-yellow-800/40">
-          <p className="text-3xl sm:text-5xl lg:text-6xl font-bold text-yellow-400 flex items-center justify-center gap-4">
-            <Trophy className="h-10 w-10 sm:h-14 sm:w-14 lg:h-16 lg:w-16" />
-            Congratulations, {winner}!
+          <p className="text-3xl sm:text-5xl lg:text-6xl font-bold text-yellow-400 flex items-center justify-center gap-4 px-4">
+            <Trophy className="h-10 w-10 sm:h-14 sm:w-14 lg:h-16 lg:w-16 shrink-0 animate-bounce" />
+            <span>Congratulations, {winner}!</span>
           </p>
         </div>
       )}
 
       <div className="relative flex-1 grid grid-cols-2 min-h-0 bg-black/40">
-        <div className={cn('flex flex-col items-center justify-center border-r border-zinc-800/80 backdrop-blur-sm p-4', leftBg)}>
+        <div className={cn('relative flex flex-col items-center justify-center border-r border-zinc-800/80 backdrop-blur-sm p-4 overflow-hidden', leftBg)}>
+          {leftWon && celebrating && (
+            <div className="match-win-side-flash absolute inset-0 bg-gradient-to-t from-yellow-400/30 via-amber-300/10 to-transparent" />
+          )}
+          {leftTeamLogo && (
+            <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 pointer-events-none">
+              <TeamLogo
+                logoUrl={leftTeamLogo}
+                name={leftTeamName}
+                circular={false}
+                className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48"
+              />
+            </div>
+          )}
           <h2 className={cn('text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-center truncate max-w-full px-2 mb-4 sm:mb-10', leftText)}>
             {sides.left.name}
           </h2>
           <div
             className={cn(
-              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)]',
+              'relative z-10 text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none antialiased transition-transform duration-200',
               leftScoreText,
-              leftBump && 'scale-110'
+              leftBump && !celebrating && 'scale-110',
+              leftWon && celebrating && 'match-win-score-pop scale-110'
             )}
           >
             {formatScore(sides.left.score)}
@@ -190,15 +243,29 @@ export function ScoreboardDisplay({
           )}
         </div>
 
-        <div className={cn('flex flex-col items-center justify-center backdrop-blur-sm p-4', rightBg)}>
+        <div className={cn('relative flex flex-col items-center justify-center backdrop-blur-sm p-4 overflow-hidden', rightBg)}>
+          {rightWon && celebrating && (
+            <div className="match-win-side-flash absolute inset-0 bg-gradient-to-t from-yellow-400/30 via-amber-300/10 to-transparent" />
+          )}
+          {rightTeamLogo && (
+            <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 pointer-events-none">
+              <TeamLogo
+                logoUrl={rightTeamLogo}
+                name={rightTeamName}
+                circular={false}
+                className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48"
+              />
+            </div>
+          )}
           <h2 className={cn('text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-center truncate max-w-full px-2 mb-4 sm:mb-10', rightText)}>
             {sides.right.name}
           </h2>
           <div
             className={cn(
-              'text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none transition-transform duration-200 drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)]',
+              'relative z-10 text-[clamp(7rem,28vw,28rem)] font-bold tabular-nums leading-none antialiased transition-transform duration-200',
               rightScoreText,
-              rightBump && 'scale-110'
+              rightBump && !celebrating && 'scale-110',
+              rightWon && celebrating && 'match-win-score-pop scale-110'
             )}
           >
             {formatScore(sides.right.score)}
@@ -218,10 +285,15 @@ export function ScoreboardDisplay({
 
       <footer className="relative shrink-0 py-4 sm:py-6 text-center bg-zinc-950/75 backdrop-blur-md border-t border-zinc-800/80">
         {winner ? (
-          <p className="text-2xl sm:text-4xl lg:text-5xl font-bold text-yellow-400 flex items-center justify-center gap-3">
-            <Trophy className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12" />
-            Winner: {winner}
-          </p>
+          loserName ? (
+            <p className="text-xl sm:text-3xl lg:text-4xl font-semibold text-zinc-300 px-4">
+              Great effort, <span className="text-white">{loserName}</span> — well played!
+            </p>
+          ) : (
+            <p className="text-xl sm:text-3xl lg:text-4xl font-semibold text-zinc-300 px-4">
+              Match complete
+            </p>
+          )
         ) : teamMatch ? (
           <div className="flex flex-col items-center gap-1">
             <span className="text-xs sm:text-sm uppercase tracking-widest text-zinc-400">
@@ -247,6 +319,11 @@ export function ScoreboardDisplay({
           <p className="text-zinc-500 text-lg sm:text-2xl lg:text-3xl">Match not started</p>
         )}
       </footer>
+      <MatchWinCelebration
+        winner={winner}
+        winnerSide={winnerSide}
+        onCelebratingChange={setCelebrating}
+      />
       </div>
     </div>
   );

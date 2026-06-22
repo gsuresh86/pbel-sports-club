@@ -213,6 +213,49 @@ export function getMatchLiveDisplayNames(
   };
 }
 
+function namesOnMatchSide(ctx: MatchSideNameContext, side: 1 | 2): string[] {
+  const primary = side === 1 ? ctx.player1Name : ctx.player2Name;
+  const partner = side === 1 ? ctx.player1PartnerName : ctx.player2PartnerName;
+  return [primary, partner].filter((n): n is string => !!n?.trim());
+}
+
+function winnerMatchesSide(
+  winnerRaw: string,
+  ctx: MatchSideNameContext,
+  side: 1 | 2,
+  sideLabel: string,
+): boolean {
+  const w = winnerRaw.trim().toLowerCase();
+  if (!w) return false;
+  if (sideLabel.trim().toLowerCase() === w) return true;
+
+  for (const name of namesOnMatchSide(ctx, side)) {
+    const n = name.trim().toLowerCase();
+    if (w === n || n.includes(w) || w.includes(n)) return true;
+  }
+
+  const label = sideLabel.toLowerCase();
+  return label.includes(w) || w.split(' ').some((part) => part.length > 2 && label.includes(part));
+}
+
+/** Expand a stored winner (often a single player) to the full doubles side label. */
+export function resolveMatchWinnerDisplayName(
+  ctx: MatchSideNameContext,
+  winnerRaw: string | undefined,
+  regById?: Map<string, RegistrationLike>,
+): string | undefined {
+  if (!winnerRaw?.trim()) return undefined;
+
+  const side1Label = formatMatchSideLabel(ctx, 1, regById);
+  const side2Label = formatMatchSideLabel(ctx, 2, regById);
+  if (winnerRaw === side1Label || winnerRaw === side2Label) return winnerRaw;
+
+  if (winnerMatchesSide(winnerRaw, ctx, 1, side1Label)) return side1Label;
+  if (winnerMatchesSide(winnerRaw, ctx, 2, side2Label)) return side2Label;
+
+  return winnerRaw;
+}
+
 /** Normalize name for participant identity (name + phone). */
 export function normalizeParticipantName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');

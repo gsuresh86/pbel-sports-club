@@ -1,4 +1,7 @@
 import type { Match, Tournament } from '@/types';
+import { formatMatchSideLabel, type MatchSideNameContext } from '@/lib/utils';
+
+type WinnerRegMap = Map<string, { name?: string; partnerName?: string | null }>;
 
 export type MatchFormat = 'single-set' | 'best-of-3' | 'single-set-30';
 
@@ -51,9 +54,11 @@ export function canCloseSet(p1: number, p2: number, format: MatchFormat): boolea
 export function getSetWinnerName(
   p1: number,
   p2: number,
-  match: Pick<Match, 'player1Name' | 'player2Name'>
+  match: MatchSideNameContext,
+  regById?: WinnerRegMap,
 ): string {
-  return p1 > p2 ? match.player1Name : match.player2Name;
+  const side: 1 | 2 = p1 > p2 ? 1 : 2;
+  return formatMatchSideLabel(match, side, regById);
 }
 
 export function getFormatLabel(format: MatchFormat): string {

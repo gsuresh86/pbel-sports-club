@@ -20,10 +20,10 @@ import {
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
 import { TeamTieScoreboardDisplay } from '@/components/scoring/TeamTieScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
-import { fetchTournamentRegistrations, toTournament } from '@/lib/tournament-api';
+import { fetchTournamentRegistrations, fetchTournamentTeams, toTournament } from '@/lib/tournament-api';
 import { countRubbersWon } from '@/lib/teamMatchRubbers';
-import { getMatchLiveDisplayNames } from '@/lib/utils';
-import { Match, Tournament, LiveScore, Registration } from '@/types';
+import { getMatchLiveDisplayNames, resolveMatchWinnerDisplayName } from '@/lib/utils';
+import { Match, Tournament, LiveScore, Registration, Team } from '@/types';
 
 function ScoreboardLoading() {
   return (
@@ -49,6 +49,7 @@ function ScoreboardPageInner() {
   const [liveScoreReady, setLiveScoreReady] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(true);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [parentTeamMatch, setParentTeamMatch] = useState<Match | null>(null);
   const [teamRubbers, setTeamRubbers] = useState<Match[]>([]);
   const [rubberLiveScores, setRubberLiveScores] = useState<Map<string, LiveScore>>(new Map());
@@ -177,17 +178,25 @@ function ScoreboardPageInner() {
   useEffect(() => {
     if (!effectiveTournamentId) {
       setRegistrations([]);
+      setTeams([]);
       return;
     }
 
     let cancelled = false;
     (async () => {
       try {
-        const regs = await fetchTournamentRegistrations(effectiveTournamentId);
+        const [regs, tournamentTeams] = await Promise.all([
+          fetchTournamentRegistrations(effectiveTournamentId),
+          fetchTournamentTeams(effectiveTournamentId),
+        ]);
         if (cancelled) return;
         setRegistrations(regs);
+        setTeams(tournamentTeams);
       } catch {
-        if (!cancelled) setRegistrations([]);
+        if (!cancelled) {
+          setRegistrations([]);
+          setTeams([]);
+        }
       }
     })();
 
@@ -298,14 +307,19 @@ function ScoreboardPageInner() {
     if (!teamTieParentId) return null;
     const tie = match?.matchKind === 'team-tie' ? match : parentTeamMatch;
     if (!tie) return null;
-    const wins = countRubbersWon(teamRubbers);
+    const wins = countRubbersWon(teamRubbers, rubberLiveScores);
+    const teamsById = new Map(teams.map((t) => [t.id, t]));
+    const team1 = tie.team1Id ? teamsById.get(tie.team1Id) : undefined;
+    const team2 = tie.team2Id ? teamsById.get(tie.team2Id) : undefined;
     return {
       team1Name: tie.player1Name,
       team2Name: tie.player2Name,
+      team1LogoUrl: team1?.logoUrl,
+      team2LogoUrl: team2?.logoUrl,
       team1Wins: wins.team1,
       team2Wins: wins.team2,
     };
-  }, [teamTieParentId, match, parentTeamMatch, teamRubbers]);
+  }, [teamTieParentId, match, parentTeamMatch, teamRubbers, rubberLiveScores, teams]);
 
   const regById = useMemo(() => new Map(registrations.map(r => [r.id, r])), [registrations]);
   const matchDisplayNames = match ? getMatchLiveDisplayNames(match, regById) : null;
@@ -339,9 +353,10 @@ function ScoreboardPageInner() {
   const player1Sets = liveScore?.player1Sets ?? match.player1Score ?? 0;
   const player2Sets = liveScore?.player2Sets ?? match.player2Score ?? 0;
   const currentSet = liveScore?.currentSet ?? (match.sets?.length || 0) + 1;
-  const winner =
+  const winnerRaw =
     liveScore?.winnerName ??
     (match.status === 'completed' ? match.winner : undefined);
+  const winnerDisplayName = resolveMatchWinnerDisplayName(match, winnerRaw, regById);
 
   const bannerUrl = resolveTournamentBannerUrl(tournament);
   const player1DisplayName = matchDisplayNames?.player1Name ?? match.player1Name;
@@ -357,6 +372,8 @@ function ScoreboardPageInner() {
         matchNumber={match.matchNumber}
         team1Name={teamMatchStats.team1Name}
         team2Name={teamMatchStats.team2Name}
+        team1LogoUrl={teamMatchStats.team1LogoUrl}
+        team2LogoUrl={teamMatchStats.team2LogoUrl}
         team1Wins={teamMatchStats.team1Wins}
         team2Wins={teamMatchStats.team2Wins}
         rubbers={teamRubbers}
@@ -381,8 +398,8 @@ function ScoreboardPageInner() {
       player1Sets={isLive && liveScore ? liveScore.player1Sets : player1Sets}
       player2Sets={isLive && liveScore ? liveScore.player2Sets : player2Sets}
       currentSet={currentSet}
-      isLive={isLive && !winner}
-      winner={winner}
+      isLive={isLive && !winnerDisplayName}
+      winner={winnerDisplayName}
       court={match.court}
       sidesSwapped={liveScore?.sidesSwapped ?? false}
       lastPointWonBy={liveScore?.lastPointWonBy}

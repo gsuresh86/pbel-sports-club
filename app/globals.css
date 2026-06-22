@@ -268,3 +268,140 @@ textarea:focus-visible {
   from { opacity: 0; transform: scale(0.92) translateY(6px); }
   to   { opacity: 1; transform: scale(1)    translateY(0);   }
 }
+
+@keyframes matchWinConfettiFall {
+  0% {
+    opacity: 1;
+    transform: translateY(-10vh) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(110vh) rotate(720deg);
+  }
+}
+
+@keyframes matchWinBurst {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
+.match-win-confetti {
+  animation-name: matchWinConfettiFall;
+  animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  animation-fill-mode: forwards;
+}
+
+.match-win-burst {
+  animation: matchWinBurst 1.8s ease-out forwards;
+}
+
+@keyframes matchWinCrackLine {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--crack-rotate)) scaleY(0.2);
+  }
+  15% {
+    opacity: 1;
+    transform: rotate(var(--crack-rotate)) scaleY(1);
+  }
+  70% {
+    opacity: 0.75;
+    transform: rotate(var(--crack-rotate)) scaleY(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--crack-rotate)) scaleY(1.35);
+  }
+}
+
+@keyframes matchWinFirework {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fw-x), var(--fw-y)) scale(0.2);
+  }
+}
+
+@keyframes matchWinRay {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--ray-rotate)) scaleY(0.3);
+  }
+  20% {
+    opacity: 0.85;
+    transform: rotate(var(--ray-rotate)) scaleY(1);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--ray-rotate)) scaleY(1.2);
+  }
+}
+
+@keyframes matchWinScorePop {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.18);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  75% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes matchWinSideFlash {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.match-win-crack-line {
+  animation: matchWinCrackLine 1.5s ease-out forwards;
+  transform-origin: center bottom;
+}
+
+.match-win-crack-line-echo {
+  animation-duration: 1.35s;
+}
+
+.match-win-firework {
+  animation: matchWinFirework var(--fw-duration) ease-out forwards;
+}
+
+.match-win-ray {
+  animation: matchWinRay 2.2s ease-out forwards;
+  transform-origin: center bottom;
+}
+
+.match-win-score-pop {
+  animation: matchWinScorePop 1.2s ease-out forwards;
+}
+
+.match-win-side-flash {
+  animation: matchWinSideFlash 1.7s ease-out forwards;
+}

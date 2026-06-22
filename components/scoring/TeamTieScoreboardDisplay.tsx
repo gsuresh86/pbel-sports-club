@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn, formatMatchSideLabel } from '@/lib/utils';
-import { rubberTypeLabel, rubberWinnerSide } from '@/lib/teamMatchRubbers';
+import { rubberTypeLabel, rubberWinnerSide, rubberScoreLine } from '@/lib/teamMatchRubbers';
 import { publicTournamentPath, scoreboardPath } from '@/lib/tournament-banner';
 import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
+import { TeamLogo } from '@/components/TeamLogo';
 import type { LiveScore, Match, Registration } from '@/types';
 
 export interface TeamTieScoreboardDisplayProps {
@@ -15,6 +16,8 @@ export interface TeamTieScoreboardDisplayProps {
   matchNumber: number;
   team1Name: string;
   team2Name: string;
+  team1LogoUrl?: string | null;
+  team2LogoUrl?: string | null;
   team1Wins: number;
   team2Wins: number;
   rubbers: Match[];
@@ -25,32 +28,6 @@ export interface TeamTieScoreboardDisplayProps {
   className?: string;
 }
 
-function formatPointScore(score: number) {
-  return score.toString().padStart(2, '0');
-}
-
-function rubberScoreLine(rubber: Match, liveScore?: LiveScore | null): string {
-  if (liveScore?.isLive && !liveScore.winnerName) {
-    const sets = `${liveScore.player1Sets}–${liveScore.player2Sets}`;
-    const points = `${formatPointScore(liveScore.player1CurrentScore)}–${formatPointScore(liveScore.player2CurrentScore)}`;
-    return `${sets} (${points})`;
-  }
-  if (rubber.status === 'completed') {
-    const setsWon = `${rubber.player1Score ?? 0}–${rubber.player2Score ?? 0}`;
-    const setScores = rubber.sets?.map(s => `${s.player1Score}–${s.player2Score}`).join(', ');
-    return setScores ? `${setsWon} (${setScores})` : setsWon;
-  }
-  if (rubber.status === 'live') {
-    const lastSet = rubber.sets?.[rubber.sets.length - 1];
-    const setsWon = `${rubber.player1Score ?? 0}–${rubber.player2Score ?? 0}`;
-    if (lastSet) {
-      return `${setsWon} (${lastSet.player1Score}–${lastSet.player2Score})`;
-    }
-    return setsWon;
-  }
-  return '—';
-}
-
 export function TeamTieScoreboardDisplay({
   tournamentName,
   tournamentId,
@@ -58,6 +35,8 @@ export function TeamTieScoreboardDisplay({
   matchNumber,
   team1Name,
   team2Name,
+  team1LogoUrl,
+  team2LogoUrl,
   team1Wins,
   team2Wins,
   rubbers,
@@ -133,18 +112,32 @@ export function TeamTieScoreboardDisplay({
           <p className="text-center text-xs sm:text-sm uppercase tracking-widest text-zinc-400 mb-2">
             Team Tie · Rubbers won
           </p>
-          <div className="flex items-center justify-center gap-3 sm:gap-8">
-            <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-blue-300 truncate max-w-[30vw] sm:max-w-none">
-              {team1Name}
-            </span>
+          <div className="flex items-center justify-center gap-3 sm:gap-6 lg:gap-8">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 max-w-[30vw] sm:max-w-none">
+              <TeamLogo
+                logoUrl={team1LogoUrl}
+                name={team1Name}
+                className="shrink-0 w-14 h-14 sm:w-20 sm:h-20 lg:w-28 lg:h-28"
+              />
+              <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-blue-300 truncate">
+                {team1Name}
+              </span>
+            </div>
             <span className="text-3xl sm:text-5xl lg:text-6xl font-bold tabular-nums text-white shrink-0">
               {team1Wins}
               <span className="text-zinc-500 mx-2">–</span>
               {team2Wins}
             </span>
-            <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-red-300 truncate max-w-[30vw] sm:max-w-none">
-              {team2Name}
-            </span>
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 max-w-[30vw] sm:max-w-none justify-end">
+              <span className="text-xl sm:text-3xl lg:text-4xl font-semibold text-red-300 truncate">
+                {team2Name}
+              </span>
+              <TeamLogo
+                logoUrl={team2LogoUrl}
+                name={team2Name}
+                className="shrink-0 w-14 h-14 sm:w-20 sm:h-20 lg:w-28 lg:h-28"
+              />
+            </div>
           </div>
         </div>
 
@@ -163,7 +156,8 @@ export function TeamTieScoreboardDisplay({
                 const liveScore = rubberLiveScores.get(rubber.id);
                 const isLive = rubber.status === 'live' || (liveScore?.isLive && !liveScore.winnerName);
                 const servingSide = isLive ? liveScore?.lastPointWonBy ?? null : null;
-                const winner = rubberWinnerSide(rubber);
+                const winner = rubberWinnerSide(rubber, liveScore);
+                const isDone = winner !== null || rubber.status === 'completed' || !!liveScore?.winnerName;
                 const side1 = formatMatchSideLabel(rubber, 1, regById);
                 const side2 = formatMatchSideLabel(rubber, 2, regById);
                 const scoreLine = rubberScoreLine(rubber, liveScore);
@@ -179,7 +173,7 @@ export function TeamTieScoreboardDisplay({
                       'hover:bg-zinc-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
                       isLive
                         ? 'bg-red-950/60 border-red-500/40 ring-1 ring-red-500/30 hover:bg-red-950/70'
-                        : winner !== null
+                        : isDone
                           ? 'bg-zinc-950/70 border-zinc-700/70'
                           : 'bg-zinc-950/60 border-zinc-800/70'
                     )}
@@ -194,7 +188,7 @@ export function TeamTieScoreboardDisplay({
                             <Play className="h-3 w-3 sm:h-4 sm:w-4 animate-pulse" />
                             Live
                           </span>
-                        ) : winner !== null ? (
+                        ) : isDone ? (
                           <span className="text-xs sm:text-sm font-bold text-green-400/90 uppercase">Done</span>
                         ) : (
                           <span className="text-xs sm:text-sm font-bold text-zinc-500 uppercase">

@@ -33,7 +33,7 @@ import {
 import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check, ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { useTournamentRegistrations } from '@/hooks/use-tournament-queries';
-import { getMatchLiveDisplayNames } from '@/lib/utils';
+import { getMatchLiveDisplayNames, formatMatchSideLabel } from '@/lib/utils';
 import {
   canAccessTournamentConsole,
   canWriteMatches,
@@ -318,7 +318,7 @@ export default function LiveScoringPage() {
       updatedAt: new Date(),
     });
     if (newP1Sets >= setsToWin || newP2Sets >= setsToWin) {
-      await completeMatch(getSetWinnerName(p1Score, p2Score, match), newP1Sets, newP2Sets);
+      await completeMatch(getSetWinnerName(p1Score, p2Score, match, regById), newP1Sets, newP2Sets);
     } else {
       setPlayer1Score(0);
       setPlayer2Score(0);
@@ -515,7 +515,7 @@ export default function LiveScoringPage() {
         return;
       }
     }
-    const matchWinner = p1 > p2 ? match.player1Name : match.player2Name;
+    const matchWinner = formatMatchSideLabel(match, p1 > p2 ? 1 : 2, regById);
     const buildSetsFromInputs = (): MatchSet[] => {
       const parts = [directSet1, directSet2, directSet3].filter(Boolean);
       return parts.map((s, i) => {
