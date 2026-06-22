@@ -83,7 +83,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     setTeamForm({ name: '', category: '' as CategoryType, captainId: '', maxPlayers: 6, logoUrl: null });
     setShowCreateTeam(true);
   };
-  const [poolForm, setPoolForm] = useState({ name: '', category: '' as CategoryType, maxTeams: 4 });
+  const [poolForm, setPoolForm] = useState({ name: '', category: '' as CategoryType, maxTeams: 4, qualifyCount: 2 });
 
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +113,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     try {
       await addDoc(collection(db, 'tournaments', tournament.id, 'pools'), {
         ...poolForm,
+        qualifyCount: poolForm.qualifyCount || tournament.categoryQualifyCounts?.[poolForm.category] || 2,
         tournamentId: tournament.id,
         teams: [],
         status: 'pending',
@@ -120,7 +121,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         createdBy: user.id,
       });
       setShowCreatePool(false);
-      setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4 });
+      setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4, qualifyCount: 2 });
       invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error creating pool:', error);
@@ -151,7 +152,12 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
   const handleEditPool = (pool: Pool) => {
     setEditingPool(pool);
-    setPoolForm({ name: pool.name, category: pool.category, maxTeams: pool.maxTeams });
+    setPoolForm({
+      name: pool.name,
+      category: pool.category,
+      maxTeams: pool.maxTeams,
+      qualifyCount: pool.qualifyCount ?? tournament.categoryQualifyCounts?.[pool.category] ?? 2,
+    });
   };
 
   const handleUpdateTeam = async () => {
@@ -208,10 +214,11 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         name: poolForm.name,
         category: poolForm.category,
         maxTeams: poolForm.maxTeams,
+        qualifyCount: poolForm.qualifyCount,
         updatedAt: new Date(),
       });
       setEditingPool(null);
-      setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4 });
+      setPoolForm({ name: '', category: '' as CategoryType, maxTeams: 4, qualifyCount: 2 });
       invalidateTournament(tournament.id);
     } catch (error) {
       console.error('Error updating pool:', error);
@@ -975,6 +982,19 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                   required
                 />
               </div>
+              <div>
+                <Label htmlFor="qualify-count">Qualifiers to knockout</Label>
+                <Input
+                  id="qualify-count"
+                  type="number"
+                  min="1"
+                  max="8"
+                  value={poolForm.qualifyCount}
+                  onChange={(e) => setPoolForm(prev => ({ ...prev, qualifyCount: parseInt(e.target.value) || 1 }))}
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Top N from this pool advance to QF</p>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setShowCreatePool(false)}>Cancel</Button>
                 <Button type="submit">Create Pool</Button>
@@ -1006,9 +1026,11 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open-team">Open Team</SelectItem>
-                    <SelectItem value="kids-team-13">Kids Team 13</SelectItem>
-                    <SelectItem value="kids-team-18">Kids Team 18</SelectItem>
+                    {tournament.categories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {formatCategory(category)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1082,9 +1104,11 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="open-team">Open Team</SelectItem>
-                    <SelectItem value="kids-team-13">Kids Team 13</SelectItem>
-                    <SelectItem value="kids-team-18">Kids Team 18</SelectItem>
+                    {tournament.categories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {formatCategory(category)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1097,6 +1121,18 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                   max="8"
                   value={poolForm.maxTeams}
                   onChange={(e) => setPoolForm(prev => ({ ...prev, maxTeams: parseInt(e.target.value) }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-pool-qualify-count">Qualifiers to knockout</Label>
+                <Input
+                  id="edit-pool-qualify-count"
+                  type="number"
+                  min="1"
+                  max="8"
+                  value={poolForm.qualifyCount}
+                  onChange={(e) => setPoolForm(prev => ({ ...prev, qualifyCount: parseInt(e.target.value) || 1 }))}
                   required
                 />
               </div>

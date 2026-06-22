@@ -103,6 +103,7 @@ export default function TournamentStandingsView({
         teams={teams}
         participants={participants}
         isDoubles={isDoubles}
+        categoryQualifyCounts={tournament.categoryQualifyCounts}
       />
     );
   };

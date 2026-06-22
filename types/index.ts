@@ -122,6 +122,8 @@ export interface Tournament {
   repeatFee?: number;
   /** Payment recipients shown as a dropdown in the registration form */
   paymentAccounts?: PaymentAccount[];
+  /** Default number of qualifiers per pool for knockout rounds, by category */
+  categoryQualifyCounts?: Partial<Record<CategoryType, number>>;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string;
@@ -224,6 +226,8 @@ export type MatchKind = 'team-tie' | 'rubber';
 export interface Match {
   id: string;
   tournamentId: string;
+  /** Category for knockout matches (pool play uses pool name as round) */
+  category?: CategoryType;
   round: string;
   matchNumber: number;
   player1Id: string;
@@ -403,6 +407,8 @@ export interface Pool {
   category: CategoryType;
   teams: string[]; // Array of team IDs
   maxTeams: number;
+  /** How many advance from this pool to knockout (overrides category default) */
+  qualifyCount?: number;
   status: 'pending' | 'active' | 'completed';
   createdAt: Date;
   updatedAt?: Date;

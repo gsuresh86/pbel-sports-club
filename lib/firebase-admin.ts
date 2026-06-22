@@ -37,6 +37,11 @@ export function getAdminMessaging(): admin.messaging.Messaging {
   return admin.messaging();
 }
 
+export function getAdminAuth(): admin.auth.Auth {
+  ensureAdminApp();
+  return admin.auth();
+}
+
 export function isAdminConfigured(): boolean {
   if (admin.apps.length > 0) return true;
   return !!(projectId && clientEmail && privateKey);

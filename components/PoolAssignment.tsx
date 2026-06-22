@@ -70,6 +70,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const [selectedPlayersForPool, setSelectedPlayersForPool] = useState<string[]>([]);
   const [editingPoolName, setEditingPoolName] = useState<string | null>(null);
   const [editingPoolNameValue, setEditingPoolNameValue] = useState<string>('');
+  const [editingPoolQualifyCount, setEditingPoolQualifyCount] = useState(2);
+  const [categoryQualifyCount, setCategoryQualifyCount] = useState('2');
+  const [savingQualifySettings, setSavingQualifySettings] = useState(false);
 
   // Single match generation state
   const [singleMatchDialogPool, setSingleMatchDialogPool] = useState<Pool | null>(null);
@@ -321,6 +324,73 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
     return selectedCategory !== '' && TEAM_CATEGORIES.includes(selectedCategory as CategoryType);
   };
 
+  const syncCategoryQualifyCount = (cat: CategoryType) => {
+    const count = tournament.categoryQualifyCounts?.[cat] ?? 2;
+    setCategoryQualifyCount(String(count));
+  };
+
+  const saveCategoryQualifySettings = async () => {
+    if (!selectedCategory) return;
+    setSavingQualifySettings(true);
+    try {
+      const count = Math.max(1, parseInt(categoryQualifyCount) || 2);
+      await updateDoc(doc(db, 'tournaments', tournament.id), {
+        categoryQualifyCounts: {
+          ...(tournament.categoryQualifyCounts ?? {}),
+          [selectedCategory]: count,
+        },
+        updatedAt: new Date(),
+      });
+      invalidateTournament(tournament.id);
+      setCategoryQualifyCount(String(count));
+      alert({
+        title: 'Saved',
+        description: `Default qualification count set to ${count} for this category.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Error saving qualification settings:', error);
+      alert({ title: 'Error', description: 'Failed to save qualification settings.', variant: 'error' });
+    } finally {
+      setSavingQualifySettings(false);
+    }
+  };
+
+  const applyCategoryQualifyToAllPools = async () => {
+    if (!selectedCategory) return;
+    const count = Math.max(1, parseInt(categoryQualifyCount) || 2);
+    setSavingQualifySettings(true);
+    try {
+      await updateDoc(doc(db, 'tournaments', tournament.id), {
+        categoryQualifyCounts: {
+          ...(tournament.categoryQualifyCounts ?? {}),
+          [selectedCategory]: count,
+        },
+        updatedAt: new Date(),
+      });
+      const categoryPools = getCategoryPools();
+      await Promise.all(
+        categoryPools.map(pool =>
+          updateDoc(doc(db, 'tournaments', tournament.id, 'pools', pool.id), {
+            qualifyCount: count,
+            updatedAt: new Date(),
+          }),
+        ),
+      );
+      invalidateTournament(tournament.id);
+      alert({
+        title: 'Applied',
+        description: `Set ${count} qualifier(s) on all ${categoryPools.length} pools.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      console.error('Error applying qualification settings:', error);
+      alert({ title: 'Error', description: 'Failed to apply to pools.', variant: 'error' });
+    } finally {
+      setSavingQualifySettings(false);
+    }
+  };
+
   const getUnassignedTeams = () => {
     return getCategoryTeams().filter(team => !team.poolId);
   };
@@ -495,6 +565,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
   const openEditPool = (pool: Pool) => {
     setEditingPool(pool);
+    setEditingPoolQualifyCount(
+      pool.qualifyCount ?? tournament.categoryQualifyCounts?.[pool.category] ?? 2,
+    );
     if (isTeamCategory()) {
       setSelectedTeamsForPool(pool.teams);
     } else {
@@ -534,6 +607,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
       const selectedItems = isTeamCategory() ? selectedTeamsForPool : selectedPlayersForPool;
       await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', editingPool.id), {
         teams: selectedItems,
+        qualifyCount: editingPoolQualifyCount,
         updatedAt: new Date(),
       });
 
@@ -611,7 +685,10 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
           <p className="text-gray-600">Assign {isTeamCategory() ? 'teams' : 'players'} to pools/groups</p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
+          <Select value={selectedCategory} onValueChange={(value) => {
+            setSelectedCategory(value as CategoryType);
+            syncCategoryQualifyCount(value as CategoryType);
+          }}>
             <SelectTrigger className="w-44">
               <SelectValue placeholder="Choose category" />
             </SelectTrigger>
@@ -640,6 +717,48 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
       {selectedCategory && (
         <>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-600" />
+                Knockout qualification
+              </CardTitle>
+              <CardDescription>
+                How many {isTeamCategory() ? 'teams' : 'players'} advance from each pool to QF
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Category default</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="8"
+                    className="h-9 w-24"
+                    value={categoryQualifyCount}
+                    onChange={e => setCategoryQualifyCount(e.target.value)}
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={saveCategoryQualifySettings}
+                  disabled={savingQualifySettings}
+                >
+                  Save default
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={applyCategoryQualifyToAllPools}
+                  disabled={savingQualifySettings || getCategoryPools().length === 0}
+                >
+                  Apply to all pools
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Manual Assignment */}
           <Card>
@@ -736,6 +855,8 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                             <div className="font-medium">{pool.name}</div>
                             <div className="text-sm text-gray-600">
                               {pool.teams.length}/{pool.maxTeams} {isTeamCategory() ? 'teams' : 'players'}
+                              {' · '}
+                              Top {pool.qualifyCount ?? tournament.categoryQualifyCounts?.[pool.category] ?? 2} qualify
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1062,6 +1183,18 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 <div>
                   <Label className="text-sm font-medium">Capacity</Label>
                   <div className="text-lg font-semibold">{editingPool.maxTeams} {isTeamCategory() ? 'teams' : 'players'}</div>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium">Qualifiers to knockout</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="8"
+                    className="mt-1 w-24"
+                    value={editingPoolQualifyCount}
+                    onChange={e => setEditingPoolQualifyCount(parseInt(e.target.value) || 1)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Overrides category default for this pool</p>
                 </div>
               </div>
 

@@ -142,7 +142,10 @@ export default function MatchesPage() {
 
   const distinctRounds = Array.from(new Set(topLevelMatches.map(m => m.round))).sort();
   const distinctCategories = Array.from(
-    new Set(poolsData.map(p => p.category).filter(Boolean))
+    new Set([
+      ...poolsData.map(p => p.category).filter(Boolean),
+      ...topLevelMatches.map(m => m.category).filter(Boolean),
+    ]),
   ).sort() as string[];
 
   const q = search.toLowerCase();
@@ -155,7 +158,8 @@ export default function MatchesPage() {
       if (![...sideLabels, m.round].some(s => s.toLowerCase().includes(q))) return false;
     }
     if (roundFilter !== 'all' && m.round !== roundFilter) return false;
-    if (categoryFilter !== 'all' && poolNameToCategory.get(m.round) !== categoryFilter) return false;
+    const matchCategory = m.category ?? poolNameToCategory.get(m.round);
+    if (categoryFilter !== 'all' && matchCategory !== categoryFilter) return false;
     if (statusFilter !== 'all' && m.status !== statusFilter) return false;
     if (dateFilter) {
       const matchDate = toISTLocal(new Date(m.scheduledTime)).slice(0, 10);
@@ -906,7 +910,7 @@ export default function MatchesPage() {
           {/* Panel — z-[52]: above backdrop; Radix portals forced to z-[60] via globals.css */}
           <div className="fixed inset-y-0 right-0 z-[52] flex w-full max-w-4xl flex-col bg-white shadow-2xl">
             <div className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3">
-              <h2 className="text-base font-semibold">Generate Matches</h2>
+              <h2 className="text-base font-semibold">Create Matches</h2>
               <button
                 onClick={() => setGenDrawerOpen(false)}
                 className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"

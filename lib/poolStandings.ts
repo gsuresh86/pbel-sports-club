@@ -266,3 +266,44 @@ export function computePoolStandings(
     options.nameLookup ?? (id => id),
   );
 }
+
+function getIndividualPoolPlayMatches(pool: Pool, matches: Match[]): Match[] {
+  return matches.filter(
+    m => m.round === pool.name && !isRubberMatch(m) && !m.matchKind
+      && m.status !== 'not-scheduled' && m.status !== 'cancelled',
+  );
+}
+
+function getTeamPoolPlayMatches(pool: Pool, matches: Match[], teams: Team[]): Match[] {
+  const teamById = new Map(teams.map(t => [t.id, t]));
+  return matches.filter(
+    m => m.round === pool.name && !isRubberMatch(m) && (
+      m.matchKind === 'team-tie' ||
+      (teamById.has(m.player1Id) && teamById.has(m.player2Id))
+    ) && m.status !== 'not-scheduled' && m.status !== 'cancelled',
+  );
+}
+
+/** True when every pool play match is finished (individual: completed; team: tie resolved). */
+export function isPoolPlayComplete(
+  pool: Pool,
+  matches: Match[],
+  options: { isTeamCat: boolean; teams?: Team[] },
+): boolean {
+  if (options.isTeamCat) {
+    const teamTies = getTeamPoolPlayMatches(pool, matches, options.teams ?? []);
+    if (teamTies.length === 0) return false;
+    const rubbers = matches.filter(m => isRubberMatch(m) && m.round === pool.name);
+    const rubbersByParent = rubbers.reduce((acc, r) => {
+      const pid = r.parentMatchId!;
+      const list = acc.get(pid) ?? [];
+      list.push(r);
+      acc.set(pid, list);
+      return acc;
+    }, new Map<string, Match[]>());
+    return teamTies.every(tie => isTeamTieResolved(tie, rubbersByParent.get(tie.id) ?? []));
+  }
+
+  const poolMatches = getIndividualPoolPlayMatches(pool, matches);
+  return poolMatches.length > 0 && poolMatches.every(m => m.status === 'completed');
+}

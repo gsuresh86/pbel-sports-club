@@ -1,9 +1,11 @@
 'use client';
 
-import type { Match, Pool, Registration, Team } from '@/types';
+import type { CategoryType, Match, Pool, Registration, Team } from '@/types';
 import { TeamLogo } from '@/components/TeamLogo';
+import { getQualifyCount } from '@/lib/knockoutBracket';
 import {
   computePoolStandings,
+  isPoolPlayComplete,
   type PoolStandingRow,
 } from '@/lib/poolStandings';
 
@@ -14,6 +16,7 @@ interface Props {
   teams: Team[];
   participants: Registration[];
   isDoubles?: boolean;
+  categoryQualifyCounts?: Partial<Record<CategoryType, number>>;
 }
 
 function entityLabel(isTeamCat: boolean, isDoubles?: boolean) {
@@ -32,12 +35,13 @@ const stickyCellSecond =
   'sticky left-8 z-10 bg-slate-900 after:absolute after:right-0 after:top-0 after:bottom-0 after:w-px after:bg-white/10';
 
 function PoolPointsTableInner({
-  rows, label, isTeamCat, teams,
+  rows, label, isTeamCat, teams, qualifiedIds,
 }: {
   rows: PoolStandingRow[];
   label: string;
   isTeamCat: boolean;
   teams: Team[];
+  qualifiedIds: Set<string> | null;
 }) {
   if (rows.every(r => r.played === 0)) {
     return (
@@ -75,6 +79,7 @@ function PoolPointsTableInner({
         <tbody className="divide-y divide-white/5">
           {rows.map((row, idx) => {
             const isLeader = idx === 0 && row.played > 0;
+            const isQualified = qualifiedIds?.has(row.id) ?? false;
             const rowBg = isLeader ? 'bg-yellow-400/5' : 'bg-slate-900';
             return (
               <tr key={row.id} className={isLeader ? 'bg-yellow-400/5' : ''}>
@@ -91,6 +96,14 @@ function PoolPointsTableInner({
                       />
                     )}
                     <span className="truncate">{row.name}</span>
+                    {isQualified && (
+                      <span
+                        className="shrink-0 text-[9px] sm:text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-400"
+                        title="Qualified for knockout"
+                      >
+                        Q
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-1 sm:px-2 py-2 sm:py-2.5 text-center text-slate-300 tabular-nums">{row.played}</td>
@@ -121,7 +134,7 @@ function PoolPointsTableInner({
 }
 
 export default function PoolPointsTable({
-  pool, matches, isTeamCat, teams, participants, isDoubles,
+  pool, matches, isTeamCat, teams, participants, isDoubles, categoryQualifyCounts,
 }: Props) {
   const nameLookup = (id: string) => {
     if (isTeamCat) return teams.find(t => t.id === id)?.name ?? `Team ${id.slice(0, 6)}`;
@@ -136,6 +149,12 @@ export default function PoolPointsTable({
     nameLookup,
   });
 
+  const qualifyCount = getQualifyCount(pool, categoryQualifyCounts);
+  const poolComplete = isPoolPlayComplete(pool, matches, { isTeamCat, teams });
+  const qualifiedIds = poolComplete
+    ? new Set(rows.slice(0, qualifyCount).map(r => r.id))
+    : null;
+
   return (
     <div className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden">
       <div className="bg-gradient-to-r from-purple-600/20 to-indigo-500/10 px-4 sm:px-5 py-3 border-b border-white/5 flex items-center justify-between gap-3">
@@ -143,13 +162,22 @@ export default function PoolPointsTable({
           <h4 className="font-black text-white truncate">{pool.name}</h4>
           <p className="text-xs text-slate-400 mt-0.5">
             Points table · {pool.teams.length} {isTeamCat ? 'teams' : isDoubles ? 'pairs' : 'players'}
+            {poolComplete && (
+              <span className="text-yellow-400"> · Top {qualifyCount} qualified</span>
+            )}
           </p>
         </div>
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${pool.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
           {pool.status}
         </span>
       </div>
-      <PoolPointsTableInner rows={rows} label={entityLabel(isTeamCat, isDoubles)} isTeamCat={isTeamCat} teams={teams} />
+      <PoolPointsTableInner
+        rows={rows}
+        label={entityLabel(isTeamCat, isDoubles)}
+        isTeamCat={isTeamCat}
+        teams={teams}
+        qualifiedIds={qualifiedIds}
+      />
     </div>
   );
 }
