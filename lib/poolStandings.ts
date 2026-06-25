@@ -156,8 +156,10 @@ export function computeIndividualPoolStandings(
   const map = new Map<string, PoolStandingRow>();
   for (const id of pool.teams) ensureRow(map, id, nameLookup(id));
 
+  const members = poolMemberIds(pool);
   const poolMatches = matches.filter(
-    m => m.round === pool.name && m.status === 'completed' && !isRubberMatch(m) && !m.matchKind,
+    m => m.round === pool.name && m.status === 'completed' && !isRubberMatch(m) && !m.matchKind
+      && isPoolMemberMatch(m, members),
   );
 
   for (const m of poolMatches) {
@@ -201,11 +203,12 @@ export function computeTeamPoolStandings(
     return acc;
   }, new Map<string, Match[]>());
 
+  const members = poolMemberIds(pool);
   const teamTies = matches.filter(
     m => m.round === pool.name && !isRubberMatch(m) && (
       m.matchKind === 'team-tie' ||
       (teamById.has(m.player1Id) && teamById.has(m.player2Id))
-    ),
+    ) && isPoolMemberMatch(m, members),
   );
 
   for (const tie of teamTies) {
@@ -267,20 +270,47 @@ export function computePoolStandings(
   );
 }
 
+function poolMemberIds(pool: Pool): Set<string> {
+  return new Set(pool.teams);
+}
+
+function pairingKey(a: string, b: string): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
+}
+
+function expectedPoolPairings(pool: Pool): Set<string> {
+  const keys = new Set<string>();
+  const ids = pool.teams;
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      keys.add(pairingKey(ids[i], ids[j]));
+    }
+  }
+  return keys;
+}
+
+function isPoolMemberMatch(match: Match, members: Set<string>): boolean {
+  return members.has(match.player1Id) && members.has(match.player2Id);
+}
+
 function getIndividualPoolPlayMatches(pool: Pool, matches: Match[]): Match[] {
+  const members = poolMemberIds(pool);
   return matches.filter(
     m => m.round === pool.name && !isRubberMatch(m) && !m.matchKind
-      && m.status !== 'not-scheduled' && m.status !== 'cancelled',
+      && m.status !== 'not-scheduled' && m.status !== 'cancelled'
+      && isPoolMemberMatch(m, members),
   );
 }
 
 function getTeamPoolPlayMatches(pool: Pool, matches: Match[], teams: Team[]): Match[] {
   const teamById = new Map(teams.map(t => [t.id, t]));
+  const members = poolMemberIds(pool);
   return matches.filter(
     m => m.round === pool.name && !isRubberMatch(m) && (
       m.matchKind === 'team-tie' ||
       (teamById.has(m.player1Id) && teamById.has(m.player2Id))
-    ) && m.status !== 'not-scheduled' && m.status !== 'cancelled',
+    ) && m.status !== 'not-scheduled' && m.status !== 'cancelled'
+      && isPoolMemberMatch(m, members),
   );
 }
 
@@ -290,9 +320,12 @@ export function isPoolPlayComplete(
   matches: Match[],
   options: { isTeamCat: boolean; teams?: Team[] },
 ): boolean {
+  const expectedPairings = expectedPoolPairings(pool);
+  if (expectedPairings.size === 0) return false;
+
   if (options.isTeamCat) {
     const teamTies = getTeamPoolPlayMatches(pool, matches, options.teams ?? []);
-    if (teamTies.length === 0) return false;
+    if (teamTies.length < expectedPairings.size) return false;
     const rubbers = matches.filter(m => isRubberMatch(m) && m.round === pool.name);
     const rubbersByParent = rubbers.reduce((acc, r) => {
       const pid = r.parentMatchId!;
@@ -301,9 +334,25 @@ export function isPoolPlayComplete(
       acc.set(pid, list);
       return acc;
     }, new Map<string, Match[]>());
-    return teamTies.every(tie => isTeamTieResolved(tie, rubbersByParent.get(tie.id) ?? []));
+    const resolvedPairings = new Set<string>();
+    for (const tie of teamTies) {
+      if (!isTeamTieResolved(tie, rubbersByParent.get(tie.id) ?? [])) return false;
+      resolvedPairings.add(pairingKey(tie.player1Id, tie.player2Id));
+    }
+    for (const key of expectedPairings) {
+      if (!resolvedPairings.has(key)) return false;
+    }
+    return true;
   }
 
   const poolMatches = getIndividualPoolPlayMatches(pool, matches);
-  return poolMatches.length > 0 && poolMatches.every(m => m.status === 'completed');
+  const completedPairings = new Set<string>();
+  for (const m of poolMatches) {
+    if (m.status !== 'completed') return false;
+    completedPairings.add(pairingKey(m.player1Id, m.player2Id));
+  }
+  for (const key of expectedPairings) {
+    if (!completedPairings.has(key)) return false;
+  }
+  return true;
 }

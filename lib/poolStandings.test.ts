@@ -117,6 +117,41 @@ test('isPoolPlayComplete is false until all individual pool matches are complete
   assert.equal(isPoolPlayComplete(pool, complete, { isTeamCat: false }), true);
 });
 
+test('isPoolPlayComplete is false when only a subset of round-robin matches exist', () => {
+  const pool: Pool = {
+    id: 'p1', tournamentId: 't1', name: 'Pool A', category: 'family-doubles',
+    teams: ['a', 'b', 'c'], maxTeams: 4, status: 'active', createdAt: new Date(), createdBy: 'u1',
+  };
+  const base = {
+    tournamentId: 't1', round: 'Pool A', scheduledTime: new Date(), venue: 'Court',
+    updatedAt: new Date(), createdBy: 'u1', sets: [],
+  };
+  const partial: Match[] = [
+    { id: 'm1', ...base, matchNumber: 1, player1Id: 'a', player1Name: 'A', player2Id: 'b', player2Name: 'B', status: 'completed', player1Score: 2, player2Score: 0, winner: 'A' },
+  ];
+  assert.equal(isPoolPlayComplete(pool, partial, { isTeamCat: false }), false);
+});
+
+test('isPoolPlayComplete ignores matches from other categories sharing the same pool name', () => {
+  const familyPool: Pool = {
+    id: 'p1', tournamentId: 't1', name: 'Pool A', category: 'family-doubles',
+    teams: ['f1', 'f2', 'f3'], maxTeams: 4, status: 'active', createdAt: new Date(), createdBy: 'u1',
+  };
+  const base = {
+    tournamentId: 't1', round: 'Pool A', scheduledTime: new Date(), venue: 'Court',
+    updatedAt: new Date(), createdBy: 'u1', sets: [],
+  };
+  const mixedOnlyComplete: Match[] = [
+    { id: 'm1', ...base, matchNumber: 1, player1Id: 'm1', player1Name: 'M1', player2Id: 'm2', player2Name: 'M2', status: 'completed', player1Score: 2, player2Score: 0, winner: 'M1' },
+    { id: 'm2', ...base, matchNumber: 2, player1Id: 'm1', player1Name: 'M1', player2Id: 'm3', player2Name: 'M3', status: 'completed', player1Score: 2, player2Score: 0, winner: 'M1' },
+    { id: 'm3', ...base, matchNumber: 3, player1Id: 'm2', player1Name: 'M2', player2Id: 'm3', player2Name: 'M3', status: 'completed', player1Score: 2, player2Score: 0, winner: 'M2' },
+  ];
+  const familyPartial: Match[] = [
+    { id: 'f1', ...base, matchNumber: 4, player1Id: 'f1', player1Name: 'F1', player2Id: 'f2', player2Name: 'F2', status: 'completed', player1Score: 2, player2Score: 0, winner: 'F1' },
+  ];
+  assert.equal(isPoolPlayComplete(familyPool, [...mixedOnlyComplete, ...familyPartial], { isTeamCat: false }), false);
+});
+
 test('isPoolPlayComplete resolves team ties from rubbers', () => {
   const pool: Pool = {
     id: 'p1', tournamentId: 't1', name: 'Pool A', category: 'mens-team',
