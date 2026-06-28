@@ -1,4 +1,5 @@
 import type { LiveScore, Match, Registration } from '@/types';
+import { formatMatchSideLabel } from '@/lib/utils';
 
 export type RubberType = 'doubles' | 'single';
 
@@ -111,15 +112,24 @@ export function countRubbersWon(
   return { team1, team2 };
 }
 
+function sideFromWinnerName(rubber: Match, winnerName: string): 1 | 2 {
+  const side1Label = formatMatchSideLabel(rubber, 1);
+  if (winnerName === side1Label) return 1;
+  const side2Label = formatMatchSideLabel(rubber, 2);
+  if (winnerName === side2Label) return 2;
+  // Individual name fallback (singles with full names, or legacy data)
+  return winnerNameOnTeam1(rubber, winnerName) ? 1 : 2;
+}
+
 export function rubberWinnerSide(rubber: Match, liveScore?: LiveScore | null): 1 | 2 | null {
   if (liveScore?.winnerName) {
-    return winnerNameOnTeam1(rubber, liveScore.winnerName) ? 1 : 2;
+    return sideFromWinnerName(rubber, liveScore.winnerName);
   }
   if (rubber.status === 'completed') {
     if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
     if ((rubber.player2Score ?? 0) > (rubber.player1Score ?? 0)) return 2;
     if (rubber.winner) {
-      return winnerNameOnTeam1(rubber, rubber.winner) ? 1 : 2;
+      return sideFromWinnerName(rubber, rubber.winner);
     }
   }
   return null;
