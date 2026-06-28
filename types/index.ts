@@ -229,7 +229,7 @@ export interface Match {
   /** Category for knockout matches (pool play uses pool name as round) */
   category?: CategoryType;
   round: string;
-  matchNumber: number;
+  matchNumber: number | string;
   player1Id: string;
   player1Name: string;
   player2Id: string;

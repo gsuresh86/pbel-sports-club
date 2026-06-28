@@ -291,13 +291,15 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     const existingInRound = matches.filter(
       m => m.round === knockoutRound && m.category === selectedCategory,
     );
-    let matchNumber = existingInRound.length > 0
-      ? Math.max(...existingInRound.map(m => m.matchNumber)) + 1
-      : 1;
+    const existingCount = existingInRound.length;
+    const isSingleMatch = knockoutRound === 'F' || knockoutRound === 'TP';
     let totalCreated = 0;
 
     for (let i = 0; i < preview.pairings.length; i++) {
       const pairing = preview.pairings[i];
+      const matchNumber = isSingleMatch
+        ? knockoutRound
+        : `${knockoutRound}${existingCount + i + 1}`;
       await addDoc(tournamentMatchesRef(tournament.id), {
         tournamentId: tournament.id,
         category: selectedCategory,
@@ -315,7 +317,6 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         updatedAt: new Date(),
         createdBy: user.id,
       });
-      matchNumber++;
       totalCreated++;
     }
     return totalCreated;
@@ -328,9 +329,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     const existingInRound = matches.filter(m =>
       m.round === round && (isKnockout ? m.category === selectedCategory : true),
     );
-    const matchNumber = existingInRound.length > 0
-      ? Math.max(...existingInRound.map(m => m.matchNumber)) + 1
-      : 1;
+    const existingCount = existingInRound.length;
+    const matchNumber = isKnockout
+      ? (round === 'F' || round === 'TP' ? round : `${round}${existingCount + 1}`)
+      : existingCount + 1;
 
     await addDoc(tournamentMatchesRef(tournament.id), {
       tournamentId: tournament.id,

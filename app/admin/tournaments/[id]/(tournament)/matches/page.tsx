@@ -190,7 +190,7 @@ export default function MatchesPage() {
   const sortedMatches = [...filteredMatches].sort((a, b) => {
     let cmp = 0;
     switch (sortKey) {
-      case 'matchNumber': cmp = a.matchNumber - b.matchNumber; break;
+      case 'matchNumber': cmp = String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }); break;
       case 'round': cmp = a.round.localeCompare(b.round); break;
       case 'status': cmp = a.status.localeCompare(b.status); break;
       case 'scheduledTime': {
@@ -200,7 +200,7 @@ export default function MatchesPage() {
         break;
       }
     }
-    if (cmp === 0) cmp = a.matchNumber - b.matchNumber;
+    if (cmp === 0) cmp = String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true });
     return sortDir === 'asc' ? cmp : -cmp;
   });
 
@@ -406,7 +406,7 @@ export default function MatchesPage() {
     try {
       await updateDoc(tournamentMatchRef(tournamentId, editingMatch.id), {
         round: editMatchForm.round,
-        matchNumber: parseInt(editMatchForm.matchNumber),
+        matchNumber: /^\d+$/.test(editMatchForm.matchNumber) ? parseInt(editMatchForm.matchNumber) : editMatchForm.matchNumber,
         player1Id: lookup1.id,
         player1Name: lookup1.name,
         player2Id: lookup2.id,
@@ -954,7 +954,7 @@ export default function MatchesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Match #</Label>
-                <Input type="number" value={editMatchForm.matchNumber} onChange={(e) => setEditMatchForm((f) => ({ ...f, matchNumber: e.target.value }))} />
+                <Input type="text" value={editMatchForm.matchNumber} onChange={(e) => setEditMatchForm((f) => ({ ...f, matchNumber: e.target.value }))} />
               </div>
             </div>
             {(() => {

@@ -13,7 +13,7 @@ export interface TeamTieScoreboardDisplayProps {
   tournamentName: string;
   tournamentId: string;
   round: string;
-  matchNumber: number;
+  matchNumber: number | string;
   team1Name: string;
   team2Name: string;
   team1LogoUrl?: string | null;

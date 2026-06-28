@@ -178,7 +178,7 @@ export function getRoundParticipants(
 ): KnockoutParticipant[] {
   return matches
     .filter(m => m.round === round && m.category === category && !m.matchKind)
-    .sort((a, b) => a.matchNumber - b.matchNumber)
+    .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }))
     .map(m => (mode === 'winners' ? getMatchWinner(m) : getMatchLoser(m)))
     .filter((p): p is KnockoutParticipant => p != null);
 }

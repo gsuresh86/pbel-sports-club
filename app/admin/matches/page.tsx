@@ -166,7 +166,7 @@ export default function ManageMatchesPage() {
       const matchData = {
         tournamentId: formData.tournamentId,
         round: formData.round,
-        matchNumber: parseInt(formData.matchNumber),
+        matchNumber: /^\d+$/.test(formData.matchNumber) ? parseInt(formData.matchNumber) : formData.matchNumber,
         player1Id: formData.player1Id,
         player1Name: player1.name,
         player2Id: formData.player2Id,
@@ -425,7 +425,7 @@ export default function ManageMatchesPage() {
                     <Label htmlFor="matchNumber">Match Number *</Label>
                     <Input
                       id="matchNumber"
-                      type="number"
+                      type="text"
                       value={formData.matchNumber}
                       onChange={(e) => setFormData({ ...formData, matchNumber: e.target.value })}
                       required

@@ -92,7 +92,9 @@ function buildRubberPayload(
   const p2 = t2Ids[0];
   const rubberData: Record<string, unknown> = {
     ...base,
-    matchNumber: (base.matchNumber as number) * 10 + slot.rubberNumber,
+    matchNumber: typeof base.matchNumber === 'number'
+      ? base.matchNumber * 10 + slot.rubberNumber
+      : `${base.matchNumber}-R${slot.rubberNumber}`,
     rubberNumber: slot.rubberNumber,
     rubberType: slot.rubberType,
     player1Id: p1,

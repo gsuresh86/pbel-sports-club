@@ -21,7 +21,7 @@ export interface ScoreboardDisplayProps {
   tournamentName: string;
   tournamentId?: string | null;
   round: string;
-  matchNumber: number;
+  matchNumber: number | string;
   player1Name: string;
   player2Name: string;
   player1Score: number;
