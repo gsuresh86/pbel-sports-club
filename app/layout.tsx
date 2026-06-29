@@ -11,8 +11,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Tournament Craft",
-  description: "Sports tournament management system for Tournament Craft",
+  title: "Manchplay",
+  description: "Your community's sports stage — run tournaments end to end from registration to podium.",
 };
 
 export default function RootLayout({

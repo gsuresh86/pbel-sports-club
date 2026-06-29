@@ -13,7 +13,7 @@ const FALLBACK: Testimonial[] = [
     tournamentName: '',
     author: 'Amit Sharma',
     authorRole: 'Sports Secretary, PBEL City',
-    quote: 'Tournament Craft made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
+    quote: 'Manchplay made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
     rating: 5,
     sport: 'Badminton',
     published: true,
@@ -56,8 +56,8 @@ export function TestimonialsSection() {
         <div className="text-center mb-12">
           <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-3">What People Say</p>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Trusted by Organisers</h2>
-          <p className="text-slate-400 text-base max-w-md mx-auto">
-            Hear from the admins and players who&apos;ve run their events on Tournament Craft.
+          <p className="text-slate-200 text-base max-w-md mx-auto">
+            Hear from the admins and players who&apos;ve run their events on Manchplay.
           </p>
         </div>
 
@@ -65,7 +65,7 @@ export function TestimonialsSection() {
           {items.map((t) => (
             <div
               key={t.id}
-              className="group bg-white/5 border border-white/10 hover:border-yellow-400/25 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl backdrop-blur-sm flex flex-col"
+              className="group bg-slate-800 border border-slate-600 hover:border-yellow-400/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col"
             >
               {/* Stars */}
               <div className="flex gap-0.5 mb-4">
@@ -75,23 +75,23 @@ export function TestimonialsSection() {
               </div>
 
               {/* Quote */}
-              <p className="text-sm text-slate-300 italic leading-relaxed flex-1 mb-5">
+              <p className="text-sm text-slate-100 italic leading-relaxed flex-1 mb-5">
                 &ldquo;{t.quote}&rdquo;
               </p>
 
               {/* Author */}
-              <div className="flex items-center gap-3 pt-4 border-t border-white/8">
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-600">
                 <div className="w-9 h-9 rounded-full bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center text-yellow-400 font-black text-sm flex-shrink-0">
                   {t.author.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-white truncate">{t.author}</p>
                   {t.authorRole && (
-                    <p className="text-xs text-slate-500 truncate">{t.authorRole}</p>
+                    <p className="text-xs text-slate-200 truncate">{t.authorRole}</p>
                   )}
                 </div>
                 {t.sport && (
-                  <span className="ml-auto text-xs bg-white/8 border border-white/10 text-slate-400 rounded-full px-2 py-0.5 flex-shrink-0">
+                  <span className="ml-auto text-xs bg-slate-800 border border-white/15 text-slate-300 rounded-full px-2 py-0.5 flex-shrink-0">
                     {t.sport}
                   </span>
                 )}

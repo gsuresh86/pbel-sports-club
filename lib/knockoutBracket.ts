@@ -13,6 +13,17 @@ export const KNOCKOUT_ROUND_LABELS: Record<KnockoutRound, string> = {
   TP: 'Third Place',
 };
 
+export function isKnockoutRound(round: string): round is KnockoutRound {
+  return (KNOCKOUT_ROUNDS as readonly string[]).includes(round);
+}
+
+export interface BracketSlotMember {
+  id: string;
+  name: string;
+  slotLabel: string;
+  isResolved: boolean;
+}
+
 export interface KnockoutParticipant {
   id: string;
   name: string;
@@ -168,6 +179,45 @@ export function getMatchLoser(m: Match): KnockoutParticipant | null {
   if (!winner) return null;
   if (winner.id === m.player1Id) return { id: m.player2Id, name: m.player2Name };
   return { id: m.player1Id, name: m.player1Name };
+}
+
+/** Bracket slot options for SF/F/TP — winners (or losers for TP) from the prior round. */
+export function getKnockoutSlotMembers(
+  targetRound: KnockoutRound,
+  category: CategoryType,
+  matches: Match[],
+): BracketSlotMember[] | null {
+  const prevRoundMap: Partial<Record<KnockoutRound, KnockoutRound>> = { SF: 'QF', F: 'SF', TP: 'SF' };
+  const prevRound = prevRoundMap[targetRound];
+  if (!prevRound) return null;
+
+  const prevMatches = matches
+    .filter(m => m.round === prevRound && m.category === category && !m.matchKind)
+    .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+
+  if (prevMatches.length === 0) return null;
+
+  const isLoserRound = targetRound === 'TP';
+  const labelPrefix = isLoserRound ? 'Loser' : 'Winner';
+
+  return prevMatches.map(m => {
+    const participant = isLoserRound ? getMatchLoser(m) : getMatchWinner(m);
+    const slotLabel = `${labelPrefix} of ${m.matchNumber}`;
+    if (participant) {
+      return { id: participant.id, name: participant.name, slotLabel, isResolved: true };
+    }
+    return {
+      id: `tbd-${labelPrefix.toLowerCase()}-${m.matchNumber}`,
+      name: slotLabel,
+      slotLabel,
+      isResolved: false,
+    };
+  });
+}
+
+export function bracketSlotDisplayLabel(slot: BracketSlotMember): string {
+  if (slot.slotLabel && slot.isResolved) return `${slot.slotLabel} — ${slot.name}`;
+  return slot.slotLabel || slot.name;
 }
 
 export function getRoundParticipants(

@@ -8,6 +8,7 @@ import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
 import { previewKnockoutRound } from '@/lib/knockoutBracket';
+import { isIplPlayoffRound, isIplPlayoffSpecificRound, IPL_PLAYOFF_ROUND_LABELS, filterIplRoundMatches } from '@/lib/iplPlayoff';
 import { getMatchSideDisplay, getInitials, firstName, toTitleCase, formatMatchSideLabel, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
@@ -78,7 +79,7 @@ export default function TournamentDetailPage() {
         actualStartTime: d.data().actualStartTime?.toDate(),
         actualEndTime: d.data().actualEndTime?.toDate(),
         updatedAt: d.data().updatedAt?.toDate(),
-      })) as Match[]).filter(m => m.status !== 'not-scheduled'));
+      })) as Match[]));
     } catch (e) { console.error(e); }
   };
 
@@ -150,11 +151,29 @@ export default function TournamentDetailPage() {
   }
 
   const KNOCKOUT_ROUND_SET = new Set(['QF', 'SF', 'F', 'TP']);
+  const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
+
+  const getMatchCategory = (m: Match): string | undefined => {
+    if (m.category) return m.category;
+    const fromPool = poolNameToCategory.get(m.round);
+    if (fromPool) return fromPool;
+    const team1 = teams.find(t => t.id === m.player1Id);
+    if (team1) return team1.category;
+    const team2 = teams.find(t => t.id === m.player2Id);
+    if (team2) return team2.category;
+    const reg1 = participants.find(p => p.id === m.player1Id);
+    if (reg1?.selectedCategory) return reg1.selectedCategory;
+    const reg2 = participants.find(p => p.id === m.player2Id);
+    if (reg2?.selectedCategory) return reg2.selectedCategory;
+    return undefined;
+  };
+
   const knockoutCats = [
     ...new Set(
       matches
-        .filter(m => KNOCKOUT_ROUND_SET.has(m.round) && m.category)
-        .map(m => m.category as string),
+        .filter(m => KNOCKOUT_ROUND_SET.has(m.round) || isIplPlayoffSpecificRound(m.round))
+        .map(getMatchCategory)
+        .filter((c): c is string => !!c),
     ),
   ].filter(Boolean);
   const activeKnockoutCat = (knockoutCat && knockoutCats.includes(knockoutCat))
@@ -171,21 +190,6 @@ export default function TournamentDetailPage() {
   ] as const;
 
   const matchDistinctRounds = Array.from(new Set(displayMatches.map(m => m.round))).sort();
-  const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
-
-  const getMatchCategory = (m: Match): string | undefined => {
-    const fromPool = poolNameToCategory.get(m.round);
-    if (fromPool) return fromPool;
-    const team1 = teams.find(t => t.id === m.player1Id);
-    if (team1) return team1.category;
-    const team2 = teams.find(t => t.id === m.player2Id);
-    if (team2) return team2.category;
-    const reg1 = participants.find(p => p.id === m.player1Id);
-    if (reg1?.selectedCategory) return reg1.selectedCategory;
-    const reg2 = participants.find(p => p.id === m.player2Id);
-    if (reg2?.selectedCategory) return reg2.selectedCategory;
-    return undefined;
-  };
 
   const matchDistinctCategories = Array.from(
     new Set(displayMatches.map(getMatchCategory).filter((c): c is string => !!c))
@@ -1136,6 +1140,64 @@ interface BSlot {
   status?: string;
 }
 
+function extractBracketSrcMatchNo(str: string): string | null {
+  const m1 = str.match(/(?:Winner|Loser)\s+of\s+(.+)/i) || str.match(/^[WL]\.\s+(.+)/i);
+  if (m1) return m1[1].trim();
+  const m2 = str.match(/^tbd-(?:winner|loser)-(.+)/i);
+  if (m2) return m2[1];
+  return null;
+}
+
+function shortBracketLabel(name: string): string {
+  const wm = name.match(/^Winner\s+of\s+(.+)$/i);
+  if (wm) return `W. ${wm[1]}`;
+  const lm = name.match(/^Loser\s+of\s+(.+)$/i);
+  if (lm) return `L. ${lm[1]}`;
+  return name;
+}
+
+function resolveBracketSide(
+  playerId: string,
+  playerName: string,
+  sourceMatches: Match[],
+  teamsById: Map<string, { logoUrl?: string; name?: string }>,
+): { name: string; isTBD: boolean; logoUrl?: string } {
+  const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
+  if (srcNo) {
+    const srcMatch = sourceMatches.find(m => String(m.matchNumber) === srcNo);
+    if (srcMatch?.status === 'completed' && srcMatch.winner) {
+      const winnerId =
+        srcMatch.winner === srcMatch.player1Name ? srcMatch.player1Id : srcMatch.player2Id;
+      const team = teamsById.get(winnerId);
+      return {
+        name: srcMatch.winner,
+        isTBD: false,
+        logoUrl: team?.logoUrl,
+      };
+    }
+    return {
+      name: playerName ? shortBracketLabel(playerName) : `W. ${srcNo}`,
+      isTBD: true,
+    };
+  }
+
+  const team = teamsById.get(playerId);
+  if (team) {
+    return { name: playerName || team.name || 'TBD', isTBD: false, logoUrl: team.logoUrl };
+  }
+
+  if (playerId.startsWith('tbd-')) {
+    return { name: shortBracketLabel(playerName) || 'TBD', isTBD: true };
+  }
+
+  return { name: playerName || 'TBD', isTBD: !playerName };
+}
+
+function sideWonMatch(m: Match, sideName: string, resolvedName: string): boolean {
+  if (m.status !== 'completed' || !m.winner) return false;
+  return m.winner === sideName || m.winner === resolvedName;
+}
+
 function BracketSlotCard({ slot }: { slot: BSlot }) {
   const playerRow = (
     name: string,
@@ -1247,8 +1309,152 @@ function BracketConnectorSVG({
   );
 }
 
+function IplPlayoffBracketView({
+  catMatches,
+  teamsById,
+}: {
+  category: CategoryType;
+  catMatches: Match[];
+  teamsById: Map<string, { logoUrl?: string; name?: string }>;
+}) {
+  const q1Matches = filterIplRoundMatches(catMatches, 'Qualifier1');
+  const eMatches = filterIplRoundMatches(catMatches, 'Eliminator');
+  const q2Matches = filterIplRoundMatches(catMatches, 'Qualifier2');
+  const fMatches = filterIplRoundMatches(catMatches, 'F');
+
+  const getWinner = (m: Match | undefined, tbdLabel: string) => {
+    if (!m) return { name: tbdLabel, isTBD: true };
+    if (m.status === 'completed' && m.winner) return { name: m.winner, isTBD: false };
+    return { name: tbdLabel, isTBD: true };
+  };
+
+  const matchToSlot = (m: Match, label: string): BSlot => {
+    const p1won = m.status === 'completed' && m.winner === m.player1Name;
+    const p2won = m.status === 'completed' && m.winner === m.player2Name;
+    return {
+      p1Name: m.player1Name || 'TBD',
+      p2Name: m.player2Name || 'TBD',
+      p1IsWinner: p1won,
+      p2IsWinner: p2won,
+      p1LogoUrl: teamsById.get(m.player1Id)?.logoUrl,
+      p2LogoUrl: teamsById.get(m.player2Id)?.logoUrl,
+      matchLabel: label,
+      matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
+      timeStr: m.scheduledTime
+        ? new Date(m.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : undefined,
+      status: m.status,
+    };
+  };
+
+  const q1Slots: BSlot[] = q1Matches.length > 0
+    ? q1Matches.map(m => matchToSlot(m, IPL_PLAYOFF_ROUND_LABELS.Qualifier1))
+    : [];
+
+  const eSlots: BSlot[] = eMatches.length > 0
+    ? eMatches.map(m => matchToSlot(m, IPL_PLAYOFF_ROUND_LABELS.Eliminator))
+    : [];
+
+  const q2Slots: BSlot[] = q2Matches.length > 0
+    ? q2Matches.map(m => matchToSlot(m, IPL_PLAYOFF_ROUND_LABELS.Qualifier2))
+    : (() => {
+        if (!q1Matches[0] && !eMatches[0]) return [];
+        const lq1 = getWinner(q1Matches[0], 'L. Qualifier1');
+        const we = getWinner(eMatches[0], 'W. Eliminator');
+        return [{
+          p1Name: lq1.name, p2Name: we.name,
+          p1IsTBD: lq1.isTBD, p2IsTBD: we.isTBD,
+          matchLabel: IPL_PLAYOFF_ROUND_LABELS.Qualifier2,
+          isExpected: lq1.isTBD || we.isTBD,
+        }];
+      })();
+
+  const fSlots: BSlot[] = fMatches.length > 0
+    ? fMatches.map(m => matchToSlot(m, IPL_PLAYOFF_ROUND_LABELS.F))
+    : (() => {
+        if (!q1Matches[0] && !q2Matches[0]) return [];
+        const wq1 = getWinner(q1Matches[0], 'W. Qualifier1');
+        const wq2 = getWinner(q2Matches[0], 'W. Qualifier2');
+        return [{
+          p1Name: wq1.name, p2Name: wq2.name,
+          p1IsTBD: wq1.isTBD, p2IsTBD: wq2.isTBD,
+          matchLabel: IPL_PLAYOFF_ROUND_LABELS.F,
+          isExpected: wq1.isTBD || wq2.isTBD,
+        }];
+      })();
+
+  const col1Slots = [...q1Slots, ...eSlots];
+  const columns: { label: string; slots: BSlot[] }[] = [];
+  if (col1Slots.length > 0) columns.push({ label: 'Qualifier 1 / Eliminator', slots: col1Slots });
+  if (q2Slots.length > 0) columns.push({ label: IPL_PLAYOFF_ROUND_LABELS.Qualifier2, slots: q2Slots });
+  if (fSlots.length > 0) columns.push({ label: 'Final', slots: fSlots });
+
+  if (columns.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <GitBranch className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm">No IPL playoff content for this category yet</p>
+        <p className="text-slate-600 text-xs mt-1">Generate Qualifier1 and Eliminator after league play concludes</p>
+      </div>
+    );
+  }
+
+  const counts = columns.map(c => c.slots.length);
+  const layouts = computeColLayouts(counts, B_GAP, BCARD_H);
+  const totalSlotH = Math.max(...layouts.map((l, i) =>
+    l.padTop + counts[i] * BCARD_H + Math.max(0, counts[i] - 1) * l.slotGap,
+  ));
+  const containerH = B_HEADER_H + 8 + totalSlotH;
+  const totalW = columns.length * BCARD_W + (columns.length - 1) * BCONN_W;
+
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="relative" style={{ width: totalW, height: containerH }}>
+        {columns.map((col, colIdx) => {
+          const layout = layouts[colIdx];
+          const x = colIdx * (BCARD_W + BCONN_W);
+          const slotTop = B_HEADER_H + 8;
+          const nextLayout = layouts[colIdx + 1];
+          const nextCount = counts[colIdx + 1];
+          return (
+            <div key={col.label}>
+              <div
+                className="absolute text-[10px] font-bold uppercase tracking-widest text-yellow-400 flex items-center"
+                style={{ top: 0, left: x, width: BCARD_W, height: B_HEADER_H }}
+              >
+                {col.label}
+              </div>
+              {col.slots.map((slot, slotIdx) => (
+                <div
+                  key={`${col.label}-${slot.matchNumber ?? slot.matchLabel}-${slotIdx}`}
+                  className="absolute"
+                  style={{ top: slotTop + layout.padTop + slotIdx * (BCARD_H + layout.slotGap), left: x }}
+                >
+                  <BracketSlotCard slot={slot} />
+                </div>
+              ))}
+              {colIdx < columns.length - 1 && nextLayout != null && nextCount != null && (
+                <div className="absolute" style={{ top: slotTop, left: x + BCARD_W }}>
+                  <BracketConnectorSVG
+                    fromCount={counts[colIdx]}
+                    fromLayout={layout}
+                    toCount={nextCount}
+                    toLayout={nextLayout}
+                    cardH={BCARD_H}
+                    totalH={totalSlotH}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function KnockoutBracketView({
-  category, allMatches, pools, teams, participants, tournament,
+  category, allMatches, pools, teams, participants, tournament, teamsById,
 }: {
   category: CategoryType;
   allMatches: Match[];
@@ -1261,9 +1467,37 @@ function KnockoutBracketView({
   regById: Map<string, Registration>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
 }) {
-  const catMatches = allMatches.filter(m => m.category === category && !m.matchKind);
   const catPools = pools.filter(p => p.category === category);
   const bracketOpts = { teams, registrations: participants, categoryQualifyCounts: tournament.categoryQualifyCounts };
+  const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
+
+  const getMatchCategory = (m: Match): string | undefined => {
+    if (m.category) return m.category;
+    const fromPool = poolNameToCategory.get(m.round);
+    if (fromPool) return fromPool;
+    const team1 = teams.find(t => t.id === m.player1Id);
+    if (team1) return team1.category;
+    const team2 = teams.find(t => t.id === m.player2Id);
+    if (team2) return team2.category;
+    const reg1 = participants.find(p => p.id === m.player1Id);
+    if (reg1?.selectedCategory) return reg1.selectedCategory;
+    const reg2 = participants.find(p => p.id === m.player2Id);
+    if (reg2?.selectedCategory) return reg2.selectedCategory;
+    return undefined;
+  };
+
+  const catMatches = allMatches.filter(m => getMatchCategory(m) === category && !m.matchKind);
+  const usesIplPlayoff = catMatches.some(m => isIplPlayoffSpecificRound(m.round));
+
+  if (usesIplPlayoff) {
+    return (
+      <IplPlayoffBracketView
+        category={category}
+        catMatches={catMatches}
+        teamsById={teamsById}
+      />
+    );
+  }
 
   const byRound = (r: string) =>
     catMatches.filter(m => m.round === r)
@@ -1293,16 +1527,22 @@ function KnockoutBracketView({
     return { name: `L. SF${idx + 1}`, isTBD: true };
   };
 
-  const matchToSlot = (m: Match, label: string): BSlot => {
-    const p1won = m.status === 'completed' && m.winner === m.player1Name;
-    const p2won = m.status === 'completed' && m.winner === m.player2Name;
+  const matchToSlot = (m: Match, label: string, sourceMatches?: Match[]): BSlot => {
+    const p1 = sourceMatches
+      ? resolveBracketSide(m.player1Id, m.player1Name, sourceMatches, teamsById)
+      : { name: m.player1Name || 'TBD', isTBD: false, logoUrl: teamsById.get(m.player1Id)?.logoUrl };
+    const p2 = sourceMatches
+      ? resolveBracketSide(m.player2Id, m.player2Name, sourceMatches, teamsById)
+      : { name: m.player2Name || 'TBD', isTBD: false, logoUrl: teamsById.get(m.player2Id)?.logoUrl };
     return {
-      p1Name: m.player1Name || 'TBD',
-      p2Name: m.player2Name || 'TBD',
-      p1IsWinner: p1won,
-      p2IsWinner: p2won,
-      p1LogoUrl: teamsById.get(m.player1Id)?.logoUrl,
-      p2LogoUrl: teamsById.get(m.player2Id)?.logoUrl,
+      p1Name: p1.name,
+      p2Name: p2.name,
+      p1IsWinner: sideWonMatch(m, m.player1Name, p1.name),
+      p2IsWinner: sideWonMatch(m, m.player2Name, p2.name),
+      p1IsTBD: p1.isTBD,
+      p2IsTBD: p2.isTBD,
+      p1LogoUrl: p1.logoUrl,
+      p2LogoUrl: p2.logoUrl,
       matchLabel: label,
       matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       timeStr: m.scheduledTime
@@ -1313,17 +1553,44 @@ function KnockoutBracketView({
   };
 
   // QF column — only show admin-generated actual matches, never predict from pool standings
-  const qfSlots: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
+  const qfSlotsRaw: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
+
+  // Reorder QF so that the two QF matches feeding the same SF are always adjacent.
+  let qfSlots = qfSlotsRaw;
+  let orderedQfMatches = qfMatches;
+
+  if (sfMatches.length > 0 && qfMatches.length >= 2) {
+    const newOrder: number[] = [];
+    const used = new Set<number>();
+    for (const sf of sfMatches) {
+      for (const ref of [sf.player1Id, sf.player1Name, sf.player2Id, sf.player2Name]) {
+        if (!ref) continue;
+        const src = extractBracketSrcMatchNo(ref);
+        if (!src) continue;
+        const idx = qfMatches.findIndex(m => String(m.matchNumber) === src);
+        if (idx >= 0 && !used.has(idx)) { newOrder.push(idx); used.add(idx); }
+      }
+    }
+    for (let i = 0; i < qfMatches.length; i++) {
+      if (!used.has(i)) newOrder.push(i);
+    }
+    if (newOrder.length === qfMatches.length && newOrder.some((v, i) => v !== i)) {
+      qfSlots = newOrder.map(i => qfSlotsRaw[i]);
+      orderedQfMatches = newOrder.map(i => qfMatches[i]);
+    }
+  }
 
   // SF column
   const sfSlots: BSlot[] = sfMatches.length > 0
-    ? sfMatches.map((m, i) => matchToSlot(m, `SF ${i + 1}`))
+    ? sfMatches.map((m, i) => matchToSlot(m, `SF ${i + 1}`, orderedQfMatches))
     : (() => {
         if (qfSlots.length > 0) {
           const n = Math.ceil(qfSlots.length / 2);
           return Array.from({ length: n }, (_, j) => {
-            const w1 = getWinner(qfMatches[j * 2], `W. QF${j * 2 + 1}`);
-            const w2 = getWinner(qfMatches[j * 2 + 1], `W. QF${j * 2 + 2}`);
+            const qfA = orderedQfMatches[j * 2];
+            const qfB = orderedQfMatches[j * 2 + 1];
+            const w1 = getWinner(qfA, `W. ${qfA ? String(qfA.matchNumber) : `QF${j * 2 + 1}`}`);
+            const w2 = getWinner(qfB, `W. ${qfB ? String(qfB.matchNumber) : `QF${j * 2 + 2}`}`);
             return {
               p1Name: w1.name, p2Name: w2.name,
               p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
@@ -1342,7 +1609,7 @@ function KnockoutBracketView({
 
   // Final column
   const fSlots: BSlot[] = fMatches.length > 0
-    ? fMatches.map(m => matchToSlot(m, 'Final'))
+    ? fMatches.map(m => matchToSlot(m, 'Final', sfMatches))
     : (() => {
         if (sfSlots.length === 0) return [];
         const w1 = getWinner(sfMatches[0], 'W. SF1');
@@ -1357,7 +1624,7 @@ function KnockoutBracketView({
 
   // Third place
   const tpSlots: BSlot[] = tpMatches.length > 0
-    ? tpMatches.map(m => matchToSlot(m, '3rd Place'))
+    ? tpMatches.map(m => matchToSlot(m, '3rd Place', sfMatches))
     : (() => {
         if (sfMatches.length >= 2) {
           const l1 = getLoser(sfMatches[0], 0);

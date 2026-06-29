@@ -19,30 +19,30 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
   const { user, signOut } = useAuth();
 
   return (
-    <nav className="absolute top-0 left-0 right-0 z-50 bg-transparent backdrop-blur-sm border-b border-white/10">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#020617]/95 border-b border-slate-700 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-8">
             <Link href="/" className="flex items-center space-x-2">
               <Image
                 src="/logo.png"
-                alt="Tournament Craft Logo"
+                alt="Manchplay Logo"
                 width={40}
                 height={40}
                 className="drop-shadow-lg"
               />
               <span className="text-2xl font-bold text-white drop-shadow-lg">
-                Tournament Craft
+                Manchplay
               </span>
             </Link>
             <div className="hidden md:flex space-x-4">
-              <Link href="/tournament" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
+              <Link href="/tournament" className="text-slate-100 hover:text-yellow-400 transition-colors duration-300">
                 Tournaments
               </Link>
-              <Link href="/schedules" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
+              <Link href="/schedules" className="text-slate-100 hover:text-yellow-400 transition-colors duration-300">
                 Schedules
               </Link>
-              <Link href="/winners" className="text-white/90 hover:text-white transition-colors duration-300 drop-shadow-md">
+              <Link href="/winners" className="text-slate-100 hover:text-yellow-400 transition-colors duration-300">
                 Winners
               </Link>
             </div>

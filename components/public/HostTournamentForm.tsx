@@ -38,7 +38,7 @@ export function HostTournamentForm() {
     ].join('%0D%0A');
 
     const subject = encodeURIComponent(`Tournament Hosting Inquiry — ${form.name}`);
-    window.open(`mailto:sports@pbelcity.com?subject=${subject}&body=${body}`, '_blank');
+    window.open(`mailto:gsuresh86@gmail.com?subject=${subject}&body=${body}`, '_blank');
 
     setTimeout(() => {
       setLoading(false);
@@ -53,9 +53,9 @@ export function HostTournamentForm() {
           <CheckCircle2 className="h-8 w-8 text-green-400" />
         </div>
         <h3 className="text-xl font-black text-white mb-2">We&apos;re on it!</h3>
-        <p className="text-slate-400 text-sm max-w-sm">
+        <p className="text-slate-200 text-sm max-w-sm">
           Your email client should have opened. If not, drop us a line at{' '}
-          <span className="text-yellow-400 font-semibold">sports@pbelcity.com</span> and we&apos;ll get back to you within 24 hours.
+          <span className="text-yellow-400 font-semibold">gsuresh86@gmail.com</span> and we&apos;ll get back to you within 24 hours.
         </p>
         <button
           onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', organisation: '', sport: '', size: '', message: '' }); }}
@@ -69,7 +69,7 @@ export function HostTournamentForm() {
 
   const inputCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 transition-all outline-none";
   const selectCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 transition-all outline-none appearance-none cursor-pointer";
-  const labelCls = "block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide";
+  const labelCls = "block text-xs font-semibold text-slate-200 mb-1.5 uppercase tracking-wide";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -102,7 +102,7 @@ export function HostTournamentForm() {
           <input
             value={form.phone}
             onChange={e => set('phone', e.target.value)}
-            placeholder="+91 98765 43210"
+            placeholder="+91 9000236824"
             className={inputCls}
           />
         </div>

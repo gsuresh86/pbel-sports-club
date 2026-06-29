@@ -409,7 +409,7 @@ export function TournamentTestimonialsManager({
                 rows={4}
                 value={form.quote}
                 onChange={(e) => setForm((f) => ({ ...f, quote: e.target.value }))}
-                placeholder="Tournament Craft made our event incredibly smooth…"
+                placeholder="Manchplay made our event incredibly smooth…"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30 resize-none"
               />
             </div>

@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Match } from '@/types';
+import type { CategoryType } from '@/types';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import GenerateMatchesPanel from '@/components/GenerateMatchesPanel';
@@ -39,6 +40,18 @@ import {
   isRubberMatch,
   countRubbersWon,
 } from '@/lib/teamMatchRubbers';
+import { isTeamCategory } from '@/lib/poolStandings';
+import {
+  getKnockoutSlotMembers,
+  bracketSlotDisplayLabel,
+  isKnockoutRound,
+  type BracketSlotMember,
+} from '@/lib/knockoutBracket';
+import {
+  getIplPlayoffSlotMembers,
+  isIplPlayoffRound,
+  normalizeIplPlayoffRound,
+} from '@/lib/iplPlayoff';
 import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
@@ -88,6 +101,21 @@ function formatDateShort(date: Date) {
 
 type SortKey = 'matchNumber' | 'round' | 'status' | 'scheduledTime';
 
+type EditSideOption = { id: string; name: string; displayLabel: string };
+
+function slotsToEditOptions(slots: BracketSlotMember[]): EditSideOption[] {
+  return slots.map(s => ({
+    id: s.id,
+    name: s.isResolved ? s.name : (s.slotLabel || s.name),
+    displayLabel: bracketSlotDisplayLabel(s),
+  }));
+}
+
+function withCurrentOption(options: EditSideOption[], id: string, name: string): EditSideOption[] {
+  if (!id || options.some(o => o.id === id)) return options;
+  return [{ id, name, displayLabel: name }, ...options];
+}
+
 export default function MatchesPage() {
   const { user } = useAuth();
   const params = useParams();
@@ -133,6 +161,31 @@ export default function MatchesPage() {
   }
   const topLevelMatches = matches.filter(m => !isRubberMatch(m));
   const totalMatches = topLevelMatches.length;
+
+  const getMatchCategory = (match: Match) => match.category ?? poolNameToCategory.get(match.round);
+
+  const getEditSideOptions = (match: Match): EditSideOption[] => {
+    const category = getMatchCategory(match);
+    if (isKnockoutRound(match.round) && match.round !== 'QF' && category) {
+      const slots = getKnockoutSlotMembers(match.round, category as CategoryType, topLevelMatches);
+      if (slots?.length) return slotsToEditOptions(slots);
+    }
+    if (isIplPlayoffRound(match.round)) {
+      const normalized = normalizeIplPlayoffRound(match.round)!;
+      if (normalized === 'Qualifier2' || normalized === 'F') {
+        const slots = getIplPlayoffSlotMembers(normalized, category as CategoryType, topLevelMatches);
+        if (slots?.length) return slotsToEditOptions(slots);
+      }
+    }
+    if (category && isTeamCategory(category)) {
+      return teams
+        .filter(t => t.category === category)
+        .map(t => ({ id: t.id, name: t.name, displayLabel: t.name }));
+    }
+    return participants
+      .filter(p => p.registrationStatus === 'approved')
+      .map(p => ({ id: p.id, name: p.name, displayLabel: p.name }));
+  };
 
   const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
@@ -391,15 +444,15 @@ export default function MatchesPage() {
 
   const saveEditMatch = async () => {
     if (!editingMatch) return;
-    const isTeamMatch = teamIds.has(editingMatch.player1Id) || teamIds.has(editingMatch.player2Id);
-    const lookup1 = isTeamMatch
-      ? teams.find((t) => t.id === editMatchForm.player1Id)
-      : participants.find((p) => p.id === editMatchForm.player1Id);
-    const lookup2 = isTeamMatch
-      ? teams.find((t) => t.id === editMatchForm.player2Id)
-      : participants.find((p) => p.id === editMatchForm.player2Id);
+    const category = getMatchCategory(editingMatch);
+    const isTeamCat = category && isTeamCategory(category);
+    const sideOptions = getEditSideOptions(editingMatch);
+    const opts1 = withCurrentOption(sideOptions, editingMatch.player1Id, editingMatch.player1Name);
+    const opts2 = withCurrentOption(sideOptions, editingMatch.player2Id, editingMatch.player2Name);
+    const lookup1 = opts1.find(o => o.id === editMatchForm.player1Id);
+    const lookup2 = opts2.find(o => o.id === editMatchForm.player2Id);
     if (!lookup1 || !lookup2) {
-      alert({ title: 'Error', description: `Select valid ${isTeamMatch ? 'teams' : 'players'}`, variant: 'error' });
+      alert({ title: 'Error', description: `Select valid ${isTeamCat ? 'teams' : 'players'}`, variant: 'error' });
       return;
     }
     setSavingMatch(true);
@@ -958,12 +1011,19 @@ export default function MatchesPage() {
               </div>
             </div>
             {(() => {
-              const isTeamMatch = editingMatch
-                ? teamIds.has(editingMatch.player1Id) || teamIds.has(editingMatch.player2Id)
-                : false;
-              const label1 = isTeamMatch ? 'Team 1' : 'Player 1';
-              const label2 = isTeamMatch ? 'Team 2' : 'Player 2';
-              const placeholder = isTeamMatch ? 'Select team' : 'Select player';
+              if (!editingMatch) return null;
+              const category = getMatchCategory(editingMatch);
+              const isTeamCat = category && isTeamCategory(category);
+              const sideOptions = getEditSideOptions(editingMatch);
+              const opts1 = withCurrentOption(sideOptions, editingMatch.player1Id, editingMatch.player1Name);
+              const opts2 = withCurrentOption(
+                sideOptions,
+                editingMatch.player2Id,
+                editingMatch.player2Name,
+              ).filter(o => o.id !== editMatchForm.player1Id);
+              const label1 = isTeamCat ? 'Team 1' : 'Player 1';
+              const label2 = isTeamCat ? 'Team 2' : 'Player 2';
+              const placeholder = isTeamCat ? 'Select team' : 'Select player';
               return (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -971,11 +1031,9 @@ export default function MatchesPage() {
                     <Select value={editMatchForm.player1Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}>
                       <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                       <SelectContent>
-                        {isTeamMatch
-                          ? teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
-                          : participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
+                        {opts1.map(o => (
+                          <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -984,11 +1042,9 @@ export default function MatchesPage() {
                     <Select value={editMatchForm.player2Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}>
                       <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                       <SelectContent>
-                        {isTeamMatch
-                          ? teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
-                          : participants.filter((p) => p.registrationStatus === 'approved').map((p) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
+                        {opts2.map(o => (
+                          <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
