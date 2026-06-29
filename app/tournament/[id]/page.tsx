@@ -1089,8 +1089,10 @@ function MatchFiltersBar({
 
 // ── Knockout bracket view ─────────────────────────────────────────────────
 
-const BCARD_H = 112;
-const BCARD_W = 188;
+const BCARD_H = 140;
+const BCARD_W = 200;
+const B_MIDBAR_H = 32;
+const B_ROW_H = (BCARD_H - B_MIDBAR_H) / 2; // 54px per player row
 const B_GAP = 14;
 const BCONN_W = 36;
 const B_HEADER_H = 28;
@@ -1125,19 +1127,36 @@ interface BSlot {
   p2IsTBD?: boolean;
   p1Pool?: string;
   p2Pool?: string;
+  p1LogoUrl?: string;
+  p2LogoUrl?: string;
   matchLabel: string;
+  matchNumber?: string;
   timeStr?: string;
   isExpected?: boolean;
   status?: string;
 }
 
 function BracketSlotCard({ slot }: { slot: BSlot }) {
-  const playerRow = (name: string, isWinner?: boolean, isTBD?: boolean, pool?: string) => (
-    <div className={`h-10 flex items-center gap-2 px-3 ${isWinner ? 'bg-yellow-400/15' : ''}`}>
-      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-        isWinner ? 'bg-yellow-400 text-black' : isTBD ? 'bg-slate-800 text-slate-500' : 'bg-slate-700 text-slate-200'
-      }`}>
-        {isTBD ? '?' : (getInitials(name) || '?')}
+  const playerRow = (
+    name: string,
+    isWinner?: boolean,
+    isTBD?: boolean,
+    pool?: string,
+    logoUrl?: string,
+  ) => (
+    <div
+      className={`flex items-center gap-2.5 px-3 ${isWinner ? 'bg-yellow-400/15' : ''}`}
+      style={{ height: B_ROW_H }}
+    >
+      {/* Logo or initials badge */}
+      <div className={`h-8 w-8 rounded-full overflow-hidden flex items-center justify-center text-[11px] font-bold shrink-0 ${
+        isWinner ? 'ring-2 ring-yellow-400/60' : ''
+      } ${!logoUrl ? (isWinner ? 'bg-yellow-400 text-black' : isTBD ? 'bg-slate-800 text-slate-500' : 'bg-slate-700 text-slate-200') : 'bg-slate-800'}`}>
+        {logoUrl ? (
+          <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          isTBD ? '?' : (getInitials(name) || '?')
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className={`text-xs font-semibold truncate leading-tight ${
@@ -1150,6 +1169,10 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
       {isWinner && <Star className="h-3 w-3 text-yellow-400 fill-yellow-400 shrink-0" />}
     </div>
   );
+
+  const midLabel = slot.matchNumber
+    ? `${slot.matchNumber}${slot.timeStr ? ` · ${slot.timeStr}` : ''}`
+    : `${slot.matchLabel}${slot.timeStr ? ` · ${slot.timeStr}` : ''}`;
 
   return (
     <div
@@ -1164,11 +1187,9 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
       }`}
       style={{ width: BCARD_W, height: BCARD_H }}
     >
-      {playerRow(slot.p1Name, slot.p1IsWinner, slot.p1IsTBD, slot.p1Pool)}
-      <div className="flex items-center justify-between px-3 bg-slate-800/50 border-y border-white/6 shrink-0" style={{ height: BCARD_H - 80 }}>
-        <span className="text-[9px] text-slate-500 font-medium truncate">
-          {slot.matchLabel}{slot.timeStr ? ` · ${slot.timeStr}` : ''}
-        </span>
+      {playerRow(slot.p1Name, slot.p1IsWinner, slot.p1IsTBD, slot.p1Pool, slot.p1LogoUrl)}
+      <div className="flex items-center justify-between px-3 bg-slate-800/50 border-y border-white/6 shrink-0" style={{ height: B_MIDBAR_H }}>
+        <span className="text-[9px] text-slate-400 font-medium truncate">{midLabel}</span>
         {slot.isExpected && (
           <span className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wide shrink-0 ml-1">Est.</span>
         )}
@@ -1176,7 +1197,7 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
           <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide shrink-0 ml-1 animate-pulse">Live</span>
         )}
       </div>
-      {playerRow(slot.p2Name, slot.p2IsWinner, slot.p2IsTBD, slot.p2Pool)}
+      {playerRow(slot.p2Name, slot.p2IsWinner, slot.p2IsTBD, slot.p2Pool, slot.p2LogoUrl)}
     </div>
   );
 }
@@ -1280,7 +1301,10 @@ function KnockoutBracketView({
       p2Name: m.player2Name || 'TBD',
       p1IsWinner: p1won,
       p2IsWinner: p2won,
+      p1LogoUrl: teamsById.get(m.player1Id)?.logoUrl,
+      p2LogoUrl: teamsById.get(m.player2Id)?.logoUrl,
       matchLabel: label,
+      matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       timeStr: m.scheduledTime
         ? new Date(m.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
         : undefined,
