@@ -7,11 +7,7 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
-import {
-  KNOCKOUT_ROUNDS, KNOCKOUT_ROUND_LABELS,
-  previewKnockoutRound,
-  type KnockoutRound,
-} from '@/lib/knockoutBracket';
+import { previewKnockoutRound } from '@/lib/knockoutBracket';
 import { getMatchSideDisplay, getInitials, firstName, toTitleCase, formatMatchSideLabel, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
@@ -155,12 +151,11 @@ export default function TournamentDetailPage() {
 
   const KNOCKOUT_ROUND_SET = new Set(['QF', 'SF', 'F', 'TP']);
   const knockoutCats = [
-    ...new Set([
-      ...displayMatches
+    ...new Set(
+      matches
         .filter(m => KNOCKOUT_ROUND_SET.has(m.round) && m.category)
         .map(m => m.category as string),
-      ...pools.map(p => p.category as string),
-    ]),
+    ),
   ].filter(Boolean);
   const activeKnockoutCat = (knockoutCat && knockoutCats.includes(knockoutCat))
     ? knockoutCat
@@ -1093,8 +1088,146 @@ function MatchFiltersBar({
 }
 
 // ── Knockout bracket view ─────────────────────────────────────────────────
+
+const BCARD_H = 112;
+const BCARD_W = 188;
+const B_GAP = 14;
+const BCONN_W = 36;
+const B_HEADER_H = 28;
+
+function computeColLayouts(counts: number[], baseGap: number, cardH: number) {
+  const halfH = cardH / 2;
+  const layouts: { padTop: number; slotGap: number }[] = [];
+  layouts.push({ padTop: 0, slotGap: baseGap });
+  let prevCenters = Array.from({ length: counts[0] }, (_, k) => k * (cardH + baseGap) + halfH);
+  for (let col = 1; col < counts.length; col++) {
+    const n = counts[col];
+    const centers: number[] = [];
+    for (let j = 0; j < n; j++) {
+      const a = prevCenters[j * 2] ?? prevCenters[prevCenters.length - 1] ?? 0;
+      const b = prevCenters[j * 2 + 1] ?? prevCenters[prevCenters.length - 1] ?? 0;
+      centers.push((a + b) / 2);
+    }
+    const padTop = Math.max(0, (centers[0] ?? 0) - halfH);
+    const slotGap = n > 1 ? Math.max(0, (centers[1] ?? 0) - (centers[0] ?? 0) - cardH) : 0;
+    layouts.push({ padTop, slotGap });
+    prevCenters = centers;
+  }
+  return layouts;
+}
+
+interface BSlot {
+  p1Name: string;
+  p2Name: string;
+  p1IsWinner?: boolean;
+  p2IsWinner?: boolean;
+  p1IsTBD?: boolean;
+  p2IsTBD?: boolean;
+  p1Pool?: string;
+  p2Pool?: string;
+  matchLabel: string;
+  timeStr?: string;
+  isExpected?: boolean;
+  status?: string;
+}
+
+function BracketSlotCard({ slot }: { slot: BSlot }) {
+  const playerRow = (name: string, isWinner?: boolean, isTBD?: boolean, pool?: string) => (
+    <div className={`h-10 flex items-center gap-2 px-3 ${isWinner ? 'bg-yellow-400/15' : ''}`}>
+      <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+        isWinner ? 'bg-yellow-400 text-black' : isTBD ? 'bg-slate-800 text-slate-500' : 'bg-slate-700 text-slate-200'
+      }`}>
+        {isTBD ? '?' : (getInitials(name) || '?')}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className={`text-xs font-semibold truncate leading-tight ${
+          isWinner ? 'text-yellow-300' : isTBD ? 'text-slate-500 italic' : 'text-white'
+        }`}>
+          {name || 'TBD'}
+        </div>
+        {pool && <div className="text-[9px] text-slate-600">{pool}</div>}
+      </div>
+      {isWinner && <Star className="h-3 w-3 text-yellow-400 fill-yellow-400 shrink-0" />}
+    </div>
+  );
+
+  return (
+    <div
+      className={`rounded-xl border overflow-hidden flex flex-col shrink-0 ${
+        slot.status === 'live'
+          ? 'border-emerald-500/40 bg-slate-900 shadow-[0_0_14px_rgba(52,211,153,0.15)]'
+          : slot.status === 'completed'
+          ? 'border-white/15 bg-slate-900'
+          : slot.isExpected
+          ? 'border-amber-500/25 bg-slate-900/60'
+          : 'border-white/10 bg-slate-900/80'
+      }`}
+      style={{ width: BCARD_W, height: BCARD_H }}
+    >
+      {playerRow(slot.p1Name, slot.p1IsWinner, slot.p1IsTBD, slot.p1Pool)}
+      <div className="flex items-center justify-between px-3 bg-slate-800/50 border-y border-white/6 shrink-0" style={{ height: BCARD_H - 80 }}>
+        <span className="text-[9px] text-slate-500 font-medium truncate">
+          {slot.matchLabel}{slot.timeStr ? ` · ${slot.timeStr}` : ''}
+        </span>
+        {slot.isExpected && (
+          <span className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wide shrink-0 ml-1">Est.</span>
+        )}
+        {slot.status === 'live' && (
+          <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wide shrink-0 ml-1 animate-pulse">Live</span>
+        )}
+      </div>
+      {playerRow(slot.p2Name, slot.p2IsWinner, slot.p2IsTBD, slot.p2Pool)}
+    </div>
+  );
+}
+
+function BracketConnectorSVG({
+  fromCount, fromLayout, toCount, toLayout, cardH, totalH,
+}: {
+  fromCount: number;
+  fromLayout: { padTop: number; slotGap: number };
+  toCount: number;
+  toLayout: { padTop: number; slotGap: number };
+  cardH: number;
+  totalH: number;
+}) {
+  const midX = BCONN_W / 2;
+  const halfH = cardH / 2;
+  const fromCenters = Array.from({ length: fromCount }, (_, k) =>
+    fromLayout.padTop + k * (cardH + fromLayout.slotGap) + halfH,
+  );
+  const toCenters = Array.from({ length: toCount }, (_, j) =>
+    toLayout.padTop + j * (cardH + toLayout.slotGap) + halfH,
+  );
+  const lineColor = 'rgba(251,191,36,0.28)';
+  const dotColor = 'rgba(251,191,36,0.6)';
+
+  return (
+    <svg width={BCONN_W} height={totalH} className="shrink-0 overflow-visible">
+      {toCenters.map((dst, j) => {
+        const srcA = fromCenters[j * 2] ?? fromCenters[fromCenters.length - 1] ?? 0;
+        const srcB = fromCenters[j * 2 + 1] ?? srcA;
+        const midY = (srcA + srcB) / 2;
+        return (
+          <g key={j}>
+            <line x1={0} y1={srcA} x2={midX} y2={srcA} stroke={lineColor} strokeWidth={1.5} />
+            {srcB !== srcA && (
+              <>
+                <line x1={0} y1={srcB} x2={midX} y2={srcB} stroke={lineColor} strokeWidth={1.5} />
+                <line x1={midX} y1={srcA} x2={midX} y2={srcB} stroke={lineColor} strokeWidth={1.5} />
+              </>
+            )}
+            <line x1={midX} y1={midY} x2={BCONN_W} y2={midY} stroke={lineColor} strokeWidth={1.5} />
+            <circle cx={midX} cy={midY} r={3} fill={dotColor} />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function KnockoutBracketView({
-  category, allMatches, displayMatches, pools, teams, participants, tournament, tournamentId, regById, teamsById,
+  category, allMatches, pools, teams, participants, tournament,
 }: {
   category: CategoryType;
   allMatches: Match[];
@@ -1107,181 +1240,206 @@ function KnockoutBracketView({
   regById: Map<string, Registration>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
 }) {
-  const catMatches = displayMatches.filter(m => m.category === category);
+  const catMatches = allMatches.filter(m => m.category === category && !m.matchKind);
   const catPools = pools.filter(p => p.category === category);
-  const bracketOpts = {
-    teams,
-    registrations: participants,
-    categoryQualifyCounts: tournament.categoryQualifyCounts,
+  const bracketOpts = { teams, registrations: participants, categoryQualifyCounts: tournament.categoryQualifyCounts };
+
+  const byRound = (r: string) =>
+    catMatches.filter(m => m.round === r)
+      .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+
+  const qfMatches = byRound('QF');
+  const sfMatches = byRound('SF');
+  const fMatches = byRound('F');
+  const tpMatches = byRound('TP');
+
+  // Only predict SF/F/TP from prior-round results — QF is never predicted from pool standings
+  const sfExpected = sfMatches.length === 0
+    ? previewKnockoutRound('SF', category, catPools, allMatches, bracketOpts).pairings
+    : [];
+
+  const getWinner = (m: Match | undefined, tbdLabel: string) => {
+    if (!m) return { name: tbdLabel, isTBD: true };
+    if (m.status === 'completed' && m.winner) return { name: m.winner, isTBD: false };
+    return { name: tbdLabel, isTBD: true };
   };
 
-  type RoundData = {
-    round: KnockoutRound;
-    actual: Match[];
-    pairings: { p1: string; p2: string; p1Pool?: string; p2Pool?: string }[];
-    isExpected: boolean;
-  };
-
-  const roundsData: RoundData[] = KNOCKOUT_ROUNDS.map(round => {
-    const actual = catMatches.filter(m => m.round === round);
-    if (actual.length > 0) {
-      return { round, actual, pairings: [], isExpected: false };
+  const getLoser = (m: Match, idx: number) => {
+    if (m.status === 'completed' && m.winner) {
+      const loser = m.winner === m.player1Name ? m.player2Name : m.player1Name;
+      return { name: loser, isTBD: false };
     }
-    const preview = previewKnockoutRound(round, category, pools, allMatches, bracketOpts);
-    const pairings = preview.pairings.map(p => ({
-      p1: p.player1.name,
-      p2: p.player2.name,
-      p1Pool: p.player1.poolName,
-      p2Pool: p.player2.poolName,
-    }));
-    return { round, actual: [], pairings, isExpected: true };
-  });
+    return { name: `L. SF${idx + 1}`, isTBD: true };
+  };
 
-  // Determine which rounds to display
-  const visibleRounds = roundsData.filter(({ round, actual, pairings }) => {
-    if (actual.length > 0 || pairings.length > 0) return true;
-    // Always show QF if there are pools (so users know it's coming)
-    if (round === 'QF' && catPools.length > 0) return true;
-    // Show SF/F if QF has content
-    if ((round === 'SF' || round === 'F') && roundsData[0].actual.length + roundsData[0].pairings.length > 0) return true;
-    return false;
-  });
+  const matchToSlot = (m: Match, label: string): BSlot => {
+    const p1won = m.status === 'completed' && m.winner === m.player1Name;
+    const p2won = m.status === 'completed' && m.winner === m.player2Name;
+    return {
+      p1Name: m.player1Name || 'TBD',
+      p2Name: m.player2Name || 'TBD',
+      p1IsWinner: p1won,
+      p2IsWinner: p2won,
+      matchLabel: label,
+      timeStr: m.scheduledTime
+        ? new Date(m.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+        : undefined,
+      status: m.status,
+    };
+  };
 
-  if (visibleRounds.length === 0) {
+  // QF column — only show admin-generated actual matches, never predict from pool standings
+  const qfSlots: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
+
+  // SF column
+  const sfSlots: BSlot[] = sfMatches.length > 0
+    ? sfMatches.map((m, i) => matchToSlot(m, `SF ${i + 1}`))
+    : (() => {
+        if (qfSlots.length > 0) {
+          const n = Math.ceil(qfSlots.length / 2);
+          return Array.from({ length: n }, (_, j) => {
+            const w1 = getWinner(qfMatches[j * 2], `W. QF${j * 2 + 1}`);
+            const w2 = getWinner(qfMatches[j * 2 + 1], `W. QF${j * 2 + 2}`);
+            return {
+              p1Name: w1.name, p2Name: w2.name,
+              p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
+              matchLabel: `SF ${j + 1}`,
+              isExpected: w1.isTBD || w2.isTBD,
+            };
+          });
+        }
+        return sfExpected.map((p, i) => ({
+          p1Name: p.player1.name, p2Name: p.player2.name,
+          p1Pool: p.player1.poolName, p2Pool: p.player2.poolName,
+          matchLabel: `SF ${i + 1}`,
+          isExpected: true,
+        }));
+      })();
+
+  // Final column
+  const fSlots: BSlot[] = fMatches.length > 0
+    ? fMatches.map(m => matchToSlot(m, 'Final'))
+    : (() => {
+        if (sfSlots.length === 0) return [];
+        const w1 = getWinner(sfMatches[0], 'W. SF1');
+        const w2 = getWinner(sfMatches[1], 'W. SF2');
+        return [{
+          p1Name: w1.name, p2Name: w2.name,
+          p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
+          matchLabel: 'Final',
+          isExpected: w1.isTBD || w2.isTBD,
+        }];
+      })();
+
+  // Third place
+  const tpSlots: BSlot[] = tpMatches.length > 0
+    ? tpMatches.map(m => matchToSlot(m, '3rd Place'))
+    : (() => {
+        if (sfMatches.length >= 2) {
+          const l1 = getLoser(sfMatches[0], 0);
+          const l2 = getLoser(sfMatches[1], 1);
+          return [{
+            p1Name: l1.name, p2Name: l2.name,
+            p1IsTBD: l1.isTBD, p2IsTBD: l2.isTBD,
+            matchLabel: '3rd Place',
+            isExpected: l1.isTBD || l2.isTBD,
+          }];
+        }
+        return [];
+      })();
+
+  const columns: { label: string; slots: BSlot[] }[] = [];
+  if (qfSlots.length > 0) columns.push({ label: 'Quarter Final', slots: qfSlots });
+  if (sfSlots.length > 0) columns.push({ label: 'Semi Final', slots: sfSlots });
+  if (fSlots.length > 0) columns.push({ label: 'Final', slots: fSlots });
+
+  if (columns.length === 0) {
     return (
       <div className="text-center py-16">
         <GitBranch className="h-10 w-10 text-slate-600 mx-auto mb-3" />
         <p className="text-slate-400 text-sm">No knockout content for this category yet</p>
+        {catPools.length > 0 && (
+          <p className="text-slate-600 text-xs mt-1">Bracket will form once pool play concludes</p>
+        )}
       </div>
     );
   }
 
+  const counts = columns.map(c => c.slots.length);
+  const layouts = computeColLayouts(counts, B_GAP, BCARD_H);
+  const totalSlotH = Math.max(...layouts.map((l, i) =>
+    l.padTop + counts[i] * BCARD_H + Math.max(0, counts[i] - 1) * l.slotGap,
+  ));
+  const containerH = B_HEADER_H + 8 + totalSlotH;
+  const totalW = columns.length * BCARD_W + (columns.length - 1) * BCONN_W;
+
   return (
     <div className="space-y-8">
-      {visibleRounds.map(({ round, actual, pairings, isExpected }, idx) => {
-        const label = KNOCKOUT_ROUND_LABELS[round];
-        const isTP = round === 'TP';
+      <div className="overflow-x-auto pb-2">
+        <div className="relative" style={{ width: totalW, height: containerH }}>
+          {columns.map((col, colIdx) => {
+            const layout = layouts[colIdx];
+            const x = colIdx * (BCARD_W + BCONN_W);
+            const slotTop = B_HEADER_H + 8;
+            const nextLayout = layouts[colIdx + 1];
+            const nextCount = counts[colIdx + 1];
+            return (
+              <div key={col.label}>
+                {/* Column header */}
+                <div
+                  className="absolute text-[10px] font-bold uppercase tracking-widest text-yellow-400 flex items-center"
+                  style={{ top: 0, left: x, width: BCARD_W, height: B_HEADER_H }}
+                >
+                  {col.label}
+                </div>
 
-        return (
-          <div key={round}>
-            {/* Connector between rounds */}
-            {idx > 0 && !isTP && (
-              <div className="flex items-center gap-3 mb-8">
-                <div className="flex-1 h-px bg-white/8" />
-                <span className="text-[10px] text-slate-600 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
-                  <ChevronRight className="h-3 w-3" /> winners advance
-                </span>
-                <div className="flex-1 h-px bg-white/8" />
-              </div>
-            )}
-            {idx > 0 && isTP && (
-              <div className="flex items-center gap-3 mb-8">
-                <div className="flex-1 h-px bg-white/8" />
-                <span className="text-[10px] text-slate-600 uppercase tracking-widest whitespace-nowrap">
-                  third place play-off
-                </span>
-                <div className="flex-1 h-px bg-white/8" />
-              </div>
-            )}
-
-            {/* Round header */}
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-xs uppercase tracking-widest font-bold text-yellow-400">{label}</h3>
-              {isExpected && pairings.length > 0 && (
-                <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded-full px-2 py-0.5">
-                  Expected
-                </span>
-              )}
-              {isExpected && pairings.length === 0 && (
-                <span className="text-[9px] font-bold uppercase tracking-wide bg-slate-800 text-slate-500 rounded-full px-2 py-0.5">
-                  Upcoming
-                </span>
-              )}
-            </div>
-
-            {/* Actual scheduled/live/completed matches */}
-            {actual.length > 0 && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {actual.map(m => (
-                  <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
+                {/* Slots */}
+                {col.slots.map((slot, slotIdx) => (
+                  <div
+                    key={slotIdx}
+                    className="absolute"
+                    style={{ top: slotTop + layout.padTop + slotIdx * (BCARD_H + layout.slotGap), left: x }}
+                  >
+                    <BracketSlotCard slot={slot} />
+                  </div>
                 ))}
-              </div>
-            )}
 
-            {/* Expected pairings (not yet scheduled) */}
-            {actual.length === 0 && pairings.length > 0 && (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {pairings.map((p, i) => (
-                  <ExpectedMatchCard key={i} p1Name={p.p1} p2Name={p.p2} roundLabel={label} p1Pool={p.p1Pool} p2Pool={p.p2Pool} />
-                ))}
+                {/* Connector to next column */}
+                {colIdx < columns.length - 1 && nextLayout != null && nextCount != null && (
+                  <div className="absolute" style={{ top: slotTop, left: x + BCARD_W }}>
+                    <BracketConnectorSVG
+                      fromCount={counts[colIdx]}
+                      fromLayout={layout}
+                      toCount={nextCount}
+                      toLayout={nextLayout}
+                      cardH={BCARD_H}
+                      totalH={totalSlotH}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* No content yet */}
-            {actual.length === 0 && pairings.length === 0 && (
-              <div className="rounded-xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-8 text-center">
-                <p className="text-xs text-slate-500">
-                  {round === 'QF'
-                    ? 'Pool play in progress — QF pairings will be set once standings are finalised'
-                    : `${label} fixtures will appear once the previous round is complete`}
-                </p>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ExpectedMatchCard({
-  p1Name, p2Name, roundLabel, p1Pool, p2Pool,
-}: {
-  p1Name: string;
-  p2Name: string;
-  roundLabel: string;
-  p1Pool?: string;
-  p2Pool?: string;
-}) {
-  return (
-    <div className="relative rounded-2xl border border-amber-500/20 bg-slate-900/70 p-4 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 rounded-full px-2 py-0.5">
-          Expected
-        </span>
-        <span className="text-[9px] text-slate-500 uppercase tracking-wide">{roundLabel}</span>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Players */}
-      <div className="space-y-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-            {getInitials(p1Name)}
+      {/* Third place play-off */}
+      {tpSlots.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-white/8" />
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest whitespace-nowrap">3rd Place Play-off</span>
+            <div className="flex-1 h-px bg-white/8" />
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white truncate leading-tight">{p1Name}</p>
-            {p1Pool && <p className="text-[9px] text-slate-500">{p1Pool}</p>}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 flex items-center justify-center shrink-0">
-            <span className="text-[9px] font-black text-slate-500 uppercase">vs</span>
-          </div>
-          <div />
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-            {getInitials(p2Name)}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white truncate leading-tight">{p2Name}</p>
-            {p2Pool && <p className="text-[9px] text-slate-500">{p2Pool}</p>}
+          <div className="flex gap-4 flex-wrap">
+            {tpSlots.map((slot, i) => (
+              <div key={i}>
+                <BracketSlotCard slot={slot} />
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
