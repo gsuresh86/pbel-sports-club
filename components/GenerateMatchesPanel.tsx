@@ -156,6 +156,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const [manualPoolId, setManualPoolId] = useState('');
   const [manualPlayer1Id, setManualPlayer1Id] = useState('');
   const [manualPlayer2Id, setManualPlayer2Id] = useState('');
+  const [manualMatchNo, setManualMatchNo] = useState('');
 
   const isTeamCat = (cat: CategoryType) => TEAM_CATEGORIES.includes(cat);
 
@@ -188,6 +189,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const resetManualForm = () => {
     setManualPlayer1Id('');
     setManualPlayer2Id('');
+    setManualMatchNo('');
   };
 
   const getManualPreview = () => {
@@ -330,9 +332,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       m.round === round && (isKnockout ? m.category === selectedCategory : true),
     );
     const existingCount = existingInRound.length;
-    const matchNumber = isKnockout
+    const autoMatchNumber = isKnockout
       ? (round === 'F' || round === 'TP' ? round : `${round}${existingCount + 1}`)
       : existingCount + 1;
+    const matchNumber = manualMatchNo.trim() !== '' ? manualMatchNo.trim() : autoMatchNumber;
 
     await addDoc(tournamentMatchesRef(tournament.id), {
       tournamentId: tournament.id,
@@ -966,6 +969,18 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                       <SelectItem value="single-set-30">30pt Single set</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label className="text-xs font-medium text-gray-700">
+                    Match no. <span className="text-gray-400 font-normal">(optional — auto-assigned if blank)</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. 5, QF3, M12…"
+                    value={manualMatchNo}
+                    onChange={e => setManualMatchNo(e.target.value)}
+                    className="h-9 text-sm bg-white"
+                  />
                 </div>
               </div>
 
