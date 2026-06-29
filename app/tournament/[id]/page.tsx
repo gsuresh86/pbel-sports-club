@@ -6,12 +6,17 @@ import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/fires
 import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
-import { Tournament, Match, Registration, Team, Pool } from '@/types';
+import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
+import {
+  KNOCKOUT_ROUNDS, KNOCKOUT_ROUND_LABELS,
+  previewKnockoutRound,
+  type KnockoutRound,
+} from '@/lib/knockoutBracket';
 import { getMatchSideDisplay, getInitials, firstName, toTitleCase, formatMatchSideLabel, type MatchSideDisplay } from '@/lib/utils';
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
   Shield, Users2, ScrollText, ChevronRight, ChevronDown,
-  Flame, Star, Activity, ArrowLeft,
+  Flame, Star, Activity, ArrowLeft, GitBranch,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -32,13 +37,14 @@ export default function TournamentDetailPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'results' | 'teams' | 'pools'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'matches' | 'results' | 'teams' | 'pools' | 'knockout'>('overview');
   const [teamsCatFilter, setTeamsCatFilter] = useState<string>('all');
   const [matchRoundFilter, setMatchRoundFilter] = useState<string>('all');
   const [matchCategoryFilter, setMatchCategoryFilter] = useState<string>('all');
   const [matchSearch, setMatchSearch] = useState('');
   const [matchDateFilter, setMatchDateFilter] = useState('');
   const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
+  const [knockoutCat, setKnockoutCat] = useState('');
 
   useEffect(() => {
     if (tournamentId) {
@@ -147,10 +153,24 @@ export default function TournamentDetailPage() {
     list.sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0));
   }
 
+  const KNOCKOUT_ROUND_SET = new Set(['QF', 'SF', 'F', 'TP']);
+  const knockoutCats = [
+    ...new Set([
+      ...displayMatches
+        .filter(m => KNOCKOUT_ROUND_SET.has(m.round) && m.category)
+        .map(m => m.category as string),
+      ...pools.map(p => p.category as string),
+    ]),
+  ].filter(Boolean);
+  const activeKnockoutCat = (knockoutCat && knockoutCats.includes(knockoutCat))
+    ? knockoutCat
+    : knockoutCats[0] ?? '';
+
   const tabs = [
     { id: 'matches',  label: `Fixtures (${fixtureMatches.length})`, icon: Activity },
     { id: 'results',  label: `Results (${resultMatches.length})`, icon: Target },
     { id: 'pools',   label: `Points (${pools.length})`, icon: Users2 },
+    { id: 'knockout', label: 'Knockout', icon: GitBranch },
     { id: 'overview', label: 'Overview', icon: Trophy },
     { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
   ] as const;
@@ -699,6 +719,53 @@ export default function TournamentDetailPage() {
               showFullPageLink
             />
           )}
+
+          {/* KNOCKOUT ─────────────────────────────────────────── */}
+          {activeTab === 'knockout' && (
+            <div className="space-y-6">
+              {knockoutCats.length === 0 ? (
+                <div className="text-center py-24">
+                  <GitBranch className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400">No knockout stages yet</p>
+                  <p className="text-slate-500 text-sm mt-1">Knockout fixtures will appear once the stage begins</p>
+                </div>
+              ) : (
+                <>
+                  {knockoutCats.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {knockoutCats.map(cat => (
+                        <button
+                          key={cat}
+                          onClick={() => setKnockoutCat(cat)}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                            activeKnockoutCat === cat
+                              ? 'bg-yellow-400 text-black'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          {formatCategoryLabel(cat)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {activeKnockoutCat && (
+                    <KnockoutBracketView
+                      category={activeKnockoutCat as CategoryType}
+                      allMatches={matches}
+                      displayMatches={displayMatches}
+                      pools={pools}
+                      teams={teams}
+                      participants={participants}
+                      tournament={tournament!}
+                      tournamentId={tournamentId}
+                      regById={regById}
+                      teamsById={teamsById}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── FOOTER STRIP ────────────────────────────────────── */}
@@ -1020,6 +1087,200 @@ function MatchFiltersBar({
         <span className="text-xs text-slate-500 ml-auto">
           {shownCount} of {totalCount} match{totalCount === 1 ? '' : 'es'}
         </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Knockout bracket view ─────────────────────────────────────────────────
+function KnockoutBracketView({
+  category, allMatches, displayMatches, pools, teams, participants, tournament, tournamentId, regById, teamsById,
+}: {
+  category: CategoryType;
+  allMatches: Match[];
+  displayMatches: Match[];
+  pools: Pool[];
+  teams: Team[];
+  participants: Registration[];
+  tournament: Tournament;
+  tournamentId: string;
+  regById: Map<string, Registration>;
+  teamsById: Map<string, { logoUrl?: string; name?: string }>;
+}) {
+  const catMatches = displayMatches.filter(m => m.category === category);
+  const catPools = pools.filter(p => p.category === category);
+  const bracketOpts = {
+    teams,
+    registrations: participants,
+    categoryQualifyCounts: tournament.categoryQualifyCounts,
+  };
+
+  type RoundData = {
+    round: KnockoutRound;
+    actual: Match[];
+    pairings: { p1: string; p2: string; p1Pool?: string; p2Pool?: string }[];
+    isExpected: boolean;
+  };
+
+  const roundsData: RoundData[] = KNOCKOUT_ROUNDS.map(round => {
+    const actual = catMatches.filter(m => m.round === round);
+    if (actual.length > 0) {
+      return { round, actual, pairings: [], isExpected: false };
+    }
+    const preview = previewKnockoutRound(round, category, pools, allMatches, bracketOpts);
+    const pairings = preview.pairings.map(p => ({
+      p1: p.player1.name,
+      p2: p.player2.name,
+      p1Pool: p.player1.poolName,
+      p2Pool: p.player2.poolName,
+    }));
+    return { round, actual: [], pairings, isExpected: true };
+  });
+
+  // Determine which rounds to display
+  const visibleRounds = roundsData.filter(({ round, actual, pairings }) => {
+    if (actual.length > 0 || pairings.length > 0) return true;
+    // Always show QF if there are pools (so users know it's coming)
+    if (round === 'QF' && catPools.length > 0) return true;
+    // Show SF/F if QF has content
+    if ((round === 'SF' || round === 'F') && roundsData[0].actual.length + roundsData[0].pairings.length > 0) return true;
+    return false;
+  });
+
+  if (visibleRounds.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <GitBranch className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+        <p className="text-slate-400 text-sm">No knockout content for this category yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {visibleRounds.map(({ round, actual, pairings, isExpected }, idx) => {
+        const label = KNOCKOUT_ROUND_LABELS[round];
+        const isTP = round === 'TP';
+
+        return (
+          <div key={round}>
+            {/* Connector between rounds */}
+            {idx > 0 && !isTP && (
+              <div className="flex items-center gap-3 mb-8">
+                <div className="flex-1 h-px bg-white/8" />
+                <span className="text-[10px] text-slate-600 uppercase tracking-widest whitespace-nowrap flex items-center gap-1">
+                  <ChevronRight className="h-3 w-3" /> winners advance
+                </span>
+                <div className="flex-1 h-px bg-white/8" />
+              </div>
+            )}
+            {idx > 0 && isTP && (
+              <div className="flex items-center gap-3 mb-8">
+                <div className="flex-1 h-px bg-white/8" />
+                <span className="text-[10px] text-slate-600 uppercase tracking-widest whitespace-nowrap">
+                  third place play-off
+                </span>
+                <div className="flex-1 h-px bg-white/8" />
+              </div>
+            )}
+
+            {/* Round header */}
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-xs uppercase tracking-widest font-bold text-yellow-400">{label}</h3>
+              {isExpected && pairings.length > 0 && (
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-400 border border-amber-500/25 rounded-full px-2 py-0.5">
+                  Expected
+                </span>
+              )}
+              {isExpected && pairings.length === 0 && (
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-slate-800 text-slate-500 rounded-full px-2 py-0.5">
+                  Upcoming
+                </span>
+              )}
+            </div>
+
+            {/* Actual scheduled/live/completed matches */}
+            {actual.length > 0 && (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {actual.map(m => (
+                  <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
+                ))}
+              </div>
+            )}
+
+            {/* Expected pairings (not yet scheduled) */}
+            {actual.length === 0 && pairings.length > 0 && (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {pairings.map((p, i) => (
+                  <ExpectedMatchCard key={i} p1Name={p.p1} p2Name={p.p2} roundLabel={label} p1Pool={p.p1Pool} p2Pool={p.p2Pool} />
+                ))}
+              </div>
+            )}
+
+            {/* No content yet */}
+            {actual.length === 0 && pairings.length === 0 && (
+              <div className="rounded-xl border border-dashed border-white/10 bg-slate-900/40 px-4 py-8 text-center">
+                <p className="text-xs text-slate-500">
+                  {round === 'QF'
+                    ? 'Pool play in progress — QF pairings will be set once standings are finalised'
+                    : `${label} fixtures will appear once the previous round is complete`}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExpectedMatchCard({
+  p1Name, p2Name, roundLabel, p1Pool, p2Pool,
+}: {
+  p1Name: string;
+  p2Name: string;
+  roundLabel: string;
+  p1Pool?: string;
+  p2Pool?: string;
+}) {
+  return (
+    <div className="relative rounded-2xl border border-amber-500/20 bg-slate-900/70 p-4 flex flex-col gap-3">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 rounded-full px-2 py-0.5">
+          Expected
+        </span>
+        <span className="text-[9px] text-slate-500 uppercase tracking-wide">{roundLabel}</span>
+      </div>
+
+      {/* Players */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+            {getInitials(p1Name)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white truncate leading-tight">{p1Name}</p>
+            {p1Pool && <p className="text-[9px] text-slate-500">{p1Pool}</p>}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 flex items-center justify-center shrink-0">
+            <span className="text-[9px] font-black text-slate-500 uppercase">vs</span>
+          </div>
+          <div />
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+            {getInitials(p2Name)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white truncate leading-tight">{p2Name}</p>
+            {p2Pool && <p className="text-[9px] text-slate-500">{p2Pool}</p>}
+          </div>
+        </div>
       </div>
     </div>
   );
