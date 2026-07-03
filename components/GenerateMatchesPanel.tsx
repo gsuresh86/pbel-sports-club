@@ -173,7 +173,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const [form, setForm] = useState({
     startDateTime: tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '',
     intervalMinutes: '30',
-    matchFormat: ((tournament as any).matchFormat || 'best-of-3') as 'single-set' | 'best-of-3' | 'single-set-30',
+    matchFormat: ((tournament as any).matchFormat || 'best-of-3') as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
   });
   const [generating, setGenerating] = useState(false);
   const [manualPoolId, setManualPoolId] = useState('');
@@ -807,6 +807,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
           <SelectContent>
             <SelectItem value="single-set">Single set (21pt)</SelectItem>
             <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+            <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
             <SelectItem value="single-set-30">30pt Single set</SelectItem>
           </SelectContent>
         </Select>
@@ -1380,6 +1381,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                     <SelectContent>
                       <SelectItem value="single-set">Single set (21pt)</SelectItem>
                       <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                      <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
                       <SelectItem value="single-set-30">30pt Single set</SelectItem>
                     </SelectContent>
                   </Select>

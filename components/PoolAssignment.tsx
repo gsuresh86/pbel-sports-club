@@ -84,7 +84,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   // Generate matches dialog (round-robin, category or per-pool)
   const [genDialogOpen, setGenDialogOpen] = useState(false);
   const [genDialogPool, setGenDialogPool] = useState<Pool | null>(null); // null = all pools in category
-  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30', matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'single-set-30' });
+  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30', matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30' });
   const [generating, setGenerating] = useState(false);
 
   const assignTeamToPool = async (teamId: string, poolId: string) => {
@@ -431,7 +431,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const openGenerateDialog = (pool: Pool | null) => {
     setGenDialogPool(pool);
     const defaultStart = tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '';
-    const defaultFormat = ((tournament as any).matchFormat as 'single-set' | 'best-of-3' | 'single-set-30') || 'best-of-3';
+    const defaultFormat = ((tournament as any).matchFormat as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') || 'best-of-3';
     setGenForm({ startDateTime: defaultStart, intervalMinutes: '30', matchFormat: defaultFormat });
     setGenDialogOpen(true);
   };
@@ -1314,11 +1314,12 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
             </div>
             <div className="space-y-1">
               <Label>Match Format</Label>
-              <Select value={genForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'single-set-30') => setGenForm(f => ({ ...f, matchFormat: v }))}>
+              <Select value={genForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setGenForm(f => ({ ...f, matchFormat: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single-set">Single set (21pt)</SelectItem>
                   <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                  <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
                   <SelectItem value="single-set-30">30pt Single set</SelectItem>
                 </SelectContent>
               </Select>

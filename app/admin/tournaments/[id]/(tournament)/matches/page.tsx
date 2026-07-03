@@ -190,7 +190,7 @@ export default function MatchesPage() {
   const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('scheduled');
   const [dateFilter, setDateFilter] = useState<string>('');
 
   const distinctRounds = Array.from(new Set(topLevelMatches.map(m => m.round))).sort();
@@ -221,8 +221,8 @@ export default function MatchesPage() {
     return true;
   });
 
-  const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'all' || dateFilter;
-  const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setDateFilter(''); };
+  const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'scheduled' || dateFilter;
+  const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('scheduled'); setDateFilter(''); };
 
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey>('scheduledTime');
@@ -419,7 +419,7 @@ export default function MatchesPage() {
     referee: '',
     status: 'scheduled' as Match['status'],
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'single-set-30',
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
   });
   const [savingMatch, setSavingMatch] = useState(false);
   const [genDrawerOpen, setGenDrawerOpen] = useState(false);
@@ -1088,11 +1088,12 @@ export default function MatchesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Match Format</Label>
-                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
+                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                    <SelectItem value="best-of-3">Best of 3</SelectItem>
+                    <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                    <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
                     <SelectItem value="single-set-30">30pt Single set</SelectItem>
                   </SelectContent>
                 </Select>

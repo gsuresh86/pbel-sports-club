@@ -18,6 +18,14 @@ import { adminMatchScorePath, tournamentMatchRef } from '@/lib/firestore-paths';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import TeamMatchLineupDialog from '@/components/TeamMatchLineupDialog';
+import {
+  OptionalSetScoreFields,
+  emptySetScoreRows,
+  matchSetsToScorePairs,
+  scorePairsToMatchSets,
+  type SetScorePair,
+} from '@/components/scoring/OptionalSetScoreFields';
+import { getFormatLabel, isBestOfThree } from '@/lib/match-scoring';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,15 +85,6 @@ function formatDate(date: Date) {
   });
 }
 
-function parseSetScore(input: string): { p1: number; p2: number } | null {
-  const parts = input.trim().split(/[-–]/);
-  if (parts.length !== 2) return null;
-  const p1 = parseInt(parts[0].trim(), 10);
-  const p2 = parseInt(parts[1].trim(), 10);
-  if (isNaN(p1) || isNaN(p2)) return null;
-  return { p1, p2 };
-}
-
 function rubberWinnerSide(rubber: Match): 1 | 2 | null {
   if (rubber.status !== 'completed') return null;
   if ((rubber.player1Score ?? 0) > (rubber.player2Score ?? 0)) return 1;
@@ -130,15 +129,13 @@ export default function MatchDetailPage() {
   // Individual score form
   const [setsP1, setSetsP1] = useState('');
   const [setsP2, setSetsP2] = useState('');
-  const [set1, setSet1] = useState('');
-  const [set2, setSet2] = useState('');
-  const [set3, setSet3] = useState('');
+  const [setScorePairs, setSetScorePairs] = useState<SetScorePair[]>(emptySetScoreRows());
   const [manualWinner, setManualWinner] = useState<string | null>(null);
 
   // Edit match details form
   const [editForm, setEditForm] = useState({
     scheduledTime: '', venue: '', court: '', referee: '', notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'single-set-30',
+    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
     status: 'scheduled' as Match['status'],
   });
 
@@ -170,10 +167,7 @@ export default function MatchDetailPage() {
   const openScoreForm = () => {
     setSetsP1(String(match.player1Score ?? ''));
     setSetsP2(String(match.player2Score ?? ''));
-    const s = match.sets ?? [];
-    setSet1(s[0] ? `${s[0].player1Score}-${s[0].player2Score}` : '');
-    setSet2(s[1] ? `${s[1].player1Score}-${s[1].player2Score}` : '');
-    setSet3(s[2] ? `${s[2].player1Score}-${s[2].player2Score}` : '');
+    setSetScorePairs(matchSetsToScorePairs(match.sets ?? []));
     setManualWinner(match.winner ?? null);
     setScoreFormOpen(true);
     setWinnerPickOpen(false);
@@ -190,13 +184,7 @@ export default function MatchDetailPage() {
       alert({ title: 'Select winner', description: 'Please pick the winner before saving.', variant: 'error' });
       return;
     }
-    const builtSets: MatchSet[] = [set1, set2, set3]
-      .filter(Boolean)
-      .map((raw, i) => {
-        const parsed = parseSetScore(raw);
-        return parsed ? { setNumber: i + 1, player1Score: parsed.p1, player2Score: parsed.p2 } : null;
-      })
-      .filter((s): s is MatchSet => s !== null);
+    const builtSets = scorePairsToMatchSets(setScorePairs);
 
     setSaving(true);
     try {
@@ -273,7 +261,7 @@ export default function MatchDetailPage() {
       court: match.court ?? '',
       referee: match.referee ?? '',
       notes: match.notes ?? '',
-      matchFormat: (match.matchFormat as 'single-set' | 'best-of-3' | 'single-set-30') ?? 'best-of-3',
+      matchFormat: (match.matchFormat as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') ?? 'best-of-3',
       status: match.status,
     });
     setEditOpen(true);
@@ -363,9 +351,7 @@ export default function MatchDetailPage() {
                 </Badge>
                 {match.matchFormat && (
                   <Badge variant="outline" className="text-xs text-gray-500">
-                    {match.matchFormat === 'best-of-3' ? 'Best of 3'
-                      : match.matchFormat === 'single-set-30' ? '30pt'
-                      : 'Single set'}
+                    {getFormatLabel(match.matchFormat)}
                   </Badge>
                 )}
               </div>
@@ -654,11 +640,12 @@ export default function MatchDetailPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Match Format</Label>
-                    <Select value={editForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'single-set-30') => setEditForm(f => ({ ...f, matchFormat: v }))}>
+                    <Select value={editForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditForm(f => ({ ...f, matchFormat: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                        <SelectItem value="best-of-3">Best of 3</SelectItem>
+                        <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                        <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
                         <SelectItem value="single-set-30">30pt Single set</SelectItem>
                       </SelectContent>
                     </Select>
@@ -715,14 +702,19 @@ export default function MatchDetailPage() {
                 </div>
 
                 {/* Set scores (optional) */}
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-500">Set scores (optional, e.g. 21-19)</Label>
-                  <div className="flex gap-2 flex-wrap">
-                    <Input placeholder="Set 1" value={set1} onChange={e => setSet1(e.target.value)} className="h-8 w-24 text-xs" />
-                    <Input placeholder="Set 2" value={set2} onChange={e => setSet2(e.target.value)} className="h-8 w-24 text-xs" />
-                    <Input placeholder="Set 3" value={set3} onChange={e => setSet3(e.target.value)} className="h-8 w-24 text-xs" />
-                  </div>
-                </div>
+                <OptionalSetScoreFields
+                  rows={setScorePairs}
+                  setCount={isBestOfThree(match.matchFormat ?? 'best-of-3') ? 3 : 1}
+                  player1Label={side1}
+                  player2Label={side2}
+                  onChange={(index, field, value) => {
+                    setSetScorePairs((prev) =>
+                      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+                    );
+                  }}
+                  labelClassName="text-xs text-gray-500"
+                  inputClassName="h-8 text-xs"
+                />
 
                 {/* Winner selection */}
                 <div className="space-y-1.5">
