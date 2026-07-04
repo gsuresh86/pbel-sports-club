@@ -39,6 +39,7 @@ import { TeamLogo } from '@/components/TeamLogo';
 import { formatCategoryLabel } from '@/lib/categoryLabels';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { isRubberMatch, isTeamTieMatch, rubberTypeLabel } from '@/lib/teamMatchRubbers';
+import { getMatchCardDisplayScores } from '@/lib/match-scoring';
 import { tournamentTabPath, type TournamentPublicTab } from '@/lib/tournament-public-tabs';
 
 export default function TournamentDetailView({ activeTab }: { activeTab: TournamentPublicTab }) {
@@ -521,7 +522,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {allScheduledMatches.slice(0, 6).map(m => (
-                      <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
+                      <MatchCard key={m.id} match={m} tournament={tournament} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
                     ))}
                   </div>
                 </div>
@@ -556,7 +557,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     <span className="w-2 h-2 rounded-full bg-emerald-400" /> Live Matches
                   </h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {liveFixtures.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
+                    {liveFixtures.map(m => <MatchCard key={m.id} match={m} tournament={tournament} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
@@ -564,7 +565,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                 <section>
                   <h3 className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Upcoming</h3>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
+                    {scheduledMatches.map(m => <MatchCard key={m.id} match={m} tournament={tournament} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />)}
                   </div>
                 </section>
               )}
@@ -608,6 +609,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     <ResultMatchCard
                       key={m.id}
                       match={m}
+                      tournament={tournament}
                       tournamentId={tournamentId}
                       regById={regById}
                       teamsById={teamsById}
@@ -903,9 +905,10 @@ function PlayerPhoto({ side, isTeam, align }: { side: MatchSideDisplay; isTeam: 
 
 // ── Match card sub-component ──────────────────────────────────────────────
 function MatchCard({
-  match, tournamentId, regById, teamsById,
+  match, tournament, tournamentId, regById, teamsById,
 }: {
   match: Match;
+  tournament: Tournament | null;
   tournamentId: string;
   regById: Map<string, Registration>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
@@ -916,11 +919,14 @@ function MatchCard({
   const side2 = getMatchSideDisplay(match.player2Id, match.player2Name, regById, teamsById);
   const side1IsTeam = !regById.has(match.player1Id);
   const side2IsTeam = !regById.has(match.player2Id);
+  const isIndividualMatch = !side1IsTeam && !side2IsTeam;
 
   const p1won = isDone && match.winner === match.player1Name;
   const p2won = isDone && match.winner === match.player2Name;
-  const liveP1 = isLive && match.sets?.length ? (match.sets.at(-1)?.player1Score ?? 0) : null;
-  const liveP2 = isLive && match.sets?.length ? (match.sets.at(-1)?.player2Score ?? 0) : null;
+  const { score1: displayP1, score2: displayP2 } = getMatchCardDisplayScores(match, {
+    tournament,
+    isIndividualMatch,
+  });
 
   const dateStr = new Date(match.scheduledTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   const timeStr = new Date(match.scheduledTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -946,15 +952,11 @@ function MatchCard({
           </span>
 
           {/* Score / VS */}
-          {isDone ? (
+          {isDone || isLive ? (
             <div className={`flex items-center gap-1 text-2xl font-black tabular-nums whitespace-nowrap text-white ${MATCH_CENTER_SHADOW}`}>
-              <span className={p1won ? 'text-yellow-300' : 'text-white'}>{match.player1Score ?? '-'}</span>
-              <span className="text-slate-300 text-lg">:</span>
-              <span className={p2won ? 'text-yellow-300' : 'text-white'}>{match.player2Score ?? '-'}</span>
-            </div>
-          ) : isLive && liveP1 !== null ? (
-            <div className={`flex items-center gap-1 text-2xl font-black tabular-nums text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>
-              <span>{liveP1}</span><span className="text-emerald-300 text-lg">:</span><span>{liveP2}</span>
+              <span className={p1won ? 'text-yellow-300' : 'text-white'}>{displayP1}</span>
+              <span className={isLive ? 'text-emerald-300 text-lg' : 'text-slate-300 text-lg'}>:</span>
+              <span className={p2won ? 'text-yellow-300' : 'text-white'}>{displayP2}</span>
             </div>
           ) : (
             <span className={`text-xl font-black text-white whitespace-nowrap ${MATCH_CENTER_SHADOW}`}>VS</span>
@@ -1924,6 +1926,7 @@ function TeamRubberDetails({
 
 function ResultMatchCard({
   match,
+  tournament,
   tournamentId,
   regById,
   teamsById,
@@ -1933,6 +1936,7 @@ function ResultMatchCard({
   onToggle,
 }: {
   match: Match;
+  tournament: Tournament | null;
   tournamentId: string;
   regById: Map<string, Registration>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
@@ -1954,7 +1958,7 @@ function ResultMatchCard({
         tabIndex={canExpand ? 0 : undefined}
         aria-expanded={canExpand ? expanded : undefined}
       >
-        <MatchCard match={match} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
+        <MatchCard match={match} tournament={tournament} tournamentId={tournamentId} regById={regById} teamsById={teamsById} />
         {canExpand && (
           <div className="flex items-center justify-center gap-1.5 py-2 -mt-1 bg-slate-950/40 text-[10px] font-bold uppercase tracking-wide text-slate-400 group-hover:text-yellow-400 transition-colors">
             <span>{expanded ? 'Hide games' : 'View games'}</span>

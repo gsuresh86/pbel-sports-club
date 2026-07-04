@@ -81,6 +81,35 @@ export function getFormatLabel(format: MatchFormat): string {
   return 'Best of 3 (21pt)';
 }
 
+/** Scores shown on public match cards (set wins for best-of-3 / team ties; points for single-set individuals). */
+export function getMatchCardDisplayScores(
+  match: Pick<Match, 'status' | 'player1Score' | 'player2Score' | 'sets' | 'matchFormat'>,
+  options: {
+    tournament?: Pick<Tournament, 'matchFormat'> | null;
+    isIndividualMatch?: boolean;
+  } = {},
+): { score1: number | string; score2: number | string } {
+  const dash = '-';
+
+  if (match.status === 'live' && match.sets?.length) {
+    const last = match.sets.at(-1)!;
+    return { score1: last.player1Score, score2: last.player2Score };
+  }
+
+  const format = resolveMatchFormat(match, options.tournament);
+  const showPointScore = options.isIndividualMatch && !isBestOfThree(format);
+
+  if (match.status === 'completed' && showPointScore && match.sets?.length) {
+    const set = match.sets[0];
+    return { score1: set.player1Score, score2: set.player2Score };
+  }
+
+  return {
+    score1: match.player1Score ?? dash,
+    score2: match.player2Score ?? dash,
+  };
+}
+
 /** Map display-side player key back to stored player1/player2 when sides are swapped. */
 export function displayPlayerToStored(
   displayPlayer: 'player1' | 'player2',
