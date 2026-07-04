@@ -16,6 +16,7 @@ import {
   extractBracketSrcMatchNo,
   findBracketSourceMatch,
   bracketMatchNumbersMatch,
+  orderQfIndicesForSfBracket,
 } from '@/lib/knockoutBracket';
 import {
   isIplPlayoffRound,
@@ -1704,21 +1705,8 @@ function KnockoutBracketView({
   let orderedQfMatches = qfMatches;
 
   if (sfMatches.length > 0 && qfMatches.length >= 2) {
-    const newOrder: number[] = [];
-    const used = new Set<number>();
-    for (const sf of sfMatches) {
-      for (const ref of [sf.player1Id, sf.player1Name, sf.player2Id, sf.player2Name]) {
-        if (!ref) continue;
-        const src = extractBracketSrcMatchNo(ref);
-        if (!src) continue;
-        const idx = qfMatches.findIndex(m => bracketMatchNumbersMatch(src, m));
-        if (idx >= 0 && !used.has(idx)) { newOrder.push(idx); used.add(idx); }
-      }
-    }
-    for (let i = 0; i < qfMatches.length; i++) {
-      if (!used.has(i)) newOrder.push(i);
-    }
-    if (newOrder.length === qfMatches.length && newOrder.some((v, i) => v !== i)) {
+    const newOrder = orderQfIndicesForSfBracket(qfMatches, sfMatches);
+    if (newOrder.some((v, i) => v !== i)) {
       qfSlots = newOrder.map(i => qfSlotsRaw[i]);
       orderedQfMatches = newOrder.map(i => qfMatches[i]);
     }

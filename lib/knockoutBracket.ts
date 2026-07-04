@@ -222,6 +222,57 @@ export function findBracketSourceMatch(sourceMatches: Match[], srcNo: string): M
   return sourceMatches.find(m => bracketMatchNumbersMatch(srcNo, m));
 }
 
+function sideMatchesQf(sideId: string, sideName: string, qf: Match): boolean {
+  if (sideId && (sideId === qf.player1Id || sideId === qf.player2Id)) return true;
+  if (sideName && (sideName === qf.player1Name || sideName === qf.player2Name)) return true;
+  const winner = getMatchWinner(qf);
+  if (!winner) return false;
+  if (sideId && winner.id === sideId) return true;
+  if (sideName && winner.name === sideName) return true;
+  if (sideName && winner.name.toLowerCase() === sideName.toLowerCase()) return true;
+  return false;
+}
+
+/** Map an SF slot (placeholder or resolved winner) back to its source QF index. */
+export function findQfIndexForBracketSide(
+  playerId: string,
+  playerName: string,
+  qfMatches: Match[],
+): number {
+  const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
+  if (srcNo) {
+    const idx = qfMatches.findIndex(m => bracketMatchNumbersMatch(srcNo, m));
+    if (idx >= 0) return idx;
+  }
+  return qfMatches.findIndex(qf => sideMatchesQf(playerId, playerName, qf));
+}
+
+/** Order QF indices so each SF's two feeder QF matches are adjacent (e.g. M1,M4,M2,M3). */
+export function orderQfIndicesForSfBracket(qfMatches: Match[], sfMatches: Match[]): number[] {
+  if (sfMatches.length === 0 || qfMatches.length < 2) {
+    return qfMatches.map((_, i) => i);
+  }
+
+  const newOrder: number[] = [];
+  const used = new Set<number>();
+
+  for (const sf of sfMatches) {
+    for (const [id, name] of [[sf.player1Id, sf.player1Name], [sf.player2Id, sf.player2Name]] as const) {
+      const idx = findQfIndexForBracketSide(id, name, qfMatches);
+      if (idx >= 0 && !used.has(idx)) {
+        newOrder.push(idx);
+        used.add(idx);
+      }
+    }
+  }
+
+  for (let i = 0; i < qfMatches.length; i++) {
+    if (!used.has(i)) newOrder.push(i);
+  }
+
+  return newOrder.length === qfMatches.length ? newOrder : qfMatches.map((_, i) => i);
+}
+
 export function bracketReferencesSourceMatch(ref: string, sourceMatch: Match): boolean {
   const srcNo = extractBracketSrcMatchNo(ref);
   if (!srcNo) return false;

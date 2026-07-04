@@ -9,6 +9,7 @@ import {
   previewKnockoutRound,
   bracketMatchNumbersMatch,
   getKnockoutPropagationUpdates,
+  orderQfIndicesForSfBracket,
 } from './knockoutBracket';
 import type { Match, Pool } from '@/types';
 
@@ -207,4 +208,43 @@ test('getKnockoutPropagationUpdates fills SF slots when QF completes', () => {
   assert.equal(updates[0].matchId, 'sf1');
   assert.equal(updates[0].player1Id, 'a');
   assert.equal(updates[0].player1Name, 'Alice');
+});
+
+test('orderQfIndicesForSfBracket pairs QF by SF config including resolved winners', () => {
+  const qfBase = {
+    tournamentId: 't1',
+    round: 'QF' as const,
+    category: 'boys-u13' as const,
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  const qfMatches: Match[] = [
+    { ...qfBase, id: 'm1', matchNumber: 'BU13-Q-M1', player1Id: 'p1', player1Name: 'A', player2Id: 'p2', player2Name: 'B', status: 'scheduled' },
+    { ...qfBase, id: 'm2', matchNumber: 'BU13-Q-M2', player1Id: 'p3', player1Name: 'C', player2Id: 'p4', player2Name: 'D', status: 'scheduled' },
+    { ...qfBase, id: 'm3', matchNumber: 'BU13-Q-M3', player1Id: 'p5', player1Name: 'E', player2Id: 'p6', player2Name: 'Vihaan Burra', status: 'completed', winner: 'Vihaan Burra', player1Score: 0, player2Score: 1 },
+    { ...qfBase, id: 'm4', matchNumber: 'BU13-Q-M4', player1Id: 'p7', player1Name: 'Kedar sai pinjala', player2Id: 'p8', player2Name: 'F', status: 'completed', winner: 'Kedar sai pinjala', player1Score: 1, player2Score: 0 },
+  ];
+  const sfMatches: Match[] = [
+    {
+      id: 'sf1', tournamentId: 't1', round: 'SF', category: 'boys-u13', matchNumber: 'BU13-S-M1',
+      player1Id: 'tbd-winner-m1', player1Name: 'Winner of BU13-Q-M1',
+      player2Id: 'p7', player2Name: 'Kedar sai pinjala',
+      status: 'not-scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+    },
+    {
+      id: 'sf2', tournamentId: 't1', round: 'SF', category: 'boys-u13', matchNumber: 'BU13-S-M2',
+      player1Id: 'tbd-winner-m2', player1Name: 'Winner of BU13-Q-M2',
+      player2Id: 'p6', player2Name: 'Vihaan Burra',
+      status: 'not-scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+    },
+  ];
+  const order = orderQfIndicesForSfBracket(qfMatches, sfMatches);
+  assert.deepEqual(order, [0, 3, 1, 2]);
+  assert.deepEqual(
+    order.map(i => qfMatches[i].matchNumber),
+    ['BU13-Q-M1', 'BU13-Q-M4', 'BU13-Q-M2', 'BU13-Q-M3'],
+  );
 });
