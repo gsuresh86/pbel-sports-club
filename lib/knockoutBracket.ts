@@ -161,14 +161,23 @@ export function buildQFPairings(
   return buildSeededBracketPairings(seeded);
 }
 
+function winnerMatchesPlayer(winner: string, name: string | undefined, partnerName?: string | null): boolean {
+  if (!name) return false;
+  const w = winner.trim().toLowerCase();
+  const n = name.trim().toLowerCase();
+  if (w === n || n.includes(w) || w.includes(n)) return true;
+  if (partnerName) {
+    const pn = partnerName.trim().toLowerCase();
+    if (w === pn || pn.includes(w) || w.includes(pn)) return true;
+  }
+  return false;
+}
+
 export function getMatchWinner(m: Match): KnockoutParticipant | null {
   if (m.status !== 'completed') return null;
   if (m.winner) {
-    if (m.winner === m.player1Name) return { id: m.player1Id, name: m.player1Name };
-    if (m.winner === m.player2Name) return { id: m.player2Id, name: m.player2Name };
-    const wLower = m.winner.toLowerCase();
-    if (wLower === m.player1Name.toLowerCase()) return { id: m.player1Id, name: m.player1Name };
-    if (wLower === m.player2Name.toLowerCase()) return { id: m.player2Id, name: m.player2Name };
+    if (winnerMatchesPlayer(m.winner, m.player1Name, m.player1PartnerName)) return { id: m.player1Id, name: m.player1Name };
+    if (winnerMatchesPlayer(m.winner, m.player2Name, m.player2PartnerName)) return { id: m.player2Id, name: m.player2Name };
   }
   const p1 = m.player1Score ?? 0;
   const p2 = m.player2Score ?? 0;
