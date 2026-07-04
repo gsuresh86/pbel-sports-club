@@ -1,5 +1,6 @@
 import type { CategoryType, Match, Pool, Tournament } from '@/types';
 import { computePoolStandings, isTeamCategory } from '@/lib/poolStandings';
+import { isRubberMatch } from '@/lib/teamMatchRubbers';
 import type { Team } from '@/types';
 import type { Registration } from '@/types';
 
@@ -165,6 +166,9 @@ export function getMatchWinner(m: Match): KnockoutParticipant | null {
   if (m.winner) {
     if (m.winner === m.player1Name) return { id: m.player1Id, name: m.player1Name };
     if (m.winner === m.player2Name) return { id: m.player2Id, name: m.player2Name };
+    const wLower = m.winner.toLowerCase();
+    if (wLower === m.player1Name.toLowerCase()) return { id: m.player1Id, name: m.player1Name };
+    if (wLower === m.player2Name.toLowerCase()) return { id: m.player2Id, name: m.player2Name };
   }
   const p1 = m.player1Score ?? 0;
   const p2 = m.player2Score ?? 0;
@@ -181,18 +185,152 @@ export function getMatchLoser(m: Match): KnockoutParticipant | null {
   return { id: m.player1Id, name: m.player1Name };
 }
 
+/** Parse "Winner of QF1", "tbd-winner-QF1", "W. QF1", etc. into a source match number token. */
+export function extractBracketSrcMatchNo(str: string): string | null {
+  const m1 = str.match(/(?:Winner|Loser)\s+of\s+(.+)/i) || str.match(/^[WL]\.\s+(.+)/i);
+  if (m1) return m1[1].trim();
+  const m2 = str.match(/^tbd-(?:winner|loser)-(.+)/i);
+  if (m2) return m2[1];
+  return null;
+}
+
+/** Match bracket refs like "QF1" to stored match numbers like "1" or "QF1". */
+export function bracketMatchNumbersMatch(ref: string, match: Match): boolean {
+  const normalized = ref.trim();
+  const mn = String(match.matchNumber);
+  if (mn === normalized) return true;
+  const round = match.round;
+  if (round && mn === `${round}${normalized}`) return true;
+  if (round && normalized === `${round}${mn}`) return true;
+  return false;
+}
+
+export function findBracketSourceMatch(sourceMatches: Match[], srcNo: string): Match | undefined {
+  return sourceMatches.find(m => bracketMatchNumbersMatch(srcNo, m));
+}
+
+export function bracketReferencesSourceMatch(ref: string, sourceMatch: Match): boolean {
+  const srcNo = extractBracketSrcMatchNo(ref);
+  if (!srcNo) return false;
+  return bracketMatchNumbersMatch(srcNo, sourceMatch);
+}
+
+export function isKnockoutBracketPlaceholder(playerId: string, playerName: string): boolean {
+  if (playerId.startsWith('tbd-')) return true;
+  if (/^(Winner|Loser)\s+of\s+/i.test(playerName)) return true;
+  return extractBracketSrcMatchNo(playerId) != null;
+}
+
+function isLoserBracketSlot(playerId: string, playerName: string): boolean {
+  return /loser/i.test(playerId) || /^Loser\s+of/i.test(playerName);
+}
+
+export function filterKnockoutMatchesForCategory(
+  matches: Match[],
+  round: string,
+  category: CategoryType,
+): Match[] {
+  return matches.filter(m => {
+    if (m.round !== round || isRubberMatch(m)) return false;
+    if (m.category === category) return true;
+    if (m.category) return false;
+    const inRound = matches.filter(x => x.round === round && !isRubberMatch(x));
+    const categorized = inRound.filter(x => x.category);
+    if (categorized.length === 0) return true;
+    return categorized.every(x => x.category === category);
+  });
+}
+
+export type KnockoutPropagationUpdate = {
+  matchId: string;
+  player1Id?: string;
+  player1Name?: string;
+  player2Id?: string;
+  player2Name?: string;
+};
+
+/** When a knockout match completes, fill downstream SF/F/TP slots that reference it. */
+export function getKnockoutPropagationUpdates(
+  completedMatch: Match,
+  allMatches: Match[],
+): KnockoutPropagationUpdate[] {
+  if (completedMatch.status !== 'completed' || !isKnockoutRound(completedMatch.round)) return [];
+
+  const winner = getMatchWinner(completedMatch);
+  const loser = getMatchLoser(completedMatch);
+  if (!winner) return [];
+
+  const category = completedMatch.category;
+  const updates: KnockoutPropagationUpdate[] = [];
+
+  for (const m of allMatches) {
+    if (!isKnockoutRound(m.round) || m.id === completedMatch.id || isRubberMatch(m)) continue;
+    if (category && m.category && m.category !== category) continue;
+
+    const patch: KnockoutPropagationUpdate = { matchId: m.id };
+    const sides: [string, string, 'player1Id' | 'player2Id', 'player1Name' | 'player2Name'][] = [
+      [m.player1Id, m.player1Name, 'player1Id', 'player1Name'],
+      [m.player2Id, m.player2Name, 'player2Id', 'player2Name'],
+    ];
+
+    for (const [id, name, idKey, nameKey] of sides) {
+      if (!bracketReferencesSourceMatch(name, completedMatch) && !bracketReferencesSourceMatch(id, completedMatch)) {
+        continue;
+      }
+      const participant = isLoserBracketSlot(id, name) ? loser : winner;
+      if (!participant) continue;
+      patch[idKey] = participant.id;
+      patch[nameKey] = participant.name;
+    }
+
+    if (patch.player1Id || patch.player2Id) updates.push(patch);
+  }
+
+  return updates;
+}
+
+const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
+  SF: 'QF',
+  F: 'SF',
+  TP: 'SF',
+};
+
+/** Resolve a placeholder side (e.g. "Winner of QF1") to the actual participant name. */
+export function resolveKnockoutBracketSide(
+  playerId: string,
+  playerName: string,
+  match: Match,
+  allMatches: Match[],
+): string | null {
+  if (!isKnockoutRound(match.round) || match.round === 'QF') return null;
+  if (!isKnockoutBracketPlaceholder(playerId, playerName)) return null;
+
+  const prevRound = KNOCKOUT_PREV_ROUND[match.round];
+  if (!prevRound || !match.category) return null;
+
+  const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
+  if (!srcNo) return null;
+
+  const sourceMatches = filterKnockoutMatchesForCategory(allMatches, prevRound, match.category);
+  const srcMatch = findBracketSourceMatch(sourceMatches, srcNo);
+  if (srcMatch?.status !== 'completed') return null;
+
+  const participant = isLoserBracketSlot(playerId, playerName)
+    ? getMatchLoser(srcMatch)
+    : getMatchWinner(srcMatch);
+  return participant?.name ?? null;
+}
+
 /** Bracket slot options for SF/F/TP — winners (or losers for TP) from the prior round. */
 export function getKnockoutSlotMembers(
   targetRound: KnockoutRound,
   category: CategoryType,
   matches: Match[],
 ): BracketSlotMember[] | null {
-  const prevRoundMap: Partial<Record<KnockoutRound, KnockoutRound>> = { SF: 'QF', F: 'SF', TP: 'SF' };
-  const prevRound = prevRoundMap[targetRound];
+  const prevRound = KNOCKOUT_PREV_ROUND[targetRound];
   if (!prevRound) return null;
 
-  const prevMatches = matches
-    .filter(m => m.round === prevRound && m.category === category && !m.matchKind)
+  const prevMatches = filterKnockoutMatchesForCategory(matches, prevRound, category)
     .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
 
   if (prevMatches.length === 0) return null;
@@ -226,8 +364,7 @@ export function getRoundParticipants(
   category: CategoryType,
   mode: 'winners' | 'losers',
 ): KnockoutParticipant[] {
-  return matches
-    .filter(m => m.round === round && m.category === category && !m.matchKind)
+  return filterKnockoutMatchesForCategory(matches, round, category)
     .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }))
     .map(m => (mode === 'winners' ? getMatchWinner(m) : getMatchLoser(m)))
     .filter((p): p is KnockoutParticipant => p != null);
@@ -304,9 +441,7 @@ export function previewKnockoutRound(
     return { pairings: [], warnings: ['Invalid round.'], qualifiedCount: 0 };
   }
 
-  const sourceMatches = matches.filter(
-    m => m.round === source && m.category === category && !m.matchKind,
-  );
+  const sourceMatches = filterKnockoutMatchesForCategory(matches, source, category);
   if (sourceMatches.length === 0) {
     warnings.push(`No ${KNOCKOUT_ROUND_LABELS[source]} matches found for this category. Generate ${source} first.`);
     return { pairings: [], warnings, qualifiedCount: 0 };

@@ -45,6 +45,8 @@ import {
   getKnockoutSlotMembers,
   bracketSlotDisplayLabel,
   isKnockoutRound,
+  getKnockoutPropagationUpdates,
+  resolveKnockoutBracketSide,
   type BracketSlotMember,
 } from '@/lib/knockoutBracket';
 import {
@@ -114,6 +116,38 @@ function slotsToEditOptions(slots: BracketSlotMember[]): EditSideOption[] {
 function withCurrentOption(options: EditSideOption[], id: string, name: string): EditSideOption[] {
   if (!id || options.some(o => o.id === id)) return options;
   return [{ id, name, displayLabel: name }, ...options];
+}
+
+async function applyKnockoutPropagation(
+  tournamentId: string,
+  completedMatch: Match,
+  allMatches: Match[],
+) {
+  const updates = getKnockoutPropagationUpdates(completedMatch, allMatches);
+  await Promise.all(
+    updates.map(patch =>
+      updateDoc(tournamentMatchRef(tournamentId, patch.matchId), {
+        ...(patch.player1Id != null && { player1Id: patch.player1Id }),
+        ...(patch.player1Name != null && { player1Name: patch.player1Name }),
+        ...(patch.player2Id != null && { player2Id: patch.player2Id }),
+        ...(patch.player2Name != null && { player2Name: patch.player2Name }),
+        updatedAt: new Date(),
+      }),
+    ),
+  );
+}
+
+function formatAdminMatchSideLabel(
+  match: Match,
+  side: 1 | 2,
+  allMatches: Match[],
+  regById: Map<string, { name?: string; partnerName?: string | null }>,
+): string {
+  const id = side === 1 ? match.player1Id : match.player2Id;
+  const name = side === 1 ? match.player1Name : match.player2Name;
+  const resolved = resolveKnockoutBracketSide(id, name, match, allMatches);
+  if (resolved) return resolved;
+  return formatMatchSideLabel(match, side, regById);
 }
 
 export default function MatchesPage() {
@@ -205,8 +239,8 @@ export default function MatchesPage() {
   const filteredMatches = topLevelMatches.filter(m => {
     if (q) {
       const sideLabels = [
-        formatMatchSideLabel(m, 1, regById),
-        formatMatchSideLabel(m, 2, regById),
+        formatAdminMatchSideLabel(m, 1, topLevelMatches, regById),
+        formatAdminMatchSideLabel(m, 2, topLevelMatches, regById),
       ];
       if (![...sideLabels, m.round].some(s => s.toLowerCase().includes(q))) return false;
     }
@@ -380,6 +414,13 @@ export default function MatchesPage() {
     if (!confirm(`Complete this match?\n${label}`)) return;
 
     try {
+      const completed: Match = {
+        ...match,
+        status: 'completed',
+        ...(winner && { winner }),
+        ...(p1Score !== undefined && { player1Score: p1Score }),
+        ...(p2Score !== undefined && { player2Score: p2Score }),
+      };
       await updateDoc(tournamentMatchRef(tournamentId, match.id), {
         status: 'completed',
         ...(winner && { winner }),
@@ -388,6 +429,7 @@ export default function MatchesPage() {
         actualEndTime: new Date(),
         updatedAt: new Date(),
       });
+      await applyKnockoutPropagation(tournamentId, completed, topLevelMatches);
       invalidateTournament(tournamentId);
     } catch (e) {
       console.error(e);
@@ -704,9 +746,9 @@ export default function MatchesPage() {
                     </div>
                     {/* Players */}
                     <div className="mt-1 text-sm font-medium leading-snug">
-                      <span>{formatMatchSideLabel(match, 1, regById)}</span>
+                      <span>{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</span>
                       <span className="text-gray-400 font-normal mx-1.5">vs</span>
-                      <span>{formatMatchSideLabel(match, 2, regById)}</span>
+                      <span>{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</span>
                     </div>
                     {/* Score + time */}
                     <div className="mt-0.5 flex items-center justify-between gap-2">
@@ -850,8 +892,8 @@ export default function MatchesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 1, regById)}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatMatchSideLabel(match, 2, regById)}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</TableCell>
+                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</TableCell>
                     <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
                     <TableCell className="py-2">
                       <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>

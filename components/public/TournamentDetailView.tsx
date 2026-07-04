@@ -7,7 +7,16 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
-import { previewKnockoutRound, KNOCKOUT_ROUND_LABELS, isKnockoutRound } from '@/lib/knockoutBracket';
+import {
+  previewKnockoutRound,
+  KNOCKOUT_ROUND_LABELS,
+  isKnockoutRound,
+  getMatchWinner,
+  getMatchLoser,
+  extractBracketSrcMatchNo,
+  findBracketSourceMatch,
+  bracketMatchNumbersMatch,
+} from '@/lib/knockoutBracket';
 import {
   isIplPlayoffRound,
   isIplPlayoffSpecificRound,
@@ -1145,6 +1154,7 @@ interface BSlot {
   timeStr?: string;
   isExpected?: boolean;
   status?: string;
+  scoreStr?: string;
 }
 
 function bracketRoundLabel(round: string): string {
@@ -1172,14 +1182,6 @@ function bracketScheduleFields(m: Match): Pick<BSlot, 'dateStr' | 'timeStr'> {
   };
 }
 
-function extractBracketSrcMatchNo(str: string): string | null {
-  const m1 = str.match(/(?:Winner|Loser)\s+of\s+(.+)/i) || str.match(/^[WL]\.\s+(.+)/i);
-  if (m1) return m1[1].trim();
-  const m2 = str.match(/^tbd-(?:winner|loser)-(.+)/i);
-  if (m2) return m2[1];
-  return null;
-}
-
 function shortBracketLabel(name: string): string {
   const wm = name.match(/^Winner\s+of\s+(.+)$/i);
   if (wm) return `W. ${wm[1]}`;
@@ -1198,6 +1200,15 @@ function bracketSideFromIds(
   return { name: display.label, logoUrl: display.avatars[0] };
 }
 
+function bracketParticipantDisplay(
+  participant: { id: string; name: string },
+  regById: Map<string, Registration>,
+  teamsById: Map<string, { logoUrl?: string; name?: string }>,
+): { name: string; logoUrl?: string } {
+  const resolved = bracketSideFromIds(participant.id, participant.name, regById, teamsById);
+  return { name: resolved.name, logoUrl: resolved.logoUrl };
+}
+
 function resolveBracketSide(
   playerId: string,
   playerName: string,
@@ -1207,16 +1218,18 @@ function resolveBracketSide(
 ): { name: string; isTBD: boolean; logoUrl?: string } {
   const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
   if (srcNo) {
-    const srcMatch = sourceMatches.find(m => String(m.matchNumber) === srcNo);
-    if (srcMatch?.status === 'completed' && srcMatch.winner) {
-      const winnerId =
-        srcMatch.winner === srcMatch.player1Name ? srcMatch.player1Id : srcMatch.player2Id;
-      const resolved = bracketSideFromIds(winnerId, srcMatch.winner, regById, teamsById);
-      return {
-        name: resolved.name,
-        isTBD: false,
-        logoUrl: resolved.logoUrl,
-      };
+    const srcMatch = findBracketSourceMatch(sourceMatches, srcNo);
+    if (srcMatch?.status === 'completed') {
+      const isLoser = /loser/i.test(playerId) || /^Loser\s+of/i.test(playerName);
+      const participant = isLoser ? getMatchLoser(srcMatch) : getMatchWinner(srcMatch);
+      if (participant) {
+        const resolved = bracketParticipantDisplay(participant, regById, teamsById);
+        return {
+          name: resolved.name,
+          isTBD: false,
+          logoUrl: resolved.logoUrl,
+        };
+      }
     }
     return {
       name: playerName ? shortBracketLabel(playerName) : `W. ${srcNo}`,
@@ -1237,9 +1250,26 @@ function resolveBracketSide(
   return { name: resolved.name, isTBD: !playerName, logoUrl: resolved.logoUrl };
 }
 
-function sideWonMatch(m: Match, sideName: string, resolvedName: string): boolean {
-  if (m.status !== 'completed' || !m.winner) return false;
-  return m.winner === sideName || m.winner === resolvedName;
+function sideWonMatch(
+  m: Match,
+  sideId: string,
+  sideName: string,
+  resolvedName: string,
+): boolean {
+  if (m.status !== 'completed') return false;
+  const winner = getMatchWinner(m);
+  if (!winner) return false;
+  return (
+    winner.id === sideId
+    || winner.name === sideName
+    || winner.name === resolvedName
+  );
+}
+
+function bracketScoreStr(m: Match): string | undefined {
+  if (m.status !== 'completed') return undefined;
+  if (m.player1Score == null && m.player2Score == null) return undefined;
+  return `${m.player1Score ?? 0} : ${m.player2Score ?? 0}`;
 }
 
 function BracketSlotCard({ slot }: { slot: BSlot }) {
@@ -1276,9 +1306,13 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
     </div>
   );
 
-  const midSchedule = slot.dateStr
+  const scheduleLine = slot.dateStr
     ? `${slot.dateStr}${slot.timeStr ? ` · ${slot.timeStr}` : ''}`
     : null;
+
+  const midContent = slot.status === 'completed'
+    ? { date: scheduleLine, score: slot.scoreStr }
+    : { date: scheduleLine, score: null };
 
   return (
     <div
@@ -1306,13 +1340,26 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
       </div>
       {playerRow(slot.p1Name, slot.p1IsWinner, slot.p1IsTBD, slot.p1Pool, slot.p1LogoUrl)}
       <div
-        className="flex items-center justify-between px-3 bg-slate-800/50 border-y border-white/6 shrink-0"
+        className="flex items-center justify-between gap-1.5 px-3 bg-slate-800/50 border-y border-white/6 shrink-0"
         style={{ height: B_MIDBAR_H }}
       >
-        <span className="text-[9px] text-slate-300 font-medium truncate leading-tight">
-          {midSchedule ?? (slot.isExpected ? 'Schedule TBD' : '—')}
-        </span>
-        {slot.isExpected && (
+        {slot.status === 'completed' ? (
+          <>
+            <span className="text-[9px] text-slate-400 font-medium truncate leading-tight min-w-0">
+              {midContent.date ?? '—'}
+            </span>
+            {midContent.score && (
+              <span className="text-[10px] font-bold text-yellow-300 tabular-nums shrink-0">
+                {midContent.score}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-[9px] text-slate-300 font-medium truncate leading-tight">
+            {midContent.date ?? (slot.isExpected ? 'Schedule TBD' : '—')}
+          </span>
+        )}
+        {slot.isExpected && slot.status !== 'completed' && (
           <span className="text-[8px] font-bold text-amber-400/70 uppercase tracking-wide shrink-0 ml-1">Est.</span>
         )}
         {slot.status === 'live' && (
@@ -1386,15 +1433,20 @@ function IplPlayoffBracketView({
 
   const getWinner = (m: Match | undefined, tbdLabel: string) => {
     if (!m) return { name: tbdLabel, isTBD: true };
-    if (m.status === 'completed' && m.winner) return { name: m.winner, isTBD: false };
+    const winner = getMatchWinner(m);
+    if (winner) {
+      const resolved = bracketParticipantDisplay(winner, regById, teamsById);
+      return { name: resolved.name, isTBD: false, logoUrl: resolved.logoUrl };
+    }
     return { name: tbdLabel, isTBD: true };
   };
 
   const matchToSlot = (m: Match, label: string): BSlot => {
     const p1 = bracketSideFromIds(m.player1Id, m.player1Name, regById, teamsById);
     const p2 = bracketSideFromIds(m.player2Id, m.player2Name, regById, teamsById);
-    const p1won = m.status === 'completed' && m.winner === m.player1Name;
-    const p2won = m.status === 'completed' && m.winner === m.player2Name;
+    const winner = getMatchWinner(m);
+    const p1won = winner != null && (winner.id === m.player1Id || winner.name === m.player1Name || winner.name === p1.name);
+    const p2won = winner != null && (winner.id === m.player2Id || winner.name === m.player2Name || winner.name === p2.name);
     return {
       p1Name: p1.name || 'TBD',
       p2Name: p2.name || 'TBD',
@@ -1407,6 +1459,7 @@ function IplPlayoffBracketView({
       matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       ...bracketScheduleFields(m),
       status: m.status,
+      scoreStr: bracketScoreStr(m),
     };
   };
 
@@ -1544,7 +1597,7 @@ function KnockoutBracketView({
     return undefined;
   };
 
-  const catMatches = allMatches.filter(m => getMatchCategory(m) === category && !m.matchKind);
+  const catMatches = allMatches.filter(m => getMatchCategory(m) === category && !isRubberMatch(m));
   const usesIplPlayoff = catMatches.some(m => isIplPlayoffSpecificRound(m.round));
 
   if (usesIplPlayoff) {
@@ -1574,14 +1627,19 @@ function KnockoutBracketView({
 
   const getWinner = (m: Match | undefined, tbdLabel: string) => {
     if (!m) return { name: tbdLabel, isTBD: true };
-    if (m.status === 'completed' && m.winner) return { name: m.winner, isTBD: false };
+    const winner = getMatchWinner(m);
+    if (winner) {
+      const resolved = bracketParticipantDisplay(winner, regById, teamsById);
+      return { name: resolved.name, isTBD: false, logoUrl: resolved.logoUrl };
+    }
     return { name: tbdLabel, isTBD: true };
   };
 
   const getLoser = (m: Match, idx: number) => {
-    if (m.status === 'completed' && m.winner) {
-      const loser = m.winner === m.player1Name ? m.player2Name : m.player1Name;
-      return { name: loser, isTBD: false };
+    const loser = getMatchLoser(m);
+    if (loser) {
+      const resolved = bracketParticipantDisplay(loser, regById, teamsById);
+      return { name: resolved.name, isTBD: false, logoUrl: resolved.logoUrl };
     }
     return { name: `L. SF${idx + 1}`, isTBD: true };
   };
@@ -1593,8 +1651,8 @@ function KnockoutBracketView({
     return {
       p1Name: p1.name,
       p2Name: p2.name,
-      p1IsWinner: sideWonMatch(m, m.player1Name, p1.name),
-      p2IsWinner: sideWonMatch(m, m.player2Name, p2.name),
+      p1IsWinner: sideWonMatch(m, m.player1Id, m.player1Name, p1.name),
+      p2IsWinner: sideWonMatch(m, m.player2Id, m.player2Name, p2.name),
       p1IsTBD: p1.isTBD,
       p2IsTBD: p2.isTBD,
       p1LogoUrl: p1.logoUrl,
@@ -1604,6 +1662,7 @@ function KnockoutBracketView({
       matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       ...bracketScheduleFields(m),
       status: m.status,
+      scoreStr: bracketScoreStr(m),
     };
   };
 
@@ -1622,7 +1681,7 @@ function KnockoutBracketView({
         if (!ref) continue;
         const src = extractBracketSrcMatchNo(ref);
         if (!src) continue;
-        const idx = qfMatches.findIndex(m => String(m.matchNumber) === src);
+        const idx = qfMatches.findIndex(m => bracketMatchNumbersMatch(src, m));
         if (idx >= 0 && !used.has(idx)) { newOrder.push(idx); used.add(idx); }
       }
     }

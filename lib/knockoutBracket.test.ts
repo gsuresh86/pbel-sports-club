@@ -4,8 +4,11 @@ import {
   buildCrossPoolQFPairings,
   buildQFPairings,
   buildSeededBracketPairings,
+  filterKnockoutMatchesForCategory,
   getQualifyCount,
   previewKnockoutRound,
+  bracketMatchNumbersMatch,
+  getKnockoutPropagationUpdates,
 } from './knockoutBracket';
 import type { Match, Pool } from '@/types';
 
@@ -96,4 +99,112 @@ test('previewKnockoutRound builds SF from completed QF winners', () => {
     [preview.pairings[0].player1.name, preview.pairings[0].player2.name],
     ['Alice', 'Carol'],
   );
+});
+
+test('filterKnockoutMatchesForCategory keeps team-tie parent matches, excludes rubbers', () => {
+  const base = {
+    tournamentId: 't1',
+    round: 'QF' as const,
+    category: 'mens-team' as const,
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  const matches: Match[] = [
+    {
+      ...base,
+      id: 'qf1',
+      matchNumber: 'MT-Q-M1',
+      player1Id: 't1', player1Name: 'Team A',
+      player2Id: 't2', player2Name: 'Team B',
+      matchKind: 'team-tie',
+      status: 'completed',
+      winner: 'Team A',
+      player1Score: 3,
+      player2Score: 2,
+    },
+    {
+      ...base,
+      id: 'rubber1',
+      matchNumber: 1,
+      player1Id: 'p1', player1Name: 'Player 1',
+      player2Id: 'p2', player2Name: 'Player 2',
+      matchKind: 'rubber',
+      parentMatchId: 'qf1',
+      status: 'completed',
+    },
+  ];
+  const filtered = filterKnockoutMatchesForCategory(matches, 'QF', 'mens-team');
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0].id, 'qf1');
+});
+
+test('bracketMatchNumbersMatch links QF1 refs to numeric match numbers', () => {
+  const qf: Match = {
+    id: 'qf1',
+    tournamentId: 't1',
+    round: 'QF',
+    category: 'mens-single',
+    matchNumber: 1,
+    player1Id: 'a',
+    player1Name: 'Alice',
+    player2Id: 'b',
+    player2Name: 'Bob',
+    status: 'scheduled',
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  assert.equal(bracketMatchNumbersMatch('QF1', qf), true);
+  assert.equal(bracketMatchNumbersMatch('1', qf), true);
+  assert.equal(bracketMatchNumbersMatch('QF2', qf), false);
+});
+
+test('getKnockoutPropagationUpdates fills SF slots when QF completes', () => {
+  const qf: Match = {
+    id: 'qf1',
+    tournamentId: 't1',
+    round: 'QF',
+    category: 'mens-single',
+    matchNumber: 'QF1',
+    player1Id: 'a',
+    player1Name: 'Alice',
+    player2Id: 'b',
+    player2Name: 'Bob',
+    player1Score: 2,
+    player2Score: 0,
+    winner: 'Alice',
+    status: 'completed',
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  const sf: Match = {
+    id: 'sf1',
+    tournamentId: 't1',
+    round: 'SF',
+    category: 'mens-single',
+    matchNumber: 'SF1',
+    player1Id: 'tbd-winner-QF1',
+    player1Name: 'Winner of QF1',
+    player2Id: 'tbd-winner-QF2',
+    player2Name: 'Winner of QF2',
+    status: 'scheduled',
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  const updates = getKnockoutPropagationUpdates(qf, [qf, sf]);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].matchId, 'sf1');
+  assert.equal(updates[0].player1Id, 'a');
+  assert.equal(updates[0].player1Name, 'Alice');
 });

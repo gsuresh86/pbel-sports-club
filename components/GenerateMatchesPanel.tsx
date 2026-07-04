@@ -51,6 +51,7 @@ import {
   filterIplRoundMatches,
   iplBracketSlotLabel,
 } from '@/lib/iplPlayoff';
+import { isRubberMatch } from '@/lib/teamMatchRubbers';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 const toISTLocal = (d: Date) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
@@ -214,7 +215,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     if (!prevRound) return null;
 
     const prevMatches = matches
-      .filter(m => m.round === prevRound && m.category === selectedCategory && !m.matchKind)
+      .filter(m => m.round === prevRound && m.category === selectedCategory && !isRubberMatch(m))
       .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
 
     if (prevMatches.length === 0) return null;
@@ -241,7 +242,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     if (!selectedCategory) return null;
 
     if (iplPlayoffRound === 'Qualifier2') {
-      const catMatches = matches.filter(m => m.category === selectedCategory && !m.matchKind);
+      const catMatches = matches.filter(m => m.category === selectedCategory && !isRubberMatch(m));
       const q1 = findIplRoundMatch(catMatches, 'Qualifier1');
       const elim = findIplRoundMatch(catMatches, 'Eliminator');
       if (!q1 || !elim) return null;
@@ -264,7 +265,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     }
 
     if (iplPlayoffRound === 'F') {
-      const catMatches = matches.filter(m => m.category === selectedCategory && !m.matchKind);
+      const catMatches = matches.filter(m => m.category === selectedCategory && !isRubberMatch(m));
       const q1 = findIplRoundMatch(catMatches, 'Qualifier1');
       const q2 = findIplRoundMatch(catMatches, 'Qualifier2');
       if (!q1 || !q2) return null;

@@ -43,6 +43,10 @@ import {
 } from '@/lib/teamMatchRubbers';
 import { formatMatchSideLabel } from '@/lib/utils';
 import {
+  getKnockoutPropagationUpdates,
+  resolveKnockoutBracketSide,
+} from '@/lib/knockoutBracket';
+import {
   ArrowLeft,
   Calendar,
   MapPin,
@@ -146,8 +150,10 @@ export default function MatchDetailPage() {
   }
 
   const isTeamMatch = isTeamTieMatch(match, teamIds);
-  const side1 = formatMatchSideLabel(match, 1, regById);
-  const side2 = formatMatchSideLabel(match, 2, regById);
+  const side1 = resolveKnockoutBracketSide(match.player1Id, match.player1Name, match, allMatches)
+    ?? formatMatchSideLabel(match, 1, regById);
+  const side2 = resolveKnockoutBracketSide(match.player2Id, match.player2Name, match, allMatches)
+    ?? formatMatchSideLabel(match, 2, regById);
   const { team1: rubberWins1, team2: rubberWins2 } = countRubbersWon(rubbers);
 
   const team1Obj = teams.find(t => t.id === match.player1Id);
@@ -162,6 +168,22 @@ export default function MatchDetailPage() {
     ? (p1Sets > p2Sets ? match.player1Name : p2Sets > p1Sets ? match.player2Name : null)
     : null;
   const effectiveWinner = manualWinner ?? autoWinner;
+
+  const applyKnockoutPropagation = async (completedMatch: Match) => {
+    const topLevel = allMatches.filter(m => !isRubberMatch(m));
+    const updates = getKnockoutPropagationUpdates(completedMatch, topLevel);
+    await Promise.all(
+      updates.map(patch =>
+        updateDoc(tournamentMatchRef(tournamentId, patch.matchId), {
+          ...(patch.player1Id != null && { player1Id: patch.player1Id }),
+          ...(patch.player1Name != null && { player1Name: patch.player1Name }),
+          ...(patch.player2Id != null && { player2Id: patch.player2Id }),
+          ...(patch.player2Name != null && { player2Name: patch.player2Name }),
+          updatedAt: new Date(),
+        }),
+      ),
+    );
+  };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const openScoreForm = () => {
@@ -195,6 +217,13 @@ export default function MatchDetailPage() {
       if (builtSets.length > 0) update.sets = builtSets;
       if (!match.actualStartTime) update.actualStartTime = new Date();
       await updateDoc(tournamentMatchRef(tournamentId, matchId), update);
+      await applyKnockoutPropagation({
+        ...match,
+        status: 'completed',
+        winner: effectiveWinner,
+        player1Score: p1,
+        player2Score: p2,
+      });
       invalidate(tournamentId);
       setScoreFormOpen(false);
       alert({ title: 'Saved', description: `Winner: ${effectiveWinner}`, variant: 'success' });
@@ -218,6 +247,12 @@ export default function MatchDetailPage() {
         update.player2Score = rubberWins2;
       }
       await updateDoc(tournamentMatchRef(tournamentId, matchId), update);
+      await applyKnockoutPropagation({
+        ...match,
+        status: 'completed',
+        winner: winnerName,
+        ...(isTeamMatch && { player1Score: rubberWins1, player2Score: rubberWins2 }),
+      });
       invalidate(tournamentId);
       setWinnerPickOpen(false);
       alert({ title: 'Winner set', description: winnerName, variant: 'success' });

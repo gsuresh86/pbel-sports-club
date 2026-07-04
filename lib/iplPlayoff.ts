@@ -9,6 +9,7 @@ import {
   type KnockoutPairing,
   type KnockoutPreview,
 } from '@/lib/knockoutBracket';
+import { isRubberMatch } from '@/lib/teamMatchRubbers';
 
 export const IPL_PLAYOFF_ROUNDS = ['Qualifier1', 'Eliminator', 'Qualifier2', 'F'] as const;
 export type IplPlayoffRound = (typeof IPL_PLAYOFF_ROUNDS)[number];
@@ -110,7 +111,7 @@ export function previewIplPlayoffRound(
   const warnings: string[] = [];
   const isTeamCat = isTeamCategory(category);
   const catMatches = matches.filter(
-    m => m.category === category && !m.matchKind,
+    m => m.category === category && !isRubberMatch(m),
   );
 
   const topFour = getPoolTopFour(pool, matches, {
@@ -212,7 +213,7 @@ export function getIplPlayoffSlotMembers(
   category: CategoryType,
   matches: Match[],
 ): BracketSlotMember[] | null {
-  const catMatches = matches.filter(m => m.category === category && !m.matchKind);
+  const catMatches = matches.filter(m => m.category === category && !isRubberMatch(m));
 
   if (targetRound === 'Qualifier2') {
     const q1 = findIplRoundMatch(catMatches, 'Qualifier1');
