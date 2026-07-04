@@ -1215,6 +1215,7 @@ function resolveBracketSide(
   sourceMatches: Match[],
   teamsById: Map<string, { logoUrl?: string; name?: string }>,
   regById: Map<string, Registration>,
+  _depth = 0,
 ): { name: string; isTBD: boolean; logoUrl?: string } {
   const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
   if (srcNo) {
@@ -1223,6 +1224,15 @@ function resolveBracketSide(
       const isLoser = /loser/i.test(playerId) || /^Loser\s+of/i.test(playerName);
       const participant = isLoser ? getMatchLoser(srcMatch) : getMatchWinner(srcMatch);
       if (participant) {
+        // If the resolved participant is still a placeholder (e.g. Q2 was generated before
+        // Q1 was played, so Q2 stores "Loser of Qualifier1" as the player name), resolve again.
+        const isStillPlaceholder = _depth < 2 && (
+          extractBracketSrcMatchNo(participant.name) != null ||
+          extractBracketSrcMatchNo(participant.id) != null
+        );
+        if (isStillPlaceholder) {
+          return resolveBracketSide(participant.id, participant.name, sourceMatches, teamsById, regById, _depth + 1);
+        }
         const resolved = bracketParticipantDisplay(participant, regById, teamsById);
         return {
           name: resolved.name,
@@ -1456,11 +1466,20 @@ function IplPlayoffBracketView({
     // resolved to the actual winner by looking up the source match in catMatches.
     const p1 = resolveBracketSide(m.player1Id, m.player1Name, catMatches, teamsById, regById);
     const p2 = resolveBracketSide(m.player2Id, m.player2Name, catMatches, teamsById, regById);
+    // Winner check: try sideWonMatch first (works when stored names are real),
+    // then fuzzy-match m.winner against the resolved display name (handles the case
+    // where the match was generated with placeholder names like "Loser of Qualifier1").
+    const winnerFuzzy = (resolvedName: string) => {
+      if (m.status !== 'completed' || !m.winner || !resolvedName) return false;
+      const w = m.winner.trim().toLowerCase();
+      const n = resolvedName.trim().toLowerCase();
+      return w === n || n.includes(w) || w.includes(n);
+    };
     return {
       p1Name: p1.name || 'TBD',
       p2Name: p2.name || 'TBD',
-      p1IsWinner: sideWonMatch(m, m.player1Id, m.player1Name, p1.name),
-      p2IsWinner: sideWonMatch(m, m.player2Id, m.player2Name, p2.name),
+      p1IsWinner: sideWonMatch(m, m.player1Id, m.player1Name, p1.name) || winnerFuzzy(p1.name),
+      p2IsWinner: sideWonMatch(m, m.player2Id, m.player2Name, p2.name) || winnerFuzzy(p2.name),
       p1IsTBD: p1.isTBD,
       p2IsTBD: p2.isTBD,
       p1LogoUrl: p1.logoUrl,
