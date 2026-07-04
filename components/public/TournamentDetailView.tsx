@@ -1165,7 +1165,7 @@ function bracketRoundLabel(round: string): string {
 }
 
 function bracketScheduleFields(m: Match): Pick<BSlot, 'dateStr' | 'timeStr'> {
-  if (!m.scheduledTime) return {};
+  if (m.status === 'not-scheduled' || !m.scheduledTime) return {};
   const when = new Date(m.scheduledTime);
   return {
     dateStr: when.toLocaleDateString('en-IN', {
@@ -1356,7 +1356,7 @@ function BracketSlotCard({ slot }: { slot: BSlot }) {
           </>
         ) : (
           <span className="text-[9px] text-slate-300 font-medium truncate leading-tight">
-            {midContent.date ?? (slot.isExpected ? 'Schedule TBD' : '—')}
+            {midContent.date ?? (slot.status === 'not-scheduled' ? 'TBD' : slot.isExpected ? 'Schedule TBD' : '—')}
           </span>
         )}
         {slot.isExpected && slot.status !== 'completed' && (
