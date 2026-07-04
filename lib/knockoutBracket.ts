@@ -203,14 +203,18 @@ export function extractBracketSrcMatchNo(str: string): string | null {
   return null;
 }
 
-/** Match bracket refs like "QF1" to stored match numbers like "1" or "QF1". */
+/** Match bracket refs like "QF1" or "Qualifier2" to stored match numbers / rounds. */
 export function bracketMatchNumbersMatch(ref: string, match: Match): boolean {
   const normalized = ref.trim();
   const mn = String(match.matchNumber);
   if (mn === normalized) return true;
   const round = match.round;
-  if (round && mn === `${round}${normalized}`) return true;
-  if (round && normalized === `${round}${mn}`) return true;
+  if (round) {
+    // Ref is the round name itself (e.g. "Qualifier2" for an IPL playoff round)
+    if (normalized.toLowerCase() === round.toLowerCase()) return true;
+    if (mn === `${round}${normalized}`) return true;
+    if (normalized === `${round}${mn}`) return true;
+  }
   return false;
 }
 

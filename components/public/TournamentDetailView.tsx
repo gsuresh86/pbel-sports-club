@@ -1442,16 +1442,17 @@ function IplPlayoffBracketView({
   };
 
   const matchToSlot = (m: Match, label: string): BSlot => {
-    const p1 = bracketSideFromIds(m.player1Id, m.player1Name, regById, teamsById);
-    const p2 = bracketSideFromIds(m.player2Id, m.player2Name, regById, teamsById);
-    const winner = getMatchWinner(m);
-    const p1won = winner != null && (winner.id === m.player1Id || winner.name === m.player1Name || winner.name === p1.name);
-    const p2won = winner != null && (winner.id === m.player2Id || winner.name === m.player2Name || winner.name === p2.name);
+    // Use resolveBracketSide so placeholder names like "Winner of Qualifier2" are
+    // resolved to the actual winner by looking up the source match in catMatches.
+    const p1 = resolveBracketSide(m.player1Id, m.player1Name, catMatches, teamsById, regById);
+    const p2 = resolveBracketSide(m.player2Id, m.player2Name, catMatches, teamsById, regById);
     return {
       p1Name: p1.name || 'TBD',
       p2Name: p2.name || 'TBD',
-      p1IsWinner: p1won,
-      p2IsWinner: p2won,
+      p1IsWinner: sideWonMatch(m, m.player1Id, m.player1Name, p1.name),
+      p2IsWinner: sideWonMatch(m, m.player2Id, m.player2Name, p2.name),
+      p1IsTBD: p1.isTBD,
+      p2IsTBD: p2.isTBD,
       p1LogoUrl: p1.logoUrl,
       p2LogoUrl: p2.logoUrl,
       matchLabel: label,
