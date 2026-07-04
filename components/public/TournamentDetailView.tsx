@@ -1441,6 +1441,16 @@ function IplPlayoffBracketView({
     return { name: tbdLabel, isTBD: true };
   };
 
+  const getLoser = (m: Match | undefined, tbdLabel: string) => {
+    if (!m) return { name: tbdLabel, isTBD: true };
+    const loser = getMatchLoser(m);
+    if (loser) {
+      const resolved = bracketParticipantDisplay(loser, regById, teamsById);
+      return { name: resolved.name, isTBD: false, logoUrl: resolved.logoUrl };
+    }
+    return { name: tbdLabel, isTBD: true };
+  };
+
   const matchToSlot = (m: Match, label: string): BSlot => {
     // Use resolveBracketSide so placeholder names like "Winner of Qualifier2" are
     // resolved to the actual winner by looking up the source match in catMatches.
@@ -1476,7 +1486,7 @@ function IplPlayoffBracketView({
     ? q2Matches.map(m => matchToSlot(m, IPL_PLAYOFF_ROUND_LABELS.Qualifier2))
     : (() => {
         if (!q1Matches[0] && !eMatches[0]) return [];
-        const lq1 = getWinner(q1Matches[0], 'L. Qualifier1');
+        const lq1 = getLoser(q1Matches[0], 'L. Qualifier1');
         const we = getWinner(eMatches[0], 'W. Eliminator');
         return [{
           p1Name: lq1.name, p2Name: we.name,
