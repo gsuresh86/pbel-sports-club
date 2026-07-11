@@ -36,6 +36,9 @@ export function getMinSetScore(format: MatchFormat): number {
 }
 
 export function getMaxPointsPerSet(format: MatchFormat): number {
+  // 15pt: deuce at 14-14, win by 2, hard cap (outright win) at 20
+  if (format === 'best-of-3-15pt') return 20;
+  // 21pt / 30pt: deuce at 20-20, win by 2, hard cap (outright win) at 30
   return 30;
 }
 
@@ -44,11 +47,7 @@ export function canIncrementScore(
   opponentScore: number,
   format: MatchFormat
 ): boolean {
-  if (format === 'single-set-30') {
-    return score < 30;
-  }
-  // 21pt: allow beyond 21 during deuce, soft cap at 30
-  return score < 30;
+  return score < getMaxPointsPerSet(format);
 }
 
 export function isSetWon(p1: number, p2: number, format: MatchFormat): boolean {
@@ -56,7 +55,10 @@ export function isSetWon(p1: number, p2: number, format: MatchFormat): boolean {
     return p1 === 30 || p2 === 30;
   }
   const minScore = getMinSetScore(format);
+  const maxScore = getMaxPointsPerSet(format);
   const lead = 2;
+  // Hard cap: first to reach the cap wins outright even without a 2-point lead
+  if (p1 >= maxScore || p2 >= maxScore) return true;
   return (p1 >= minScore || p2 >= minScore) && Math.abs(p1 - p2) >= lead;
 }
 
