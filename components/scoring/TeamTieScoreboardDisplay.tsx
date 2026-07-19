@@ -7,7 +7,7 @@ import { rubberTypeLabel, rubberWinnerSide, rubberScoreLine } from '@/lib/teamMa
 import { publicTournamentPath, scoreboardPath } from '@/lib/tournament-banner';
 import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
 import { TeamLogo } from '@/components/TeamLogo';
-import type { LiveScore, Match, Registration } from '@/types';
+import type { LiveScore, Match, PublicPlayer } from '@/types';
 
 export interface TeamTieScoreboardDisplayProps {
   tournamentName: string;
@@ -21,7 +21,7 @@ export interface TeamTieScoreboardDisplayProps {
   team1Wins: number;
   team2Wins: number;
   rubbers: Match[];
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
   rubberLiveScores: Map<string, LiveScore>;
   court?: string;
   bannerUrl?: string;

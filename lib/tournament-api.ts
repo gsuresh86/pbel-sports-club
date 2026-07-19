@@ -10,7 +10,8 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery, tournamentMatchesRef } from '@/lib/firestore-paths';
-import type { Tournament, Registration, Match, Team, Pool } from '@/types';
+import type { Tournament, Registration, Match, Team, Pool, PublicPlayer } from '@/types';
+import { listPublicPlayers } from '@/lib/public-players';
 
 export function toTournament(data: Record<string, unknown>, id: string): Tournament {
   const toDate = (v: unknown) =>
@@ -84,6 +85,7 @@ export async function fetchTournaments(assignedIds?: string[]): Promise<Tourname
   return all;
 }
 
+/** Admin/staff only — full PII. Prefer fetchTournamentPublicPlayers on public pages. */
 export async function fetchTournamentRegistrations(
   tournamentId: string
 ): Promise<Registration[]> {
@@ -93,6 +95,13 @@ export async function fetchTournamentRegistrations(
   return snap.docs.map((d) =>
     toRegistration({ id: d.id, data: () => d.data() })
   );
+}
+
+/** Public-safe names/photos for fixtures, standings, and scoreboards. */
+export async function fetchTournamentPublicPlayers(
+  tournamentId: string
+): Promise<PublicPlayer[]> {
+  return listPublicPlayers(db, tournamentId);
 }
 
 export async function fetchTournamentMatches(tournamentId: string): Promise<Match[]> {

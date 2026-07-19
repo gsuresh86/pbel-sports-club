@@ -5,12 +5,12 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
-import type { Match, Pool, Registration, Team, Tournament } from '@/types';
+import type { Match, Pool, PublicPlayer, Team, Tournament } from '@/types';
 import {
   fetchTournament,
   fetchTournamentMatches,
   fetchTournamentPools,
-  fetchTournamentRegistrations,
+  fetchTournamentPublicPlayers,
   fetchTournamentTeams,
 } from '@/lib/tournament-api';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
@@ -21,7 +21,7 @@ function TournamentStandingsContent() {
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [participants, setParticipants] = useState<Registration[]>([]);
+  const [participants, setParticipants] = useState<PublicPlayer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +34,7 @@ function TournamentStandingsContent() {
         const [t, m, r, tm, p] = await Promise.all([
           fetchTournament(tournamentId),
           fetchTournamentMatches(tournamentId),
-          fetchTournamentRegistrations(tournamentId),
+          fetchTournamentPublicPlayers(tournamentId),
           fetchTournamentTeams(tournamentId),
           fetchTournamentPools(tournamentId),
         ]);
