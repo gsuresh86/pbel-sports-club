@@ -1,51 +1,83 @@
 import { NextResponse } from 'next/server';
-import { getAdminFirestore, getAdminMessaging } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { getAdminFirestore, getAdminMessaging, isAdminConfigured } from '@/lib/firebase-admin';
 
 /**
- * Notify tournament admin(s) about a new registration.
- * Runs on the server with Admin SDK so it works for public (unauthenticated) registrations.
+ * Notify tournament staff about a new registration and bump participant count once.
+ * Requires a real registrationId under the tournament (idempotent via notifiedAt).
  */
 export async function POST(request: Request) {
   try {
-    let db;
-    let messaging;
-    try {
-      db = getAdminFirestore();
-      messaging = getAdminMessaging();
-    } catch (initError) {
-      const msg = initError instanceof Error ? initError.message : 'Firebase Admin not configured';
-      console.error('Firebase Admin init:', msg);
+    if (!isAdminConfigured()) {
       return NextResponse.json(
-        { error: 'Notifications are not configured on the server. Add Firebase Admin env vars to .env.local.' },
+        {
+          error:
+            'Notifications are not configured on the server. Add Firebase Admin env vars to .env.local.',
+        },
         { status: 503 }
       );
     }
 
-    const body = await request.json() as {
+    const db = getAdminFirestore();
+    const messaging = getAdminMessaging();
+
+    const body = (await request.json()) as {
       tournamentId: string;
       tournamentName: string;
       playerName: string;
+      registrationId: string;
     };
-    const { tournamentId, tournamentName, playerName } = body;
+    const { tournamentId, tournamentName, playerName, registrationId } = body;
 
-    if (!tournamentId || !tournamentName || !playerName) {
+    if (!tournamentId || !tournamentName || !playerName || !registrationId) {
       return NextResponse.json(
-        { error: 'tournamentId, tournamentName, and playerName are required' },
+        {
+          error: 'tournamentId, tournamentName, playerName, and registrationId are required',
+        },
         { status: 400 }
       );
     }
-    const adminUserIds: string[] = [];
 
     const tournamentRef = db.collection('tournaments').doc(tournamentId);
-    const tournamentSnap = await tournamentRef.get();
-    if (!tournamentSnap.exists) {
-      return NextResponse.json({ success: true, notified: 0 }); // no-op
+    const registrationRef = tournamentRef.collection('registrations').doc(registrationId);
+
+    const alreadyNotified = await db.runTransaction(async (tx) => {
+      const [tournamentSnap, registrationSnap] = await Promise.all([
+        tx.get(tournamentRef),
+        tx.get(registrationRef),
+      ]);
+
+      if (!tournamentSnap.exists || !registrationSnap.exists) {
+        return 'missing' as const;
+      }
+
+      const reg = registrationSnap.data();
+      if (reg?.notifiedAt) {
+        return 'duplicate' as const;
+      }
+
+      tx.update(registrationRef, {
+        notifiedAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(tournamentRef, {
+        currentParticipants: FieldValue.increment(1),
+      });
+
+      return 'ok' as const;
+    });
+
+    if (alreadyNotified === 'missing') {
+      return NextResponse.json({ error: 'Registration not found' }, { status: 404 });
     }
 
+    if (alreadyNotified === 'duplicate') {
+      return NextResponse.json({ success: true, notified: 0, deduped: true });
+    }
+
+    const tournamentSnap = await tournamentRef.get();
     const tournamentData = tournamentSnap.data();
-    // Increment participant count server-side (client cannot update tournaments without auth)
-    const currentParticipants = (tournamentData?.currentParticipants ?? 0) + 1;
-    await tournamentRef.update({ currentParticipants });
+    const adminUserIds: string[] = [];
+
     const createdBy = tournamentData?.createdBy as string | undefined;
     if (createdBy) {
       adminUserIds.push(createdBy);
@@ -79,16 +111,16 @@ export async function POST(request: Request) {
     const data = {
       type: 'registration',
       tournamentId,
+      registrationId,
       action: 'view',
     };
 
     if (tokens.length > 0) {
-      const message = {
+      await messaging.sendEachForMulticast({
         notification: { title, body: bodyText },
         data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
         tokens,
-      };
-      await messaging.sendEachForMulticast(message);
+      });
     }
 
     for (const userId of adminUserIds) {
@@ -97,9 +129,9 @@ export async function POST(request: Request) {
         title,
         body: bodyText,
         type: 'registration',
-        data: { tournamentId },
+        data: { tournamentId, registrationId },
         read: false,
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     }
 
@@ -110,9 +142,6 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     console.error('Error in notify-registration:', error);
     const message = error instanceof Error ? error.message : 'Failed to send notification';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

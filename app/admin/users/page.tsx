@@ -290,11 +290,10 @@ export default function UserManagementPage() {
         console.log('Creating user via API...');
         
         // Create user via API route to avoid authentication state conflicts
+        const { getAuthHeaders } = await import('@/lib/client-auth-headers');
         const response = await fetch('/api/create-user', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,

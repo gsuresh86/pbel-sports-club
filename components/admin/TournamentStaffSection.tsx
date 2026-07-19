@@ -174,9 +174,10 @@ export function TournamentStaffSection({
     setSubmitting(true);
     try {
       const staffPayload = createStaffUserPayload(tournamentId, selectedRoleSlugs, registry);
+      const { getAuthHeaders } = await import('@/lib/client-auth-headers');
       const response = await fetch('/api/create-user', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({
           email,
           password: form.password,

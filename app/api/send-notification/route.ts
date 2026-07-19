@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminMessaging } from '@/lib/firebase-admin';
+import { canManageUsers, getCallerUser } from '@/lib/api-auth';
+import { getAdminMessaging, isAdminConfigured } from '@/lib/firebase-admin';
 
 interface NotificationPayload {
   title: string;
@@ -8,24 +9,43 @@ interface NotificationPayload {
 }
 
 /**
- * Send notification to specific user tokens
+ * Send notification to specific user tokens (staff/admin only).
  */
 export async function POST(request: Request) {
   try {
-    const { tokens, notification, data } = await request.json() as {
+    if (!isAdminConfigured()) {
+      return NextResponse.json(
+        { error: 'Server admin is not configured' },
+        { status: 503 }
+      );
+    }
+
+    const caller = await getCallerUser(request);
+    if (!caller) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const isStaff =
+      canManageUsers(caller) ||
+      caller.role === 'staff' ||
+      caller.role === 'referee' ||
+      (caller.assignedTournaments?.length ?? 0) > 0;
+
+    if (!isStaff) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { tokens, notification, data } = (await request.json()) as {
       tokens: string[];
       notification: NotificationPayload;
       data?: Record<string, string>;
     };
 
     if (!tokens || tokens.length === 0) {
-      return NextResponse.json(
-        { error: 'No tokens provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No tokens provided' }, { status: 400 });
     }
 
-    if (!notification.title || !notification.body) {
+    if (!notification?.title || !notification?.body) {
       return NextResponse.json(
         { error: 'Notification title and body are required' },
         { status: 400 }
@@ -41,15 +61,13 @@ export async function POST(request: Request) {
         ...data,
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
-      tokens: tokens,
+      tokens,
     };
 
     const messaging = getAdminMessaging();
     const response = await messaging.sendEachForMulticast(message);
-    
-    console.log(`Successfully sent ${response.successCount} notifications`);
+
     if (response.failureCount > 0) {
-      console.error(`Failed to send ${response.failureCount} notifications`);
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
           console.error(`Failed token ${tokens[idx]}:`, resp.error);
@@ -62,12 +80,9 @@ export async function POST(request: Request) {
       successCount: response.successCount,
       failureCount: response.failureCount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending notification:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to send notification' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to send notification';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

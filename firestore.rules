@@ -97,6 +97,12 @@ service cloud.firestore {
       return resource.data.role in ['referee', 'tournament-admin', 'staff'];
     }
 
+    // Privileged fields users must never change on their own document
+    function userPrivilegeKeysChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'tournamentPermissions', 'tournamentRoles', 'assignedTournaments', 'isActive', 'createdBy']);
+    }
+
     // User documents - allow authenticated users to read their own document
     match /users/{userId} {
       // List queries must constrain role to staff directory roles.
@@ -105,9 +111,13 @@ service cloud.firestore {
         isAdmin() ||
         (canAccessStaffDirectory() && isStaffDirectoryRole())
       );
-      allow create: if request.auth != null;
+      // Public signup may only create own doc as role "public"
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.role == 'public';
       allow update: if request.auth != null && (
-        request.auth.uid == userId ||
+        // Self-update: profile fields only — never privileges
+        (request.auth.uid == userId && !userPrivilegeKeysChanged()) ||
         isAdmin() ||
         (canAccessStaffDirectory() &&
           resource.data.role in ['referee', 'staff', 'tournament-admin'] &&

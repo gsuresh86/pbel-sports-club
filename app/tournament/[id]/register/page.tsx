@@ -469,7 +469,12 @@ export default function TournamentRegistrationPage() {
         const res = await fetch('/api/notify-registration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tournamentId, tournamentName: tournament?.name || 'Tournament', playerName: formData.name }),
+          body: JSON.stringify({
+            tournamentId,
+            tournamentName: tournament?.name || 'Tournament',
+            playerName: formData.name,
+            registrationId: registrationRef.id,
+          }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
