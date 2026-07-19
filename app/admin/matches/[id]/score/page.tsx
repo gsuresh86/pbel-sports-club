@@ -443,7 +443,7 @@ export default function LiveScoringPage() {
       const hint =
         matchFormat === 'single-set-30'
           ? '30pt game: first player to reach 30 wins.'
-          : `Score must reach at least ${MIN_SET_SCORE} with a 2-point lead (e.g. 21-19).`;
+          : `Score must reach at least ${MIN_SET_SCORE} with a 2-point lead (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}).`;
       alert(hint);
       return;
     }

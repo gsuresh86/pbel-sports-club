@@ -30,7 +30,11 @@ import {
   Activity,
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
-import { canReviewTestimonials, canSubmitTestimonials } from '@/lib/permissions';
+import {
+  canAccessTournamentConsole,
+  canReviewTestimonials,
+  canSubmitTestimonials,
+} from '@/lib/permissions';
 import type { User, UserRole } from '@/types';
 
 interface AdminLayoutProps {
@@ -66,7 +70,7 @@ const adminMenuItems: AdminMenuItem[] = [
     href: '/admin/tournaments',
     icon: Trophy,
     description: 'Create and manage tournaments',
-    roles: ['admin', 'super-admin', 'tournament-admin'],
+    visible: (u) => canAccessTournamentConsole(u ?? null),
   },
   {
     title: 'User Management',

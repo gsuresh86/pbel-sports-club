@@ -47,7 +47,7 @@ export default function ManageMatchesPage() {
     referee: '',
     status: 'scheduled' as 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed',
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
   });
 
   useEffect(() => {
@@ -533,11 +533,12 @@ export default function ManageMatchesPage() {
                   </div>
                   <div>
                     <Label htmlFor="matchFormat">Match format</Label>
-                    <Select value={formData.matchFormat} onValueChange={(value: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setFormData({ ...formData, matchFormat: value })}>
+                    <Select value={formData.matchFormat} onValueChange={(value: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setFormData({ ...formData, matchFormat: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
                         <SelectItem value="single-set">Single set (21pt)</SelectItem>
                         <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
                         <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>

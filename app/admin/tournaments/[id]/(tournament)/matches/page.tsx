@@ -461,7 +461,7 @@ export default function MatchesPage() {
     referee: '',
     status: 'scheduled' as Match['status'],
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
   });
   const [savingMatch, setSavingMatch] = useState(false);
   const [genDrawerOpen, setGenDrawerOpen] = useState(false);
@@ -1130,9 +1130,10 @@ export default function MatchesPage() {
               </div>
               <div className="space-y-1">
                 <Label>Match Format</Label>
-                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
+                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
                     <SelectItem value="single-set">Single set (21pt)</SelectItem>
                     <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
                     <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>

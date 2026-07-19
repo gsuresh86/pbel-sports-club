@@ -3,7 +3,7 @@ import { formatMatchSideLabel, type MatchSideNameContext } from '@/lib/utils';
 
 type WinnerRegMap = Map<string, { name?: string; partnerName?: string | null }>;
 
-export type MatchFormat = 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
+export type MatchFormat = 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
 
 export function isBestOfThree(format: MatchFormat): boolean {
   return format === 'best-of-3' || format === 'best-of-3-15pt';
@@ -15,6 +15,7 @@ export function resolveMatchFormat(
 ): MatchFormat {
   const fmt = match.matchFormat ?? tournament?.matchFormat;
   if (
+    fmt === 'single-set-11' ||
     fmt === 'single-set' ||
     fmt === 'best-of-3' ||
     fmt === 'best-of-3-15pt' ||
@@ -26,16 +27,19 @@ export function resolveMatchFormat(
 }
 
 export function getSetsToWin(format: MatchFormat): number {
-  return format === 'single-set' || format === 'single-set-30' ? 1 : 2;
+  return format === 'single-set-11' || format === 'single-set' || format === 'single-set-30' ? 1 : 2;
 }
 
 export function getMinSetScore(format: MatchFormat): number {
+  if (format === 'single-set-11') return 11;
   if (format === 'single-set-30') return 30;
   if (format === 'best-of-3-15pt') return 15;
   return 21;
 }
 
 export function getMaxPointsPerSet(format: MatchFormat): number {
+  // 11pt: deuce at 10-10, win by 2, hard cap (outright win) at 15
+  if (format === 'single-set-11') return 15;
   // 15pt: deuce at 14-14, win by 2, hard cap (outright win) at 20
   if (format === 'best-of-3-15pt') return 20;
   // 21pt / 30pt: deuce at 20-20, win by 2, hard cap (outright win) at 30
@@ -77,6 +81,7 @@ export function getSetWinnerName(
 }
 
 export function getFormatLabel(format: MatchFormat): string {
+  if (format === 'single-set-11') return 'Single set (11pt)';
   if (format === 'single-set-30') return '30pt Single set';
   if (format === 'single-set') return 'Single set (21pt)';
   if (format === 'best-of-3-15pt') return 'Best of 3 (15pt)';

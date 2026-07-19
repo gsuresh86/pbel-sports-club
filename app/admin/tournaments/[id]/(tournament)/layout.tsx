@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
 import { useTournament, useTournaments } from '@/hooks/use-tournament-queries';
@@ -10,11 +11,13 @@ import { usePermissions } from '@/hooks/use-permissions';
 import {
   canAccessTournamentConsole,
   canSubmitTestimonials,
+  isFullTournamentAdmin,
   isSystemAdmin,
   isTournamentStaff,
   NAV_ROUTE_ITEMS,
   TournamentRoute,
 } from '@/lib/permissions';
+import { queryKeys } from '@/lib/query-keys';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,7 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
-import { cn } from '@/lib/utils';
+import { TournamentFormDrawer } from '@/components/admin/TournamentFormDrawer';
+import { cn, generateRegistrationLink } from '@/lib/utils';
 import {
   Trophy,
   Menu,
@@ -46,6 +50,8 @@ import {
   User,
   UserCog,
   Settings,
+  Pencil,
+  ExternalLink,
   AlertCircle,
   MessageSquareQuote,
   LucideIcon,
@@ -81,9 +87,12 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const tournamentId = params.id as string;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+
 
   const { allowedNavItems, canAccessRoute } = usePermissions(tournamentId);
 
@@ -99,6 +108,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   const isScopedStaff =
     isTournamentStaff(user?.role) && !isSystemAdmin(user?.role) && user?.role !== 'tournament-admin';
   const showAllTournamentsLink = !isScopedStaff || user?.role === 'tournament-admin';
+  const canEditTournament = isFullTournamentAdmin(user, tournamentId);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -231,15 +241,15 @@ export default function TournamentSidebarLayout({ children }: { children: React.
           </Button>
         </div>
 
-        {/* Back link */}
+        {/* Tournament management links */}
         {showAllTournamentsLink && (
-          <div className="px-3 pt-3">
+          <div className="px-3 pt-3 space-y-1">
             <Link
               href="/admin/tournaments"
               className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              All Tournaments
+              Tournaments List
             </Link>
           </div>
         )}
@@ -369,6 +379,22 @@ export default function TournamentSidebarLayout({ children }: { children: React.
 
             {/* Right: notifications + profile */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={generateRegistrationLink(tournamentId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Registration Link</span>
+                </a>
+              </Button>
+              {canEditTournament && (
+                <Button variant="outline" size="sm" onClick={() => setEditDrawerOpen(true)}>
+                  <Pencil className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Edit Tournament</span>
+                </Button>
+              )}
               {user?.id && <NotificationDropdown userId={user.id} />}
               {mounted && (
                 <DropdownMenu>
@@ -420,6 +446,18 @@ export default function TournamentSidebarLayout({ children }: { children: React.
           {children}
         </main>
       </div>
+
+      {canEditTournament && (
+        <TournamentFormDrawer
+          open={editDrawerOpen}
+          onOpenChange={setEditDrawerOpen}
+          tournament={tournament}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.detail(tournamentId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.tournaments.list() });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -56,40 +56,74 @@ service cloud.firestore {
         || (isReferee() && isAssignedToTournament(tournamentId))
         || (isAssignedToTournament(tournamentId) && hasTournamentPermission(tournamentId, 'tournament.matches.write'));
     }
-    
+
+    // Matches UI gate isFullTournamentAdmin() — keep Firestore in sync:
+    // system/tournament admins, or assigned staff with overview / tournament-admin role slug.
+    function hasTournamentAdminRoleSlug(tournamentId) {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return 'tournamentRoles' in userData
+        && userData.tournamentRoles is map
+        && tournamentId in userData.tournamentRoles
+        && userData.tournamentRoles[tournamentId] is list
+        && userData.tournamentRoles[tournamentId].hasAny(['tournament-admin']);
+    }
+
+    function canManageTournamentDocument(tournamentId) {
+      return isTournamentAdmin()
+        || (isAssignedToTournament(tournamentId)
+            && hasTournamentPermission(tournamentId, 'tournament.overview'))
+        || (isAssignedToTournament(tournamentId)
+            && hasTournamentAdminRoleSlug(tournamentId));
+    }
+
+    // Staff accounts created via the permission system use role == 'staff'
+    // (with tournamentRoles/tournamentPermissions). They still need the staff
+    // directory for tournament user management.
+    function isAssignedStaff() {
+      let userData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userData.role == 'staff'
+        && 'assignedTournaments' in userData
+        && userData.assignedTournaments is list
+        && userData.assignedTournaments.size() > 0;
+    }
+
+    function canAccessStaffDirectory() {
+      return isAdmin() || isTournamentAdmin() || isAssignedStaff();
+    }
+
+    function isStaffDirectoryRole() {
+      return resource.data.role in ['referee', 'tournament-admin', 'staff'];
+    }
 
     // User documents - allow authenticated users to read their own document
     match /users/{userId} {
-      // Tournament-admins may read referee and tournament-admin accounts they manage
-      // (list queries must be constrained to role == 'referee' or role == 'tournament-admin')
+      // List queries must constrain role to staff directory roles.
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
         isAdmin() ||
-        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin', 'staff'])
+        (canAccessStaffDirectory() && isStaffDirectoryRole())
       );
       allow create: if request.auth != null;
       allow update: if request.auth != null && (
         request.auth.uid == userId ||
         isAdmin() ||
-        (isTournamentAdmin() &&
-          resource.data.role in ['referee', 'staff'] &&
-          request.resource.data.role in ['referee', 'staff']) ||
-        (isTournamentAdmin() &&
-          resource.data.role == 'tournament-admin' &&
-          request.resource.data.role == 'tournament-admin')
+        (canAccessStaffDirectory() &&
+          resource.data.role in ['referee', 'staff', 'tournament-admin'] &&
+          request.resource.data.role in ['referee', 'staff', 'tournament-admin'])
       );
       allow delete: if request.auth != null && (
         isAdmin() ||
-        (isTournamentAdmin() && resource.data.role in ['referee', 'tournament-admin', 'staff'])
+        (canAccessStaffDirectory() && isStaffDirectoryRole())
       );
     }
 
     // Tournaments - public read, role-based write
     match /tournaments/{tournamentId} {
       allow read: if true; // Public read for tournament listings
-      allow write: if request.auth != null && isTournamentAdmin();
       allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && isTournamentAdmin();
+      allow update: if request.auth != null && canManageTournamentDocument(tournamentId);
       allow delete: if request.auth != null && isAdmin();
     }
 
@@ -196,59 +230,21 @@ service cloud.firestore {
     // Tournament Teams Subcollection - admin/tournament-admin write
     match /tournaments/{tournamentId}/teams/{teamId} {
       allow read: if true; // Public read for tournament teams
-      allow write: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow create: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow update: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow delete: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
+      allow create, update, delete: if request.auth != null && canManageTournamentDocument(tournamentId);
     }
 
     // Tournament Pools Subcollection - admin/tournament-admin write
     match /tournaments/{tournamentId}/pools/{poolId} {
       allow read: if true; // Public read for tournament pools
-      allow write: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow create: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow update: if request.auth != null && (
-        request.auth.uid != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
-      allow delete: if request.auth != null && (
-        request.auth.uid != null &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'tournament-admin']
-      );
+      allow create, update, delete: if request.auth != null && canManageTournamentDocument(tournamentId);
     }
 
     // Tournament finances - sensitive: admin/tournament-admin only, NOT public
     match /tournaments/{tournamentId}/finances/{financeId} {
-      allow read: if request.auth != null && isTournamentAdmin();
-      allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && isTournamentAdmin();
-      allow delete: if request.auth != null && isTournamentAdmin();
+      allow read: if request.auth != null && canManageTournamentDocument(tournamentId);
+      allow create: if request.auth != null && canManageTournamentDocument(tournamentId);
+      allow update: if request.auth != null && canManageTournamentDocument(tournamentId);
+      allow delete: if request.auth != null && canManageTournamentDocument(tournamentId);
     }
 
     // Tournament Leads - public create for lead capture, admin read/write
@@ -268,24 +264,22 @@ service cloud.firestore {
       allow delete: if request.auth != null && isAdmin();
     }
 
-    // Tournament roles - admins and tournament-admins manage custom roles
+    // Tournament roles - admins and assigned tournament staff manage custom roles
     match /roles/{roleId} {
-      allow read: if request.auth != null && (
-        isAdmin() || isTournamentAdmin()
-      );
+      allow read: if request.auth != null && canAccessStaffDirectory();
       allow create: if request.auth != null && (
         isAdmin() ||
-        (isTournamentAdmin() && request.resource.data.isSystem == false)
+        (canAccessStaffDirectory() && request.resource.data.isSystem == false)
       );
       allow update: if request.auth != null && (
         isAdmin() ||
-        (isTournamentAdmin() &&
+        (canAccessStaffDirectory() &&
           resource.data.isSystem == false &&
           request.resource.data.isSystem == false)
       );
       allow delete: if request.auth != null && (
         isAdmin() ||
-        (isTournamentAdmin() && resource.data.isSystem == false)
+        (canAccessStaffDirectory() && resource.data.isSystem == false)
       );
     }
 

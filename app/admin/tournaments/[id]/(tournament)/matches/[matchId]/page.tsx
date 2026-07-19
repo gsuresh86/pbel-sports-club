@@ -139,7 +139,7 @@ export default function MatchDetailPage() {
   // Edit match details form
   const [editForm, setEditForm] = useState({
     scheduledTime: '', venue: '', court: '', referee: '', notes: '',
-    matchFormat: 'best-of-3' as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30',
     status: 'scheduled' as Match['status'],
   });
 
@@ -296,7 +296,7 @@ export default function MatchDetailPage() {
       court: match.court ?? '',
       referee: match.referee ?? '',
       notes: match.notes ?? '',
-      matchFormat: (match.matchFormat as 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') ?? 'best-of-3',
+      matchFormat: (match.matchFormat as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') ?? 'best-of-3',
       status: match.status,
     });
     setEditOpen(true);
@@ -675,9 +675,10 @@ export default function MatchDetailPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Match Format</Label>
-                    <Select value={editForm.matchFormat} onValueChange={(v: 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditForm(f => ({ ...f, matchFormat: v }))}>
+                    <Select value={editForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30') => setEditForm(f => ({ ...f, matchFormat: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
                         <SelectItem value="single-set">Single set (21pt)</SelectItem>
                         <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
                         <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>

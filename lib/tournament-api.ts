@@ -8,7 +8,7 @@ import {
   orderBy,
   updateDoc,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery, tournamentMatchesRef } from '@/lib/firestore-paths';
 import type { Tournament, Registration, Match, Team, Pool } from '@/types';
 
@@ -189,7 +189,34 @@ export async function updateTournament(
   tournamentId: string,
   data: TournamentUpdatePayload
 ): Promise<void> {
-  await updateDoc(doc(db, 'tournaments', tournamentId), data as Record<string, unknown>);
+  const payload = data as Record<string, unknown>;
+  const user = auth.currentUser;
+
+  // Prefer admin API so staff tournament-admins (role: staff + tournamentRoles)
+  // can update even when client Firestore rules only recognize legacy roles.
+  if (user) {
+    const token = await user.getIdToken();
+    const res = await fetch(`/api/tournaments/${tournamentId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) return;
+
+    // Fall through to client write when admin SDK is not configured.
+    if (res.status !== 503) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        typeof err?.error === 'string' ? err.error : 'Failed to update tournament'
+      );
+    }
+  }
+
+  await updateDoc(doc(db, 'tournaments', tournamentId), payload);
 }
 
 export { cloneTournament, deleteTournament } from '@/lib/tournament-operations';
