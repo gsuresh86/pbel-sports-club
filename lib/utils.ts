@@ -427,10 +427,14 @@ export async function createPlayersFromRegistration(
   registrationId: string,
   db: Firestore
 ): Promise<string[]> {
-  console.log('createPlayersFromRegistration called with:', { tournamentId, registrationId, registration });
   const playerIds: string[] = [];
-  
-  // Create primary player - filter out undefined values
+  const { setDoc, doc } = await import('firebase/firestore');
+
+  const primaryId = `${registrationId}-primary`;
+  const hasPartner =
+    typeof registration.partnerName === 'string' && registration.partnerName.trim() !== '';
+  const partnerId = hasPartner ? `${registrationId}-partner` : undefined;
+
   const primaryPlayerData = cleanFirebaseData({
     tournamentId,
     registrationId,
@@ -455,20 +459,16 @@ export async function createPlayersFromRegistration(
     paymentMethod: registration.paymentMethod,
     paymentVerifiedAt: registration.paymentVerifiedAt,
     paymentVerifiedBy: registration.paymentVerifiedBy,
+    ...(partnerId
+      ? { partnerId, partnerName: registration.partnerName }
+      : {}),
     createdAt: new Date(),
   });
 
-  console.log('Creating primary player with data:', primaryPlayerData);
+  await setDoc(doc(db, 'tournaments', tournamentId, 'players', primaryId), primaryPlayerData);
+  playerIds.push(primaryId);
 
-  // Use client-side Firebase SDK
-  const { addDoc, collection, updateDoc, doc } = await import('firebase/firestore');
-  const primaryPlayerRef = await addDoc(collection(db, 'tournaments', tournamentId, 'players'), primaryPlayerData);
-  console.log('Primary player created with ID:', primaryPlayerRef.id);
-  playerIds.push(primaryPlayerRef.id);
-
-  // Create partner player if it's a doubles registration
-  if (registration.partnerName && typeof registration.partnerName === 'string' && registration.partnerName.trim() !== '') {
-    console.log('Creating partner player for doubles registration');
+  if (hasPartner && partnerId) {
     const partnerPlayerData = cleanFirebaseData({
       tournamentId,
       registrationId,
@@ -477,7 +477,7 @@ export async function createPlayersFromRegistration(
       phone: registration.partnerPhone,
       dateOfBirth: registration.partnerDateOfBirth,
       age: registration.partnerAge ?? registration.age,
-      gender: registration.gender, // Assuming same gender for partner, could be updated
+      gender: registration.gender,
       tower: registration.partnerTower,
       flatNumber: registration.partnerFlatNumber,
       emergencyContact: registration.emergencyContact,
@@ -487,7 +487,7 @@ export async function createPlayersFromRegistration(
       selectedCategory: registration.selectedCategory,
       profilePhotoUrl: registration.partnerProfilePhotoUrl,
       status: 'active' as const,
-      partnerId: primaryPlayerRef.id,
+      partnerId: primaryId,
       partnerName: registration.name,
       paymentStatus: registration.paymentStatus,
       paymentReference: registration.paymentReference,
@@ -498,20 +498,10 @@ export async function createPlayersFromRegistration(
       createdAt: new Date(),
     });
 
-    console.log('Creating partner player with data:', partnerPlayerData);
-    const partnerPlayerRef = await addDoc(collection(db, 'tournaments', tournamentId, 'players'), partnerPlayerData);
-    console.log('Partner player created with ID:', partnerPlayerRef.id);
-    playerIds.push(partnerPlayerRef.id);
-
-    // Update primary player with partner reference
-    console.log('Updating primary player with partner reference');
-    await updateDoc(doc(db, 'tournaments', tournamentId, 'players', primaryPlayerRef.id), {
-      partnerId: partnerPlayerRef.id,
-      partnerName: registration.partnerName,
-    });
+    await setDoc(doc(db, 'tournaments', tournamentId, 'players', partnerId), partnerPlayerData);
+    playerIds.push(partnerId);
   }
 
-  console.log('Player creation completed. Player IDs:', playerIds);
   return playerIds;
 }
 

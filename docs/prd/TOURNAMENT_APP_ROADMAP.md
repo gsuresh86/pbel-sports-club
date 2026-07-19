@@ -76,9 +76,9 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 | P1.1 | Lock down user self-update: forbid changing `role`, `tournamentPermissions`, `tournamentRoles`, `assignedTournaments`, `isActive` on own doc | Critical | S | `[x]` |
 | P1.2 | Require Firebase ID token + admin role on privileged APIs (`create-user`, `create-admin`, `send-notification`, password/disable flows) | Critical | M | `[x]` |
 | P1.3 | Secure `notify-registration`: auth or signed secret + transactional participant count | Critical | M | `[~]` |
-| P1.4 | Make registration/player **PII private**; introduce public projection docs (`publicPlayers` / display fields) for names/photos used on fixtures | Critical | L | `[ ]` |
-| P1.5 | Scope tournament-admin writes by **assignment** (not global role alone) for teams/pools/finance/brackets where still loose | Critical | M | `[ ]` |
-| P1.6 | Storage rules: auth + ownership / staff role (no UI-only trust) | Critical | M | `[ ]` |
+| P1.4 | Make registration/player **PII private**; introduce public projection docs (`publicPlayers` / display fields) for names/photos used on fixtures | Critical | L | `[x]` |
+| P1.5 | Scope tournament-admin writes by **assignment** (not global role alone) for teams/pools/finance/brackets where still loose | Critical | M | `[~]` |
+| P1.6 | Storage rules: auth + ownership / staff role (no UI-only trust) | Critical | M | `[~]` |
 | P1.7 | Server-side registration API: validate deadline, category, capacity, duplicates; return receipt code | High | L | `[ ]` |
 | P1.8 | Auth lifecycle: disable/delete Firebase Auth when admin deactivates/deletes user; implement password reset via Admin SDK | High | M | `[ ]` |
 | P1.9 | Firestore + Storage **emulator rule tests** for P1 rules | High | M | `[ ]` |
@@ -86,12 +86,12 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 
 **Acceptance criteria**
 
-- [ ] Anonymous client cannot read email/phone/address/payment fields from registrations.
-- [ ] Signed-in public user cannot elevate own role via Firestore update.
-- [ ] Unauthenticated callers cannot create users or send FCM/notifications.
+- [x] Anonymous client cannot read email/phone/address/payment fields from registrations.
+- [x] Signed-in public user cannot elevate own role via Firestore update.
+- [x] Unauthenticated callers cannot create users or send FCM/notifications.
 - [ ] Registration create goes through a validated API (or equivalent Cloud Function) with capacity + duplicate checks.
 - [ ] Rule tests pass in CI or documented emulator script.
-- [ ] Public fixtures/teams still show **safe** display names/photos after lockdown.
+- [x] Public fixtures/teams still show **safe** display names/photos after lockdown.
 
 **Dependencies / risks**
 
@@ -255,8 +255,8 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 
 ### Suggested PR sequence inside Phase 1
 
-1. **PR-A** — API auth + user self-update rule lock (P1.1, P1.2, P1.3 partial) — **in progress on this branch**
-2. **PR-B** — Public projections + registration/player rule lockdown + UI switch (P1.4, P1.5, P1.6)
+1. **PR-A** — API auth + user self-update rule lock (P1.1, P1.2, P1.3 partial) — **done**
+2. **PR-B** — Public projections + registration/player rule lockdown + UI switch (P1.4, P1.5, P1.6) — **in progress on this branch**
 3. **PR-C** — Server registration + receipt codes + capacity (P1.7, P1.10)
 4. **PR-D** — Emulator rule tests + CI hook (P1.9)
 
@@ -268,6 +268,10 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 | 2026-07-19 | P1.1: Firestore `users` create/update privilege lockdown; signup always `public` |
 | 2026-07-19 | P1.2: `/api/create-user` uses Admin SDK + caller auth; `/api/create-admin` disabled; `/api/send-notification` requires staff |
 | 2026-07-19 | P1.3 (partial): `/api/notify-registration` requires `registrationId`, idempotent `notifiedAt`, transactional `currentParticipants` increment |
+| 2026-07-19 | P1.4: Added `publicPlayers` projections; public UI reads projections only; registration/player PII reads locked to staff |
+| 2026-07-19 | P1.5 (partial): winners/brackets writes scoped via `canManageTournamentDocument` |
+| 2026-07-19 | P1.6 (partial): Storage size/type limits; banners/logos require auth; participant photo anonymous create kept for registration UX |
+| 2026-07-19 | Staff tournament console auto-syncs publicPlayers once per session; `/api/tournaments/[id]/sync-public-players` |
 
 ---
 

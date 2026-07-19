@@ -125,6 +125,33 @@ export default function TournamentSidebarLayout({ children }: { children: React.
 
   const loading = authLoading || (queriesEnabled && tournamentLoading);
 
+  // Backfill public display projections once per tournament session (staff only)
+  useEffect(() => {
+    if (!queriesEnabled || !tournamentId || !user) return;
+    const key = `publicPlayersSynced:${tournamentId}`;
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { getAuthHeaders } = await import('@/lib/client-auth-headers');
+        const res = await fetch(`/api/tournaments/${tournamentId}/sync-public-players`, {
+          method: 'POST',
+          headers: await getAuthHeaders(),
+        });
+        if (!cancelled && res.ok && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(key, '1');
+        }
+      } catch (err) {
+        console.error('Failed to sync public players:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queriesEnabled, tournamentId, user]);
+
   useEffect(() => {
     if (!authLoading && (!user || !canAccessTournamentConsole(user, tournamentId))) {
       router.push('/login');

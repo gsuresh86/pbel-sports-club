@@ -1,6 +1,6 @@
 'use client';
 
-import type { CategoryType, Match, Pool, Registration, Team } from '@/types';
+import type { CategoryType, Match, Pool, PublicPlayer, Team } from '@/types';
 import { TeamLogo } from '@/components/TeamLogo';
 import { getQualifyCount } from '@/lib/knockoutBracket';
 import {
@@ -14,7 +14,7 @@ interface Props {
   matches: Match[];
   isTeamCat: boolean;
   teams: Team[];
-  participants: Registration[];
+  participants: PublicPlayer[];
   isDoubles?: boolean;
   categoryQualifyCounts?: Partial<Record<CategoryType, number>>;
 }

@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { tournamentMatchesRef } from '@/lib/firestore-paths';
-import { Tournament, Registration, Team, Pool, Match } from '@/types';
+import { Tournament, PublicPlayer, Team, Pool, Match } from '@/types';
+import { listPublicPlayers } from '@/lib/public-players';
 import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import { TeamLogo } from '@/components/TeamLogo';
 import Link from 'next/link';
@@ -71,7 +72,7 @@ function Avatar({ name, photoUrl, size = 'lg' }: { name: string; photoUrl?: stri
 }
 
 // ── Single player card (IPL portrait) ─────────────────────────────────────
-function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: boolean }) {
+function PlayerCard({ player, isCaptain }: { player: PublicPlayer; isCaptain?: boolean }) {
   const initials = player.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   const grad = CARD_GRADIENTS[player.name.charCodeAt(0) % CARD_GRADIENTS.length];
 
@@ -93,11 +94,6 @@ function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: b
             <Star className="h-2 w-2 fill-black" /> C
           </div>
         )}
-        {(player.tower || player.flatNumber) && (
-          <p className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-white/70 font-medium">
-            {player.tower}{player.flatNumber ? ` - ${player.flatNumber}` : ''}
-          </p>
-        )}
       </div>
       <div className="px-1.5 py-1.5 text-center">
         <p className="text-[11px] font-black uppercase tracking-wide text-white leading-tight truncate" title={player.name}>
@@ -109,7 +105,7 @@ function PlayerCard({ player, isCaptain }: { player: Registration; isCaptain?: b
 }
 
 // ── Doubles pair card ──────────────────────────────────────────────────────
-function DoublesCard({ registration }: { registration: Registration }) {
+function DoublesCard({ registration }: { registration: PublicPlayer }) {
   const hasPartner = !!registration.partnerName?.trim();
   const partnerName = registration.partnerName ?? '';
   const partnerPhoto = registration.partnerProfilePhotoUrl;
@@ -127,11 +123,6 @@ function DoublesCard({ registration }: { registration: Registration }) {
           <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[56px] truncate">
             {registration.name.split(' ')[0]}
           </p>
-          {(registration.tower || registration.flatNumber) && (
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-slate-300 bg-slate-700">
-              {registration.tower}{registration.flatNumber ? `-${registration.flatNumber}` : ''}
-            </span>
-          )}
         </div>
 
         {/* VS divider */}
@@ -147,11 +138,6 @@ function DoublesCard({ registration }: { registration: Registration }) {
             <p className="text-[10px] font-black uppercase tracking-wide text-white text-center leading-tight max-w-[56px] truncate">
               {partnerName.split(' ')[0]}
             </p>
-            {(registration.partnerTower || registration.partnerFlatNumber) ? (
-              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full text-slate-300 bg-slate-700">
-                {registration.partnerTower}{registration.partnerFlatNumber ? `-${registration.partnerFlatNumber}` : ''}
-              </span>
-            ) : null}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1 z-10 opacity-30">
@@ -168,11 +154,6 @@ function DoublesCard({ registration }: { registration: Registration }) {
         <p className="text-[11px] font-bold text-white truncate">
           {registration.name}{hasPartner ? ` & ${partnerName}` : ''}
         </p>
-        {(registration.tower || registration.flatNumber) && (
-          <p className="text-[9px] text-slate-500 mt-0.5">
-            {registration.tower}{registration.flatNumber ? ` - ${registration.flatNumber}` : ''}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -185,7 +166,7 @@ export default function CategoryPage() {
   const categorySlug = params.category as string;
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [participants, setParticipants] = useState<Registration[]>([]);
+  const [participants, setParticipants] = useState<PublicPlayer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -196,9 +177,9 @@ export default function CategoryPage() {
 
   const loadAll = async () => {
     try {
-      const [tSnap, regSnap, teamSnap, poolSnap, matchSnap] = await Promise.all([
+      const [tSnap, publicPlayers, teamSnap, poolSnap, matchSnap] = await Promise.all([
         getDoc(doc(db, 'tournaments', tournamentId)),
-        getDocs(query(collection(db, 'tournaments', tournamentId, 'registrations'), orderBy('registeredAt', 'desc'))),
+        listPublicPlayers(db, tournamentId),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'teams'), orderBy('createdAt', 'desc'))),
         getDocs(query(collection(db, 'tournaments', tournamentId, 'pools'), orderBy('createdAt', 'desc'))),
         getDocs(query(tournamentMatchesRef(tournamentId), orderBy('scheduledTime', 'asc'))),
@@ -207,7 +188,7 @@ export default function CategoryPage() {
         const d = tSnap.data();
         setTournament({ id: tSnap.id, ...d, startDate: d.startDate?.toDate(), endDate: d.endDate?.toDate(), registrationDeadline: d.registrationDeadline?.toDate(), createdAt: d.createdAt?.toDate(), updatedAt: d.updatedAt?.toDate() } as Tournament);
       }
-      setParticipants(regSnap.docs.map(d => ({ id: d.id, ...d.data(), registeredAt: d.data().registeredAt?.toDate() })) as Registration[]);
+      setParticipants(publicPlayers);
       setTeams(teamSnap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate(), updatedAt: d.data().updatedAt?.toDate() })) as Team[]);
       setPools(poolSnap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toDate(), updatedAt: d.data().updatedAt?.toDate() })) as Pool[]);
       setMatches(matchSnap.docs.map(d => {
@@ -311,7 +292,7 @@ export default function CategoryPage() {
             </div>
           ) : (
             catTeams.map((team, ti) => {
-              const players = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
+              const players = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as PublicPlayer[];
               const grad = TEAM_HEADER_GRADIENTS[ti % TEAM_HEADER_GRADIENTS.length];
               return (
                 <section key={team.id}>

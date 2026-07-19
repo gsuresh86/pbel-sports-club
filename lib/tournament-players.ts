@@ -1,6 +1,7 @@
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { CategoryType, Registration } from '@/types';
+import { upsertPublicPlayer } from '@/lib/public-players';
 
 export type UniquePlayerRow = {
   name: string;
@@ -110,6 +111,33 @@ export async function updatePlayerProfilePhoto(
         ...(role === 'primary' ? { profilePhotoUrl } : { partnerProfilePhotoUrl: profilePhotoUrl }),
       };
       return updateDoc(doc(db, 'tournaments', tournamentId, 'registrations', id), fields);
+    }),
+  );
+
+  const category = player.categories[0];
+  if (!category) return;
+
+  await Promise.all(
+    player.registrationRefs.map(async ({ id, role }) => {
+      const existingSnap = await getDoc(doc(db, 'tournaments', tournamentId, 'publicPlayers', id));
+      const existing = existingSnap.data() ?? {};
+      if (role === 'primary') {
+        await upsertPublicPlayer(db, tournamentId, id, {
+          name: (existing.name as string) || player.name,
+          partnerName: existing.partnerName as string | undefined,
+          profilePhotoUrl,
+          partnerProfilePhotoUrl: existing.partnerProfilePhotoUrl as string | undefined,
+          selectedCategory: (existing.selectedCategory as CategoryType) || category,
+        });
+      } else {
+        await upsertPublicPlayer(db, tournamentId, id, {
+          name: (existing.name as string) || player.name,
+          partnerName: player.name,
+          profilePhotoUrl: existing.profilePhotoUrl as string | undefined,
+          partnerProfilePhotoUrl: profilePhotoUrl,
+          selectedCategory: (existing.selectedCategory as CategoryType) || category,
+        });
+      }
     }),
   );
 }

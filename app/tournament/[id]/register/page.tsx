@@ -466,6 +466,19 @@ export default function TournamentRegistrationPage() {
       const registrationRef = await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), registrationData);
 
       try {
+        const { upsertPublicPlayer } = await import('@/lib/public-players');
+        await upsertPublicPlayer(db, tournamentId, registrationRef.id, {
+          name: formData.name,
+          partnerName: formData.partnerName || undefined,
+          profilePhotoUrl: formData.profilePhotoUrl || undefined,
+          partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl || undefined,
+          selectedCategory: formData.selectedCategory as CategoryType,
+        });
+      } catch (err) {
+        console.error('Error writing public player projection:', err);
+      }
+
+      try {
         const res = await fetch('/api/notify-registration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

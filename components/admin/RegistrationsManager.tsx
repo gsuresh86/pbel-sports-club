@@ -314,6 +314,15 @@ export function RegistrationsManager({
         registrationUpdate,
       );
 
+      const { upsertPublicPlayer } = await import('@/lib/public-players');
+      await upsertPublicPlayer(db, participant.tournamentId, participantId, {
+        name: values.name,
+        partnerName: values.partnerName || undefined,
+        profilePhotoUrl: participant.profilePhotoUrl,
+        partnerProfilePhotoUrl: participant.partnerProfilePhotoUrl,
+        selectedCategory: values.selectedCategory as Registration['selectedCategory'],
+      });
+
       const playerUpdate = toFirestore(
         Object.fromEntries(playerKeys.map((k) => [k, cleaned[k]])),
       );
@@ -385,6 +394,11 @@ export function RegistrationsManager({
       await Promise.all(playersSnapshot.docs.map((playerDoc) => deleteDoc(playerDoc.ref)));
 
       await deleteDoc(doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId));
+      try {
+        await deleteDoc(doc(db, 'tournaments', participant.tournamentId, 'publicPlayers', participantId));
+      } catch {
+        // Projection may not exist for legacy registrations
+      }
 
       // Keep the tournament participant count accurate for approved registrations.
       if (participant.registrationStatus === 'approved') {
@@ -780,7 +794,13 @@ export function RegistrationsManager({
             registeredAt: new Date(),
           };
 
-          await addDoc(collection(db, 'tournaments', String(row.tournamentId), 'registrations'), registrationData);
+          const regRef = await addDoc(collection(db, 'tournaments', String(row.tournamentId), 'registrations'), registrationData);
+          const { upsertPublicPlayer } = await import('@/lib/public-players');
+          await upsertPublicPlayer(db, String(row.tournamentId), regRef.id, {
+            name: String(row.name ?? ''),
+            partnerName: row.partnerName ? String(row.partnerName) : undefined,
+            selectedCategory: row.selectedCategory as Registration['selectedCategory'],
+          });
           successCount++;
         } catch (error) {
           console.error(`Error importing row ${row.rowIndex}:`, error);

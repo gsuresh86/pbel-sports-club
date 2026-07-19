@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { PublicLayout } from '@/components/PublicLayout';
 import { Input } from '@/components/ui/input';
-import { Tournament, Registration } from '@/types';
+import { Tournament } from '@/types';
 import { Search, Calendar, MapPin, Users, Trophy, ChevronRight, Flame } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -218,18 +218,11 @@ export default function TournamentsPage() {
       const visible = all.filter(t => t.isPublic !== false);
       setTournaments(visible);
 
-      // Load player counts
+      // Load player counts from tournament aggregate (avoid legacy public registration scans)
       const counts: Record<string, number> = {};
-      await Promise.all(
-        visible.map(async t => {
-          try {
-            const rSnap = await getDocs(query(collection(db, 'registrations'), where('tournamentId', '==', t.id)));
-            counts[t.id] = new Set(rSnap.docs.map(d => d.data().email)).size;
-          } catch {
-            counts[t.id] = 0;
-          }
-        })
-      );
+      visible.forEach((t) => {
+        counts[t.id] = typeof t.currentParticipants === 'number' ? t.currentParticipants : 0;
+      });
       setPlayerCounts(counts);
     } catch (e) {
       console.error(e);
