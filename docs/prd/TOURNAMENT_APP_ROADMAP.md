@@ -79,8 +79,8 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 | P1.4 | Make registration/player **PII private**; introduce public projection docs (`publicPlayers` / display fields) for names/photos used on fixtures | Critical | L | `[x]` |
 | P1.5 | Scope tournament-admin writes by **assignment** (not global role alone) for teams/pools/finance/brackets where still loose | Critical | M | `[~]` |
 | P1.6 | Storage rules: auth + ownership / staff role (no UI-only trust) | Critical | M | `[~]` |
-| P1.7 | Server-side registration API: validate deadline, category, capacity, duplicates; return receipt code | High | L | `[ ]` |
-| P1.8 | Auth lifecycle: disable/delete Firebase Auth when admin deactivates/deletes user; implement password reset via Admin SDK | High | M | `[ ]` |
+| P1.7 | Server-side registration API: validate deadline, category, capacity, duplicates; return receipt code | High | L | `[~]` |
+| P1.8 | Auth lifecycle: disable/delete Firebase Auth when admin deactivates/deletes user; implement password reset via Admin SDK | High | M | `[x]` |
 | P1.9 | Firestore + Storage **emulator rule tests** for P1 rules | High | M | `[ ]` |
 | P1.10 | App Check / basic rate limiting on public write endpoints | High | M | `[ ]` |
 
@@ -272,6 +272,8 @@ Each phase should ship as **one or more PRs** against this branch (or short-live
 | 2026-07-19 | P1.5 (partial): winners/brackets writes scoped via `canManageTournamentDocument` |
 | 2026-07-19 | P1.6 (partial): Storage size/type limits; banners/logos require auth; participant photo anonymous create kept for registration UX |
 | 2026-07-19 | Staff tournament console auto-syncs publicPlayers once per session; `/api/tournaments/[id]/sync-public-players` |
+| 2026-07-19 | P1.8: `/api/users/[id]` PATCH/DELETE disables or deletes Firebase Auth; admin password updates via Admin SDK |
+| 2026-07-19 | P1.7 (partial): `/api/tournaments/[id]/registrations` + registration-stats; public register page prefers server create |
 
 ---
 

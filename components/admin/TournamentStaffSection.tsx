@@ -272,14 +272,27 @@ export function TournamentStaffSection({
       return;
     }
     try {
-      await updateDoc(doc(db, 'users', target.id), {
-        isActive: target.isActive === false,
-        updatedAt: new Date(),
+      const { getAuthHeaders } = await import('@/lib/client-auth-headers');
+      const response = await fetch(`/api/users/${target.id}`, {
+        method: 'PATCH',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({
+          isActive: target.isActive === false,
+          tournamentId,
+        }),
       });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update user status.');
+      }
       await loadUsers();
     } catch (error) {
       console.error('Error updating user status:', error);
-      alert({ title: 'Error', description: 'Failed to update user status.', variant: 'error' });
+      alert({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update user status.',
+        variant: 'error',
+      });
     }
   };
 

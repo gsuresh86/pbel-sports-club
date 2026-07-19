@@ -15,7 +15,6 @@ import {
   calculateRegistrationPaymentAmount,
   contactPhoneTelHref,
   createPlayersFromRegistration,
-  getParticipantRegistrationStats,
   getTournamentContacts,
 } from '@/lib/utils';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
@@ -248,12 +247,15 @@ export default function TournamentRegistrationPage() {
     const phoneVal = formData.phone.trim();
     if (!nameVal || !phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
     try {
-      const { count, profilePhotoUrl } = await getParticipantRegistrationStats(
-        db,
-        tournamentId,
-        nameVal,
-        phoneVal
+      const params = new URLSearchParams({ name: nameVal, phone: phoneVal });
+      const res = await fetch(
+        `/api/tournaments/${tournamentId}/registration-stats?${params.toString()}`
       );
+      if (!res.ok) return;
+      const { count, profilePhotoUrl } = (await res.json()) as {
+        count: number;
+        profilePhotoUrl: string | null;
+      };
       setRegistrationCount(count);
       if (profilePhotoUrl && !formData.profilePhotoUrl) {
         setFormData(prev => ({ ...prev, profilePhotoUrl }));
@@ -269,12 +271,15 @@ export default function TournamentRegistrationPage() {
     const phoneVal = formData.partnerPhone.trim();
     if (!nameVal || !phoneVal || !/^\+?[\d\s\-]{7,15}$/.test(phoneVal)) return;
     try {
-      const { count, profilePhotoUrl } = await getParticipantRegistrationStats(
-        db,
-        tournamentId,
-        nameVal,
-        phoneVal
+      const params = new URLSearchParams({ name: nameVal, phone: phoneVal });
+      const res = await fetch(
+        `/api/tournaments/${tournamentId}/registration-stats?${params.toString()}`
       );
+      if (!res.ok) return;
+      const { count, profilePhotoUrl } = (await res.json()) as {
+        count: number;
+        profilePhotoUrl: string | null;
+      };
       setPartnerRegistrationCount(count);
       if (profilePhotoUrl && !formData.partnerProfilePhotoUrl) {
         setFormData(prev => ({ ...prev, partnerProfilePhotoUrl: profilePhotoUrl }));
@@ -376,38 +381,6 @@ export default function TournamentRegistrationPage() {
       if (new Date() > tournament!.registrationDeadline) throw new Error('Registration deadline has passed');
       if (tournament!.currentParticipants >= tournament!.maxParticipants) throw new Error('Tournament is full');
 
-      const { count: existingCount } = await getParticipantRegistrationStats(
-        db,
-        tournamentId,
-        formData.name.trim(),
-        formData.phone.trim()
-      );
-      setRegistrationCount(existingCount);
-      if (
-        LIMIT_REGISTRATIONS_PER_PARTICIPANT &&
-        existingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
-      ) {
-        throw new Error(`You have already registered for ${existingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
-      }
-
-      let partnerExistingCount = 0;
-      if (isDoublesCategory(formData.selectedCategory)) {
-        const partnerStats = await getParticipantRegistrationStats(
-          db,
-          tournamentId,
-          formData.partnerName.trim(),
-          formData.partnerPhone.trim()
-        );
-        partnerExistingCount = partnerStats.count;
-        setPartnerRegistrationCount(partnerExistingCount);
-        if (
-          LIMIT_REGISTRATIONS_PER_PARTICIPANT &&
-          partnerExistingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
-        ) {
-          throw new Error(`Your partner has already registered for ${partnerExistingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
-        }
-      }
-
       const showTowerAndFlat = tournament?.showTowerAndFlat ?? true;
       const showEmergencyContact = tournament?.showEmergencyContact ?? true;
       const showIsResident = tournament?.showIsResident ?? true;
@@ -423,8 +396,7 @@ export default function TournamentRegistrationPage() {
         throw new Error('Unable to calculate age from the date of birth.');
       }
 
-      const registrationData = {
-        tournamentId,
+      const registrationPayload = {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -436,46 +408,103 @@ export default function TournamentRegistrationPage() {
         expertiseLevel: formData.expertiseLevel as 'beginner' | 'intermediate' | 'advanced' | 'expert',
         ...(showIsResident ? { isResident: formData.isResident } : {}),
         ...(showTshirtSize ? { tshirtSize: formData.tshirtSize } : {}),
-        ...(showTshirtSize && isDoublesCategory(formData.selectedCategory) ? { partnerTshirtSize: formData.partnerTshirtSize || null } : {}),
+        ...(showTshirtSize && isDoublesCategory(formData.selectedCategory)
+          ? { partnerTshirtSize: formData.partnerTshirtSize || null }
+          : {}),
         ...(showVolunteerNomination ? { isVolunteer: formData.isVolunteer } : {}),
-        ...(isTeamCategory(formData.selectedCategory) && formData.teamPreference ? { teamPreference: formData.teamPreference } : {}),
+        ...(isTeamCategory(formData.selectedCategory) && formData.teamPreference
+          ? { teamPreference: formData.teamPreference }
+          : {}),
         selectedCategory: formData.selectedCategory as CategoryType,
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
         partnerEmail: formData.partnerEmail || null,
         partnerDateOfBirth: formData.partnerDateOfBirth || null,
         partnerAge,
-        ...(showTowerAndFlat ? { partnerTower: formData.partnerTower || null, partnerFlatNumber: formData.partnerFlatNumber || null } : {}),
+        ...(showTowerAndFlat
+          ? { partnerTower: formData.partnerTower || null, partnerFlatNumber: formData.partnerFlatNumber || null }
+          : {}),
         ...(formData.profilePhotoUrl ? { profilePhotoUrl: formData.profilePhotoUrl } : {}),
-        ...(formData.partnerProfilePhotoUrl ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl } : {}),
+        ...(formData.partnerProfilePhotoUrl
+          ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl }
+          : {}),
         paymentReference: formData.paymentReference || null,
         selectedPaymentAccount: formData.selectedPaymentAccount || null,
-        paymentAmount: calculateRegistrationPaymentAmount(
-          tournament!,
-          formData.selectedCategory,
-          existingCount,
-          partnerExistingCount
-        ),
         paymentMethod: DEFAULT_PAYMENT_METHOD,
-        registrationStatus: 'pending',
-        paymentStatus: 'pending',
-        registrationCode: generateRegistrationCode(),
-        registeredAt: new Date(),
       };
 
-      const registrationRef = await addDoc(collection(db, 'tournaments', tournamentId, 'registrations'), registrationData);
+      const apiRes = await fetch(`/api/tournaments/${tournamentId}/registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registrationPayload),
+      });
+      const apiResult = await apiRes.json().catch(() => ({}));
 
-      try {
-        const { upsertPublicPlayer } = await import('@/lib/public-players');
-        await upsertPublicPlayer(db, tournamentId, registrationRef.id, {
-          name: formData.name,
-          partnerName: formData.partnerName || undefined,
-          profilePhotoUrl: formData.profilePhotoUrl || undefined,
-          partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl || undefined,
-          selectedCategory: formData.selectedCategory as CategoryType,
-        });
-      } catch (err) {
-        console.error('Error writing public player projection:', err);
+      if (!apiRes.ok) {
+        // Fall back to client write only when Admin SDK is not configured.
+        if (apiRes.status !== 503) {
+          throw new Error(
+            typeof apiResult.error === 'string' ? apiResult.error : 'Failed to register'
+          );
+        }
+
+        const existingCount = 0;
+        const partnerExistingCount = 0;
+        const registrationData = {
+          ...registrationPayload,
+          tournamentId,
+          paymentAmount: calculateRegistrationPaymentAmount(
+            tournament!,
+            formData.selectedCategory,
+            existingCount,
+            partnerExistingCount
+          ),
+          registrationStatus: 'pending',
+          paymentStatus: 'pending',
+          registrationCode: generateRegistrationCode(),
+          registeredAt: new Date(),
+        };
+        const registrationRef = await addDoc(
+          collection(db, 'tournaments', tournamentId, 'registrations'),
+          registrationData
+        );
+        try {
+          const { upsertPublicPlayer } = await import('@/lib/public-players');
+          await upsertPublicPlayer(db, tournamentId, registrationRef.id, {
+            name: formData.name,
+            partnerName: formData.partnerName || undefined,
+            profilePhotoUrl: formData.profilePhotoUrl || undefined,
+            partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl || undefined,
+            selectedCategory: formData.selectedCategory as CategoryType,
+          });
+        } catch (err) {
+          console.error('Error writing public player projection:', err);
+        }
+        try {
+          await createPlayersFromRegistration(registrationData, tournamentId, registrationRef.id, db);
+        } catch (err) {
+          console.error('Error creating players:', err);
+        }
+        try {
+          await fetch('/api/notify-registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tournamentId,
+              tournamentName: tournament?.name || 'Tournament',
+              playerName: formData.name,
+              registrationId: registrationRef.id,
+            }),
+          });
+        } catch (err) {
+          console.error('Error sending notification:', err);
+        }
+        setSuccess(true);
+        return;
+      }
+
+      if (typeof apiResult.priorRegistrations === 'number') {
+        setRegistrationCount(apiResult.priorRegistrations);
       }
 
       try {
@@ -486,21 +515,15 @@ export default function TournamentRegistrationPage() {
             tournamentId,
             tournamentName: tournament?.name || 'Tournament',
             playerName: formData.name,
-            registrationId: registrationRef.id,
+            registrationId: apiResult.registrationId,
           }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `HTTP ${res.status}`);
+          console.error('notify-registration failed:', err.error || res.status);
         }
       } catch (err) {
         console.error('Error sending notification:', err);
-      }
-
-      try {
-        await createPlayersFromRegistration(registrationData, tournamentId, registrationRef.id, db);
-      } catch (err) {
-        console.error('Error creating players:', err);
       }
 
       setSuccess(true);
