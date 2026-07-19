@@ -29,6 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Team, Pool, Registration, Tournament, CategoryType, Match } from '@/types';
 import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X, Swords, Trophy, Award } from 'lucide-react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog'; // ConfirmDialogComponent still rendered
@@ -1143,11 +1144,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
                 </div>
                 <div className="space-y-1">
                   <Label>Scheduled Time (IST)</Label>
-                  <Input
-                    type="datetime-local"
-                    step="60"
+                  <DateTimePickerInput
                     value={singleMatchScheduledTime}
-                    onChange={(e) => setSingleMatchScheduledTime(e.target.value)}
+                    onChange={setSingleMatchScheduledTime}
                   />
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
@@ -1292,11 +1291,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
           <div className="space-y-4 py-2">
             <div className="space-y-1">
               <Label>Start Date &amp; Time (IST)</Label>
-              <Input
-                type="datetime-local"
-                step="60"
+              <DateTimePickerInput
                 value={genForm.startDateTime}
-                onChange={(e) => setGenForm(f => ({ ...f, startDateTime: e.target.value }))}
+                onChange={(value) => setGenForm(f => ({ ...f, startDateTime: value }))}
               />
               <p className="text-xs text-gray-500">First match will be scheduled at this time</p>
             </div>

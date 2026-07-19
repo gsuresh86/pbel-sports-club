@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -644,8 +645,8 @@ export default function MatchDetailPage() {
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Scheduled Time (IST)</Label>
-                    <Input type="datetime-local" step="60" value={editForm.scheduledTime}
-                      onChange={e => setEditForm(f => ({ ...f, scheduledTime: e.target.value }))} />
+                    <DateTimePickerInput value={editForm.scheduledTime}
+                      onChange={value => setEditForm(f => ({ ...f, scheduledTime: value }))} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Status</Label>

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -495,15 +496,12 @@ export default function FinancePage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                />
-              </div>
+              <DatePickerInput
+                id="date"
+                label="Date"
+                value={form.date}
+                onChange={(value) => setForm((p) => ({ ...p, date: value }))}
+              />
             </div>
 
             <div className="space-y-2">

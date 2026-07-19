@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -431,16 +432,13 @@ export default function ManageMatchesPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="scheduledTime">Scheduled Time *</Label>
-                    <Input
-                      id="scheduledTime"
-                      type="datetime-local"
-                      value={formData.scheduledTime}
-                      onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <DateTimePickerInput
+                    id="scheduledTime"
+                    label="Scheduled Time"
+                    value={formData.scheduledTime}
+                    onChange={(value) => setFormData({ ...formData, scheduledTime: value })}
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

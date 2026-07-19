@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePickerInput, DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -655,12 +656,12 @@ export default function MatchesPage() {
           </SelectContent>
         </Select>
 
-        <input
-          type="date"
+        <DatePickerInput
           value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
-          title="Filter by date (IST)"
-          className="h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          onChange={setDateFilter}
+          placeholder="Filter by date"
+          className="w-auto space-y-0"
+          triggerClassName="h-8 w-auto px-2 text-xs"
         />
 
         {anyFilterActive && (
@@ -1096,7 +1097,7 @@ export default function MatchesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Scheduled Time (IST)</Label>
-                <Input type="datetime-local" step="60" value={editMatchForm.scheduledTime} onChange={(e) => setEditMatchForm((f) => ({ ...f, scheduledTime: e.target.value }))} />
+                <DateTimePickerInput value={editMatchForm.scheduledTime} onChange={(value) => setEditMatchForm((f) => ({ ...f, scheduledTime: value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>

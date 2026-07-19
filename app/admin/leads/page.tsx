@@ -20,6 +20,7 @@ import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -783,36 +784,28 @@ export default function LeadsManagementPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="startDate">Start Date *</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={tournamentFormData.startDate}
-                    onChange={(e) => setTournamentFormData({ ...tournamentFormData, startDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">End Date *</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={tournamentFormData.endDate}
-                    onChange={(e) => setTournamentFormData({ ...tournamentFormData, endDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="registrationDeadline">Registration Deadline *</Label>
-                  <Input
-                    id="registrationDeadline"
-                    type="date"
-                    value={tournamentFormData.registrationDeadline}
-                    onChange={(e) => setTournamentFormData({ ...tournamentFormData, registrationDeadline: e.target.value })}
-                    required
-                  />
-                </div>
+                <DatePickerInput
+                  id="startDate"
+                  label="Start Date"
+                  value={tournamentFormData.startDate}
+                  onChange={(value) => setTournamentFormData({ ...tournamentFormData, startDate: value })}
+                  required
+                />
+                <DatePickerInput
+                  id="endDate"
+                  label="End Date"
+                  value={tournamentFormData.endDate}
+                  onChange={(value) => setTournamentFormData({ ...tournamentFormData, endDate: value })}
+                  min={tournamentFormData.startDate || undefined}
+                  required
+                />
+                <DatePickerInput
+                  id="registrationDeadline"
+                  label="Registration Deadline"
+                  value={tournamentFormData.registrationDeadline}
+                  onChange={(value) => setTournamentFormData({ ...tournamentFormData, registrationDeadline: value })}
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

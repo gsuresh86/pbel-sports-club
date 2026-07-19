@@ -437,6 +437,7 @@ export async function createPlayersFromRegistration(
     name: registration.name,
     email: registration.email,
     phone: registration.phone,
+    dateOfBirth: registration.dateOfBirth,
     age: registration.age,
     gender: registration.gender,
     tower: registration.tower,
@@ -474,7 +475,8 @@ export async function createPlayersFromRegistration(
       name: registration.partnerName,
       email: registration.partnerEmail,
       phone: registration.partnerPhone,
-      age: registration.age, // Assuming same age for partner, could be updated
+      dateOfBirth: registration.partnerDateOfBirth,
+      age: registration.partnerAge ?? registration.age,
       gender: registration.gender, // Assuming same gender for partner, could be updated
       tower: registration.partnerTower,
       flatNumber: registration.partnerFlatNumber,

@@ -52,6 +52,7 @@ type TournamentFormData = {
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationOpen: boolean;
   banner: string;
+  showRegistrationTitle: boolean;
   isPublic: boolean;
   matchFormat: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
   showTowerAndFlat: boolean;
@@ -64,6 +65,8 @@ type TournamentFormData = {
   contacts: TournamentContact[];
   doublesFee: string;
   repeatFee: string;
+  limitRegistrationsPerParticipant: boolean;
+  maxRegistrationsPerParticipant: string;
   paymentAccounts: PaymentAccount[];
 };
 
@@ -84,6 +87,7 @@ const emptyFormData = (): TournamentFormData => ({
   status: 'upcoming',
   registrationOpen: true,
   banner: '',
+  showRegistrationTitle: true,
   isPublic: true,
   matchFormat: 'best-of-3',
   showTowerAndFlat: true,
@@ -99,6 +103,8 @@ const emptyFormData = (): TournamentFormData => ({
   ],
   doublesFee: '700',
   repeatFee: '300',
+  limitRegistrationsPerParticipant: true,
+  maxRegistrationsPerParticipant: '3',
   paymentAccounts: [],
 });
 
@@ -120,6 +126,7 @@ function tournamentToFormData(tournament: Tournament): TournamentFormData {
     status: tournament.status,
     registrationOpen: tournament.registrationOpen ?? true,
     banner: tournament.banner || '',
+    showRegistrationTitle: tournament.showRegistrationTitle ?? true,
     isPublic: (tournament as Tournament & { isPublic?: boolean }).isPublic !== undefined
       ? Boolean((tournament as Tournament & { isPublic?: boolean }).isPublic)
       : true,
@@ -134,6 +141,8 @@ function tournamentToFormData(tournament: Tournament): TournamentFormData {
     contacts: normalizeTournamentContactsForForm(getTournamentContacts(tournament)),
     doublesFee: tournament.doublesFee?.toString() || '700',
     repeatFee: tournament.repeatFee?.toString() || '300',
+    limitRegistrationsPerParticipant: tournament.limitRegistrationsPerParticipant ?? true,
+    maxRegistrationsPerParticipant: tournament.maxRegistrationsPerParticipant?.toString() || '3',
     paymentAccounts: tournament.paymentAccounts || [],
   };
 }
@@ -309,6 +318,7 @@ export function TournamentFormDrawer({
         status: formData.status,
         registrationOpen: formData.registrationOpen,
         isPublic: formData.isPublic,
+        showRegistrationTitle: formData.showRegistrationTitle,
         ...(!editingTournament && { matchFormat: formData.matchFormat }),
         showTowerAndFlat: formData.showTowerAndFlat,
         showEmergencyContact: formData.showEmergencyContact,
@@ -354,6 +364,17 @@ export function TournamentFormDrawer({
       }
       if (formData.repeatFee && formData.repeatFee.trim() !== '') {
         tournamentData.repeatFee = parseFloat(formData.repeatFee);
+      }
+      tournamentData.limitRegistrationsPerParticipant = formData.limitRegistrationsPerParticipant;
+      if (
+        formData.limitRegistrationsPerParticipant &&
+        formData.maxRegistrationsPerParticipant &&
+        formData.maxRegistrationsPerParticipant.trim() !== ''
+      ) {
+        tournamentData.maxRegistrationsPerParticipant = Math.max(
+          1,
+          parseInt(formData.maxRegistrationsPerParticipant, 10)
+        );
       }
       tournamentData.paymentAccounts = formData.paymentAccounts.filter(a => a.name.trim() && a.number.trim());
 
@@ -585,6 +606,36 @@ export function TournamentFormDrawer({
                     <p className="text-xs text-gray-500">Discounted fee for an additional category</p>
                   </div>
                 </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="limitRegistrationsPerParticipant"
+                      checked={formData.limitRegistrationsPerParticipant}
+                      onCheckedChange={(checked) => setFormData({
+                        ...formData,
+                        limitRegistrationsPerParticipant: checked === true,
+                      })}
+                    />
+                    <Label htmlFor="limitRegistrationsPerParticipant">
+                      Limit Categories per Participant
+                    </Label>
+                    {formData.limitRegistrationsPerParticipant && (
+                      <Input
+                        id="maxRegistrationsPerParticipant"
+                        type="number"
+                        min="1"
+                        placeholder="3"
+                        value={formData.maxRegistrationsPerParticipant}
+                        onChange={(e) => setFormData({ ...formData, maxRegistrationsPerParticipant: e.target.value })}
+                        className="w-20"
+                        aria-label="Maximum categories per participant"
+                      />
+                    )}
+                  </div>
+                  {formData.limitRegistrationsPerParticipant && (
+                    <p className="text-xs text-gray-500">How many categories one participant may register for</p>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="prizePool">Prize Pool (₹)</Label>
                   <Input
@@ -675,6 +726,26 @@ export function TournamentFormDrawer({
                   aspectRatio="16/9"
                   maxSize={5}
                 />
+                {editingTournament && (
+                  <div className="flex items-start gap-2 pt-1">
+                    <Checkbox
+                      id="showRegistrationTitle"
+                      checked={formData.showRegistrationTitle}
+                      onCheckedChange={(checked) => setFormData({
+                        ...formData,
+                        showRegistrationTitle: checked === true,
+                      })}
+                    />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="showRegistrationTitle">
+                        Show tournament title over banner
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        Turn this off when the banner image already includes the tournament title.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

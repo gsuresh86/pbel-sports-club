@@ -100,6 +100,8 @@ export interface Tournament {
   registrationOpen: boolean;
   isPublic?: boolean; // Tournament visibility for public page
   banner?: string; // URL to the uploaded banner image
+  /** Whether the tournament name is overlaid on the registration-page banner (default: true). */
+  showRegistrationTitle?: boolean;
   /** Match format: 11pt or 21pt single set, best of 3, best of 3 (15pt sets), or 30pt single set */
   matchFormat?: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
   /** Registration form field visibility toggles (default: true for backwards compatibility) */
@@ -120,6 +122,10 @@ export interface Tournament {
   doublesFee?: number;
   /** Discounted fee when a participant re-registers for an additional category. Default 300. */
   repeatFee?: number;
+  /** Whether to enforce the per-participant category limit. Default true. */
+  limitRegistrationsPerParticipant?: boolean;
+  /** Maximum categories a participant may register for in this tournament. Default 3. */
+  maxRegistrationsPerParticipant?: number;
   /** Payment recipients shown as a dropdown in the registration form */
   paymentAccounts?: PaymentAccount[];
   /** Default number of qualifiers per pool for knockout rounds, by category */
@@ -136,6 +142,9 @@ export interface Registration {
   name: string;
   email: string;
   phone: string;
+  /** ISO date-only value (YYYY-MM-DD); canonical source for age. */
+  dateOfBirth?: string;
+  /** Age on the tournament start date, retained for backwards compatibility. */
   age: number;
   gender: 'male' | 'female' | 'other';
   tower?: string; // A to P (except O, I)
@@ -145,6 +154,7 @@ export interface Registration {
   partnerName?: string;
   partnerPhone?: string;
   partnerEmail?: string;
+  partnerDateOfBirth?: string;
   partnerAge?: number;
   partnerTower?: string;
   partnerFlatNumber?: string;
@@ -191,6 +201,7 @@ export interface Player {
   name: string;
   email: string;
   phone: string;
+  dateOfBirth?: string;
   age: number;
   gender: 'male' | 'female' | 'other';
   tower?: string;

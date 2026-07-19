@@ -6,6 +6,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/fires
 import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
 import {
   previewKnockoutRound,
@@ -1064,12 +1065,12 @@ function MatchFiltersBar({
             className="w-full bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
           />
         </div>
-        <input
-          type="date"
+        <DatePickerInput
           value={matchDateFilter}
-          onChange={e => onDateChange(e.target.value)}
-          title="Filter by date (IST)"
-          className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+          onChange={onDateChange}
+          placeholder="Filter by date"
+          className="w-auto space-y-0"
+          triggerClassName="h-auto w-auto bg-slate-800 hover:bg-slate-700 border-white/10 text-slate-200 hover:text-slate-100 text-xs rounded-lg px-3 py-1.5"
         />
       </div>
       <div className="flex flex-wrap gap-2 items-center">

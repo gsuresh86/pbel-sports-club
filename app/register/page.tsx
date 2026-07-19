@@ -5,6 +5,7 @@ import { PublicLayout } from '@/components/PublicLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { collection, addDoc } from 'firebase/firestore';
@@ -190,28 +191,23 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date *</Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="bg-white/70 border-gray-200 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="endDate">End Date *</Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="bg-white/70 border-gray-200 focus:border-blue-500"
-                      required
-                    />
-                  </div>
+                  <DatePickerInput
+                    id="startDate"
+                    label="Start Date"
+                    value={formData.startDate}
+                    onChange={(value) => setFormData({ ...formData, startDate: value })}
+                    triggerClassName="bg-white/70 border-gray-200 focus:border-blue-500"
+                    required
+                  />
+                  <DatePickerInput
+                    id="endDate"
+                    label="End Date"
+                    value={formData.endDate}
+                    onChange={(value) => setFormData({ ...formData, endDate: value })}
+                    min={formData.startDate || undefined}
+                    triggerClassName="bg-white/70 border-gray-200 focus:border-blue-500"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">

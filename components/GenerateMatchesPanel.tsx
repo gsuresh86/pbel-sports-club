@@ -15,6 +15,7 @@ import { Tournament, CategoryType, Pool } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
@@ -779,12 +780,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
       <div className="space-y-1.5 sm:col-span-2">
         <Label className="text-xs font-medium text-gray-700">Start date &amp; time (IST)</Label>
-        <Input
-          type="datetime-local"
-          step="60"
+        <DateTimePickerInput
           value={form.startDateTime}
-          onChange={e => setForm(f => ({ ...f, startDateTime: e.target.value }))}
-          className="h-9 text-sm bg-white"
+          onChange={value => setForm(f => ({ ...f, startDateTime: value }))}
+          triggerClassName="text-sm bg-white"
         />
       </div>
       <div className="space-y-1.5">
@@ -1365,12 +1364,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-green-200/80">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-700">Scheduled time (IST)</Label>
-                  <Input
-                    type="datetime-local"
-                    step="60"
+                  <DateTimePickerInput
                     value={form.startDateTime}
-                    onChange={e => setForm(f => ({ ...f, startDateTime: e.target.value }))}
-                    className="h-9 text-sm bg-white"
+                    onChange={value => setForm(f => ({ ...f, startDateTime: value }))}
+                    triggerClassName="text-sm bg-white"
                   />
                 </div>
                 <div className="space-y-1.5">

@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tournament, CategoryType } from '@/types';
@@ -55,6 +56,39 @@ function isTeamCategory(category: string): boolean {
   return TEAM_CATEGORIES.includes(category as CategoryType);
 }
 
+function parseDateOfBirth(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function calculateAgeOnDate(dateOfBirth: string, referenceDate: Date): number | null {
+  const birthDate = parseDateOfBirth(dateOfBirth);
+  if (!birthDate || Number.isNaN(referenceDate.getTime())) return null;
+
+  let age = referenceDate.getUTCFullYear() - birthDate.getUTCFullYear();
+  const birthdayHasPassed =
+    referenceDate.getUTCMonth() > birthDate.getUTCMonth() ||
+    (referenceDate.getUTCMonth() === birthDate.getUTCMonth() &&
+      referenceDate.getUTCDate() >= birthDate.getUTCDate());
+
+  if (!birthdayHasPassed) age -= 1;
+  return age;
+}
+
 function validateForm(
   formData: ReturnType<typeof getInitialFormData>,
   tournament: Tournament | null
@@ -70,8 +104,13 @@ function validateForm(
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Enter a valid email address';
   if (!formData.phone.trim()) errors.phone = 'Phone number is required';
   else if (!/^\+?[\d\s\-]{7,15}$/.test(formData.phone)) errors.phone = 'Enter a valid phone number';
-  if (!formData.age) errors.age = 'Age is required';
-  else if (parseInt(formData.age) < 1 || parseInt(formData.age) > 100) errors.age = 'Enter a valid age (1–100)';
+  const birthDate = parseDateOfBirth(formData.dateOfBirth);
+  const ageReferenceDate = tournament?.startDate ?? new Date();
+  const age = calculateAgeOnDate(formData.dateOfBirth, ageReferenceDate);
+  if (!formData.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
+  else if (!birthDate) errors.dateOfBirth = 'Enter a valid date of birth';
+  else if (birthDate > new Date()) errors.dateOfBirth = 'Date of birth cannot be in the future';
+  else if (age === null || age < 1 || age > 100) errors.dateOfBirth = 'Enter a valid date of birth';
   if (!formData.gender) errors.gender = 'Gender is required';
 
   if (showEmergencyContact && !formData.emergencyContact.trim()) {
@@ -88,15 +127,14 @@ function validateForm(
   }
 
   const cat = formData.selectedCategory;
-  const age = parseInt(formData.age);
 
-  if (cat && !isNaN(age)) {
+  if (cat && age !== null) {
     if ((cat === 'girls-under-13' || cat === 'boys-under-13' || cat === 'kids-team-u13') && age >= 13)
-      errors.age = 'This category is for players under 13 years old';
+      errors.dateOfBirth = 'This category is for players under 13 years old on the tournament start date';
     if ((cat === 'girls-under-18' || cat === 'boys-under-18' || cat === 'kids-team-u18') && age >= 18)
-      errors.age = 'This category is for players under 18 years old';
+      errors.dateOfBirth = 'This category is for players under 18 years old on the tournament start date';
     if ((['mens-single', 'womens-single', 'mens-doubles', 'womens-doubles', 'mixed-doubles', 'family-doubles', 'mens-team', 'womens-team'] as string[]).includes(cat) && age < 18)
-      errors.age = 'This category is for adult players (18+)';
+      errors.dateOfBirth = 'This category is for adult players (18+) on the tournament start date';
   }
 
   if (cat && formData.gender) {
@@ -112,8 +150,12 @@ function validateForm(
     else if (!/^\+?[\d\s\-]{7,15}$/.test(formData.partnerPhone)) errors.partnerPhone = 'Enter a valid phone number';
     if (!formData.partnerEmail.trim()) errors.partnerEmail = 'Partner email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.partnerEmail)) errors.partnerEmail = 'Enter a valid email address';
-    if (!formData.partnerAge) errors.partnerAge = 'Partner age is required';
-    else if (parseInt(formData.partnerAge) < 1 || parseInt(formData.partnerAge) > 100) errors.partnerAge = 'Enter a valid age (1–100)';
+    const partnerBirthDate = parseDateOfBirth(formData.partnerDateOfBirth);
+    const partnerAge = calculateAgeOnDate(formData.partnerDateOfBirth, ageReferenceDate);
+    if (!formData.partnerDateOfBirth) errors.partnerDateOfBirth = 'Partner date of birth is required';
+    else if (!partnerBirthDate) errors.partnerDateOfBirth = 'Enter a valid date of birth';
+    else if (partnerBirthDate > new Date()) errors.partnerDateOfBirth = 'Date of birth cannot be in the future';
+    else if (partnerAge === null || partnerAge < 1 || partnerAge > 100) errors.partnerDateOfBirth = 'Enter a valid date of birth';
 
     if (showTowerAndFlat) {
       if (!formData.partnerTower) errors.partnerTower = 'Partner tower is required';
@@ -137,7 +179,7 @@ function getInitialFormData() {
     name: '',
     email: '',
     phone: '',
-    age: '',
+    dateOfBirth: '',
     gender: '',
     tower: '',
     flatNumber: '',
@@ -149,7 +191,7 @@ function getInitialFormData() {
     partnerName: '',
     partnerPhone: '',
     partnerEmail: '',
-    partnerAge: '',
+    partnerDateOfBirth: '',
     partnerTower: '',
     partnerFlatNumber: '',
     paymentReference: '',
@@ -191,7 +233,8 @@ export default function TournamentRegistrationPage() {
   const [partnerRegistrationCount, setPartnerRegistrationCount] = useState<number | null>(null);
   const profilePhotoPrefilledRef = useRef(false);
   const partnerPhotoPrefilledRef = useRef(false);
-  const MAX_REGISTRATIONS_PER_PARTICIPANT = 3;
+  const LIMIT_REGISTRATIONS_PER_PARTICIPANT = tournament?.limitRegistrationsPerParticipant ?? true;
+  const MAX_REGISTRATIONS_PER_PARTICIPANT = tournament?.maxRegistrationsPerParticipant ?? 3;
 
   const setPhotoUploadState = useCallback((key: 'player' | 'partner', uploading: boolean) => {
     photoUploadStateRef.current[key] = uploading;
@@ -312,9 +355,10 @@ export default function TournamentRegistrationPage() {
     const allErrors = validateForm(formData, tournament);
     setErrors(allErrors);
     const allFields = new Set([
-      'selectedCategory', 'name', 'email', 'phone', 'age', 'gender',
+      'selectedCategory', 'name', 'email', 'phone', 'dateOfBirth', 'gender',
       'tower', 'flatNumber', 'emergencyContact', 'tshirtSize',
-      'partnerName', 'partnerPhone', 'partnerEmail', 'partnerTower', 'partnerFlatNumber',
+      'partnerName', 'partnerPhone', 'partnerEmail', 'partnerDateOfBirth',
+      'partnerTower', 'partnerFlatNumber',
       'paymentReference',
     ]);
     setTouched(allFields);
@@ -339,7 +383,10 @@ export default function TournamentRegistrationPage() {
         formData.phone.trim()
       );
       setRegistrationCount(existingCount);
-      if (existingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT) {
+      if (
+        LIMIT_REGISTRATIONS_PER_PARTICIPANT &&
+        existingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+      ) {
         throw new Error(`You have already registered for ${existingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
       }
 
@@ -353,7 +400,10 @@ export default function TournamentRegistrationPage() {
         );
         partnerExistingCount = partnerStats.count;
         setPartnerRegistrationCount(partnerExistingCount);
-        if (partnerExistingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT) {
+        if (
+          LIMIT_REGISTRATIONS_PER_PARTICIPANT &&
+          partnerExistingCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
+        ) {
           throw new Error(`Your partner has already registered for ${partnerExistingCount} categories. Each participant can register for at most ${MAX_REGISTRATIONS_PER_PARTICIPANT} categories.`);
         }
       }
@@ -363,13 +413,23 @@ export default function TournamentRegistrationPage() {
       const showIsResident = tournament?.showIsResident ?? true;
       const showTshirtSize = tournament?.showTshirtSize ?? false;
       const showVolunteerNomination = tournament?.showVolunteerNomination ?? false;
+      const ageReferenceDate = tournament?.startDate ?? new Date();
+      const age = calculateAgeOnDate(formData.dateOfBirth, ageReferenceDate);
+      const partnerAge = formData.partnerDateOfBirth
+        ? calculateAgeOnDate(formData.partnerDateOfBirth, ageReferenceDate)
+        : null;
+
+      if (age === null) {
+        throw new Error('Unable to calculate age from the date of birth.');
+      }
 
       const registrationData = {
         tournamentId,
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        age: parseInt(formData.age),
+        dateOfBirth: formData.dateOfBirth,
+        age,
         gender: formData.gender as 'male' | 'female' | 'other',
         ...(showTowerAndFlat ? { tower: formData.tower, flatNumber: formData.flatNumber } : {}),
         ...(showEmergencyContact ? { emergencyContact: formData.emergencyContact } : {}),
@@ -383,7 +443,8 @@ export default function TournamentRegistrationPage() {
         partnerName: formData.partnerName || null,
         partnerPhone: formData.partnerPhone || null,
         partnerEmail: formData.partnerEmail || null,
-        partnerAge: formData.partnerAge ? parseInt(formData.partnerAge) : null,
+        partnerDateOfBirth: formData.partnerDateOfBirth || null,
+        partnerAge,
         ...(showTowerAndFlat ? { partnerTower: formData.partnerTower || null, partnerFlatNumber: formData.partnerFlatNumber || null } : {}),
         ...(formData.profilePhotoUrl ? { profilePhotoUrl: formData.profilePhotoUrl } : {}),
         ...(formData.partnerProfilePhotoUrl ? { partnerProfilePhotoUrl: formData.partnerProfilePhotoUrl } : {}),
@@ -554,8 +615,9 @@ export default function TournamentRegistrationPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60 flex items-center justify-center">
           <div className="text-center text-white max-w-4xl px-4">
             <Trophy className="h-16 w-16 mx-auto mb-4 text-yellow-400" />
-            <h1 className="text-5xl font-bold mb-3 drop-shadow-lg">{tournament?.name}</h1>
-            <p className="text-2xl capitalize mb-4 drop-shadow-md">{tournament?.sport} Tournament Registration</p>
+            {tournament?.showRegistrationTitle !== false && (
+              <h1 className="text-5xl font-bold mb-3 drop-shadow-lg">{tournament?.name}</h1>
+            )}
             <div className="flex items-center justify-center gap-6 text-lg">
               <span className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
@@ -672,10 +734,12 @@ export default function TournamentRegistrationPage() {
                 </div>
               )}
 
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
-                <span>Each participant may register for up to <strong>{MAX_REGISTRATIONS_PER_PARTICIPANT} categories</strong> per tournament. Repeat category fees apply after the first registration.</span>
-              </div>
+              {LIMIT_REGISTRATIONS_PER_PARTICIPANT && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" />
+                  <span>Each participant may register for up to <strong>{MAX_REGISTRATIONS_PER_PARTICIPANT} categories</strong> per tournament. Repeat category fees apply after the first registration.</span>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
 
@@ -756,7 +820,7 @@ export default function TournamentRegistrationPage() {
                       className={err('phone') ? 'border-red-500' : ''}
                     />
                     <FieldError message={err('phone')} />
-                    {registrationCount !== null && registrationCount > 0 && (
+                    {LIMIT_REGISTRATIONS_PER_PARTICIPANT && registrationCount !== null && registrationCount > 0 && (
                       <p className={`text-xs mt-0.5 flex items-center gap-1 ${registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
                         <AlertCircle className="h-3 w-3 flex-shrink-0" />
                         {registrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
@@ -781,21 +845,19 @@ export default function TournamentRegistrationPage() {
                   )}
                 </div>
 
-                {/* ── Row: Age + Gender ── */}
+                {/* ── Row: Date of birth + Gender ── */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1">
-                    <Label htmlFor="age">Age *</Label>
-                    <Input
-                      id="age"
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={formData.age}
-                      onChange={(e) => updateField('age', e.target.value)}
-                      onBlur={() => touch('age')}
-                      className={err('age') ? 'border-red-500' : ''}
+                    <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                    <DatePickerInput
+                      id="dateOfBirth"
+                      max={new Date().toISOString().split('T')[0]}
+                      value={formData.dateOfBirth}
+                      onChange={(value) => updateField('dateOfBirth', value)}
+                      onBlur={() => touch('dateOfBirth')}
+                      triggerClassName={err('dateOfBirth') ? 'border-red-500' : ''}
                     />
-                    <FieldError message={err('age')} />
+                    <FieldError message={err('dateOfBirth')} />
                   </div>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="gender">Gender *</Label>
@@ -958,7 +1020,7 @@ export default function TournamentRegistrationPage() {
                             className={err('partnerPhone') ? 'border-red-500' : ''}
                           />
                           <FieldError message={err('partnerPhone')} />
-                          {partnerRegistrationCount !== null && partnerRegistrationCount > 0 && (
+                          {LIMIT_REGISTRATIONS_PER_PARTICIPANT && partnerRegistrationCount !== null && partnerRegistrationCount > 0 && (
                             <p className={`text-xs mt-0.5 flex items-center gap-1 ${partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT ? 'text-red-600' : 'text-amber-600'}`}>
                               <AlertCircle className="h-3 w-3 flex-shrink-0" />
                               {partnerRegistrationCount >= MAX_REGISTRATIONS_PER_PARTICIPANT
@@ -983,19 +1045,16 @@ export default function TournamentRegistrationPage() {
                           <FieldError message={err('partnerEmail')} />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <Label htmlFor="partnerAge">Partner Age *</Label>
-                          <Input
-                            id="partnerAge"
-                            type="number"
-                            min={1}
-                            max={100}
-                            value={formData.partnerAge}
-                            onChange={(e) => updateField('partnerAge', e.target.value)}
-                            onBlur={() => touch('partnerAge')}
-                            placeholder="Partner's age"
-                            className={err('partnerAge') ? 'border-red-500' : ''}
+                          <Label htmlFor="partnerDateOfBirth">Partner Date of Birth *</Label>
+                          <DatePickerInput
+                            id="partnerDateOfBirth"
+                            max={new Date().toISOString().split('T')[0]}
+                            value={formData.partnerDateOfBirth}
+                            onChange={(value) => updateField('partnerDateOfBirth', value)}
+                            onBlur={() => touch('partnerDateOfBirth')}
+                            triggerClassName={err('partnerDateOfBirth') ? 'border-red-500' : ''}
                           />
-                          <FieldError message={err('partnerAge')} />
+                          <FieldError message={err('partnerDateOfBirth')} />
                         </div>
                       </div>
                       <ProfilePhotoUpload
