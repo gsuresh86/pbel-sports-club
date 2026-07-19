@@ -341,11 +341,10 @@ export default function LeadsManagementPage() {
           return;
         }
 
+        const { getAuthHeaders } = await import('@/lib/client-auth-headers');
         const response = await fetch('/api/create-user', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             email: selectedLead.email,
             password: newUserPassword,

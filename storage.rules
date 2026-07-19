@@ -2,58 +2,54 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Tournament banners - public read; write for admin, super-admin, tournament-admin
-    // Role (admin / super-admin / tournament-admin) is enforced in the app; Storage allows any authenticated user.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Tournament banners - public read; authenticated write (role gated in app / Admin SDK)
     match /tournament-banners/{allPaths=**} {
-      allow read: if true; // Public read for displaying banners
-      allow write: if request.auth != null; // Admin, super-admin, and tournament-admin (all authenticated users with access to edit in app)
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow read: if true;
+      allow write: if isSignedIn()
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
     
     // User profile images - users can manage their own
     match /user-profiles/{userId}/{allPaths=**} {
-      allow read: if true; // Public read for profile images
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
     
     // Test uploads - authenticated users only
     match /test-uploads/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
     
-    // Player profile photos from public registration (optional)
+    // Player profile photos from public registration (size/type limited; App Check in later phase)
     match /participant-profiles/{tournamentId}/{fileName} {
       allow read: if true;
       allow create: if request.resource.size < 5 * 1024 * 1024
                     && request.resource.contentType.matches('image/.*');
-      allow delete: if request.auth != null;
+      allow update: if false;
+      allow delete: if isSignedIn();
     }
 
-    // Team logos uploaded by tournament admins (role enforced in app)
+    // Team logos uploaded by signed-in staff (role gated in app)
     match /team-logos/{tournamentId}/{fileName} {
       allow read: if true;
-      allow write: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow write: if isSignedIn()
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
-    // Participant documents - authenticated users only (role check handled in app)
+    // Participant documents - authenticated users only
     match /participant-documents/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 10 * 1024 * 1024;
     }
   }
 }

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { BarChart3, ExternalLink, Users2 } from 'lucide-react';
-import type { Match, Pool, Registration, Team, Tournament } from '@/types';
+import type { Match, Pool, PublicPlayer, Team, Tournament } from '@/types';
 import { formatCategoryLabel } from '@/lib/categoryLabels';
 import { isTeamCategory } from '@/lib/poolStandings';
 import PoolPointsTable from '@/components/public/PoolPointsTable';
@@ -14,7 +14,7 @@ interface Props {
   pools: Pool[];
   matches: Match[];
   teams: Team[];
-  participants: Registration[];
+  participants: PublicPlayer[];
   initialCategory?: string;
   hideCategoryFilter?: boolean;
   showFullPageLink?: boolean;

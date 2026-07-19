@@ -1,8 +1,8 @@
-import type { CategoryType, Match, Pool, Tournament } from '@/types';
+import type { CategoryType, Match, Pool, Team, Tournament } from '@/types';
 import { computePoolStandings, isTeamCategory } from '@/lib/poolStandings';
 import { isRubberMatch } from '@/lib/teamMatchRubbers';
-import type { Team } from '@/types';
-import type { Registration } from '@/types';
+
+export type NameLookupEntry = { id: string; name: string };
 
 export const KNOCKOUT_ROUNDS = ['QF', 'SF', 'F', 'TP'] as const;
 export type KnockoutRound = (typeof KNOCKOUT_ROUNDS)[number];
@@ -77,7 +77,7 @@ export function getQualifiedByPool(
   options: {
     isTeamCat: boolean;
     teams?: Team[];
-    registrations?: Registration[];
+    registrations?: NameLookupEntry[];
     categoryQualifyCounts?: Partial<Record<CategoryType, number>>;
   },
 ): { pool: Pool; qualified: KnockoutParticipant[] }[] {
@@ -453,7 +453,7 @@ export function previewKnockoutRound(
   matches: Match[],
   options: {
     teams: Team[];
-    registrations: Registration[];
+    registrations: NameLookupEntry[];
     categoryQualifyCounts?: Tournament['categoryQualifyCounts'];
   },
 ): KnockoutPreview {

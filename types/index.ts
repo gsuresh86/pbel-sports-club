@@ -194,6 +194,21 @@ export interface Registration {
   approvedBy?: string;
 }
 
+/**
+ * Public-safe projection of a registration for fixtures, teams, brackets, and standings.
+ * Document id matches the registration id. Never includes contact, address, or payment fields.
+ */
+export interface PublicPlayer {
+  id: string;
+  tournamentId: string;
+  name: string;
+  partnerName?: string;
+  profilePhotoUrl?: string;
+  partnerProfilePhotoUrl?: string;
+  selectedCategory: CategoryType;
+  updatedAt?: Date;
+}
+
 export interface Player {
   id: string;
   tournamentId: string;

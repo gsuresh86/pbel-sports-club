@@ -257,15 +257,21 @@ export default function UserManagementPage() {
       };
 
       if (editingUser) {
-        // Update existing user
-        console.log('Updating user:', editingUser.id);
-        await updateDoc(doc(db, 'users', editingUser.id), userData);
-        
-        // Update password if provided
-        if (formData.password && formData.password.trim() !== '') {
-          // Note: This requires the current user to be signed in as the user being updated
-          // For admin password updates, we'll need a different approach
-          console.log('Password update not implemented for admin updates');
+        const { getAuthHeaders } = await import('@/lib/client-auth-headers');
+        const response = await fetch(`/api/users/${editingUser.id}`, {
+          method: 'PATCH',
+          headers: await getAuthHeaders(),
+          body: JSON.stringify({
+            name: userData.name,
+            role: userData.role,
+            assignedTournaments: userData.assignedTournaments,
+            isActive: userData.isActive,
+            ...(formData.password?.trim() ? { password: formData.password.trim() } : {}),
+          }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update user');
         }
       } else {
         // Create new user with password
@@ -290,11 +296,10 @@ export default function UserManagementPage() {
         console.log('Creating user via API...');
         
         // Create user via API route to avoid authentication state conflicts
+        const { getAuthHeaders } = await import('@/lib/client-auth-headers');
         const response = await fetch('/api/create-user', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: await getAuthHeaders(),
           body: JSON.stringify({
             email: formData.email,
             password: formData.password,
@@ -402,7 +407,15 @@ export default function UserManagementPage() {
       variant: 'destructive',
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'users', id));
+          const { getAuthHeaders } = await import('@/lib/client-auth-headers');
+          const response = await fetch(`/api/users/${id}`, {
+            method: 'DELETE',
+            headers: await getAuthHeaders(),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete user');
+          }
           alert({
             title: 'Success',
             description: 'User deleted successfully',
@@ -413,7 +426,7 @@ export default function UserManagementPage() {
           console.error('Error deleting user:', error);
           alert({
             title: 'Error',
-            description: 'Failed to delete user',
+            description: error instanceof Error ? error.message : 'Failed to delete user',
             variant: 'error'
           });
         }
@@ -423,16 +436,22 @@ export default function UserManagementPage() {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      await updateDoc(doc(db, 'users', userId), {
-        isActive: !currentStatus,
-        updatedAt: new Date(),
+      const { getAuthHeaders } = await import('@/lib/client-auth-headers');
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ isActive: !currentStatus }),
       });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update user status');
+      }
       loadData();
     } catch (error) {
       console.error('Error updating user status:', error);
       alert({
         title: 'Error',
-        description: 'Failed to update user status',
+        description: error instanceof Error ? error.message : 'Failed to update user status',
         variant: 'error'
       });
     }

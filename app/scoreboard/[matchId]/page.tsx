@@ -20,10 +20,10 @@ import {
 import { ScoreboardDisplay } from '@/components/scoring/ScoreboardDisplay';
 import { TeamTieScoreboardDisplay } from '@/components/scoring/TeamTieScoreboardDisplay';
 import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
-import { fetchTournamentRegistrations, fetchTournamentTeams, toTournament } from '@/lib/tournament-api';
+import { fetchTournamentPublicPlayers, fetchTournamentTeams, toTournament } from '@/lib/tournament-api';
 import { countRubbersWon } from '@/lib/teamMatchRubbers';
 import { getMatchLiveDisplayNames, resolveMatchWinnerDisplayName } from '@/lib/utils';
-import { Match, Tournament, LiveScore, Registration, Team } from '@/types';
+import { Match, Tournament, LiveScore, PublicPlayer, Team } from '@/types';
 
 function ScoreboardLoading() {
   return (
@@ -48,7 +48,7 @@ function ScoreboardPageInner() {
   const [matchLoading, setMatchLoading] = useState(true);
   const [liveScoreReady, setLiveScoreReady] = useState(false);
   const [tournamentLoading, setTournamentLoading] = useState(true);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [registrations, setRegistrations] = useState<PublicPlayer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [parentTeamMatch, setParentTeamMatch] = useState<Match | null>(null);
   const [teamRubbers, setTeamRubbers] = useState<Match[]>([]);
@@ -186,7 +186,7 @@ function ScoreboardPageInner() {
     (async () => {
       try {
         const [regs, tournamentTeams] = await Promise.all([
-          fetchTournamentRegistrations(effectiveTournamentId),
+          fetchTournamentPublicPlayers(effectiveTournamentId),
           fetchTournamentTeams(effectiveTournamentId),
         ]);
         if (cancelled) return;

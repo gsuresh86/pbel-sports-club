@@ -7,7 +7,8 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesOrderedQuery } from '@/lib/firestore-paths';
 import { Button } from '@/components/ui/button';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
-import { Tournament, Match, Registration, Team, Pool, CategoryType } from '@/types';
+import { Tournament, Match, PublicPlayer, Team, Pool, CategoryType } from '@/types';
+import { listPublicPlayers } from '@/lib/public-players';
 import {
   previewKnockoutRound,
   KNOCKOUT_ROUND_LABELS,
@@ -49,7 +50,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   const { user } = useAuth();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [participants, setParticipants] = useState<Registration[]>([]);
+  const [participants, setParticipants] = useState<PublicPlayer[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [pools, setPools] = useState<Pool[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,12 +104,8 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
 
   const loadParticipants = async () => {
     try {
-      const snap = await getDocs(query(collection(db, 'tournaments', tournamentId, 'registrations'), orderBy('registeredAt', 'desc')));
-      setParticipants(snap.docs.map(d => ({
-        id: d.id, ...d.data(),
-        registeredAt: d.data().registeredAt?.toDate(),
-        approvedAt: d.data().approvedAt?.toDate(),
-      })) as Registration[]);
+      const players = await listPublicPlayers(db, tournamentId);
+      setParticipants(players);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -665,7 +662,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     .filter(t => teamsCatFilter === 'all' || t.category === teamsCatFilter)
                     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
                     .map(team => {
-                    const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as Registration[];
+                    const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as PublicPlayer[];
                     const captain = participants.find(p => p.id === team.captainId);
                     return (
                       <div key={team.id} className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden hover:border-yellow-400/30 transition-colors group">
@@ -697,9 +694,6 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm text-white font-medium truncate">{player.name}</p>
-                                  {(player.tower || player.flatNumber) && (
-                                    <p className="text-[10px] text-slate-500">{player.tower} {player.flatNumber}</p>
-                                  )}
                                 </div>
                                 {isCaptain && (
                                   <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] text-yellow-400 font-bold uppercase">
@@ -911,7 +905,7 @@ function MatchCard({
   match: Match;
   tournament: Tournament | null;
   tournamentId: string;
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
 }) {
   const isLive = match.status === 'live';
@@ -1197,7 +1191,7 @@ function shortBracketLabel(name: string): string {
 function bracketSideFromIds(
   playerId: string,
   playerName: string,
-  regById: Map<string, Registration>,
+  regById: Map<string, PublicPlayer>,
   teamsById: Map<string, { logoUrl?: string; name?: string }>,
 ): { name: string; logoUrl?: string } {
   const display = getMatchSideDisplay(playerId, playerName, regById, teamsById);
@@ -1206,7 +1200,7 @@ function bracketSideFromIds(
 
 function bracketParticipantDisplay(
   participant: { id: string; name: string },
-  regById: Map<string, Registration>,
+  regById: Map<string, PublicPlayer>,
   teamsById: Map<string, { logoUrl?: string; name?: string }>,
 ): { name: string; logoUrl?: string } {
   const resolved = bracketSideFromIds(participant.id, participant.name, regById, teamsById);
@@ -1218,7 +1212,7 @@ function resolveBracketSide(
   playerName: string,
   sourceMatches: Match[],
   teamsById: Map<string, { logoUrl?: string; name?: string }>,
-  regById: Map<string, Registration>,
+  regById: Map<string, PublicPlayer>,
   _depth = 0,
 ): { name: string; isTBD: boolean; logoUrl?: string } {
   const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
@@ -1438,7 +1432,7 @@ function IplPlayoffBracketView({
   category: CategoryType;
   catMatches: Match[];
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
 }) {
   const q1Matches = filterIplRoundMatches(catMatches, 'Qualifier1');
   const eMatches = filterIplRoundMatches(catMatches, 'Eliminator');
@@ -1606,10 +1600,10 @@ function KnockoutBracketView({
   displayMatches: Match[];
   pools: Pool[];
   teams: Team[];
-  participants: Registration[];
+  participants: PublicPlayer[];
   tournament: Tournament;
   tournamentId: string;
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
 }) {
   const catPools = pools.filter(p => p.category === category);
@@ -1868,7 +1862,7 @@ function TeamRubberDetails({
   regById,
 }: {
   rubbers: Match[];
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
 }) {
   if (rubbers.length === 0) {
     return (
@@ -1939,7 +1933,7 @@ function ResultMatchCard({
   match: Match;
   tournament: Tournament | null;
   tournamentId: string;
-  regById: Map<string, Registration>;
+  regById: Map<string, PublicPlayer>;
   teamsById: Map<string, { logoUrl?: string; name?: string }>;
   teamIds: Set<string>;
   rubbers: Match[];

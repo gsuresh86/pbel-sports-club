@@ -22,6 +22,12 @@ import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/adm
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parsePaymentRecipient, getInitials } from '@/lib/utils';
+import {
+  canAccessTournamentConsole,
+  canAccessTournamentRoute,
+  isSystemAdmin,
+  isTournamentStaff,
+} from '@/lib/permissions';
 
 const STICKY_HEAD = 'sticky top-0 z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
@@ -72,12 +78,23 @@ export function RegistrationsManager({
   const [selectedImportTournament, setSelectedImportTournament] = useState<string>('');
 
   useEffect(() => {
-    if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin' && user.role !== 'tournament-admin'))) {
+    if (authLoading) return;
+
+    const allowed = fixedTournamentId
+      ? canAccessTournamentRoute(user, 'participants', fixedTournamentId)
+      : !!user && (
+          isSystemAdmin(user.role) ||
+          user.role === 'tournament-admin' ||
+          (isTournamentStaff(user.role) && canAccessTournamentConsole(user))
+        );
+
+    if (!user || !allowed) {
       router.push('/login');
-    } else if (user?.role === 'admin' || user?.role === 'super-admin' || user?.role === 'tournament-admin') {
-      loadData();
+      return;
     }
-  }, [user, authLoading, router]);
+
+    loadData();
+  }, [user, authLoading, router, fixedTournamentId]);
 
   const loadData = async () => {
     setLoading(true);
@@ -88,8 +105,11 @@ export function RegistrationsManager({
   useEffect(() => {
     if (tournaments.length > 0) {
       loadRegistrations();
+    } else if (!authLoading && user) {
+      setRegistrations([]);
+      setLoading(false);
     }
-  }, [tournaments]);
+  }, [tournaments, authLoading, user]);
 
   const loadTournaments = async () => {
     try {
@@ -104,9 +124,14 @@ export function RegistrationsManager({
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as Tournament[];
 
-      // Filter tournaments based on user role
-      if (user?.role === 'tournament-admin' && user.assignedTournaments) {
-        tournamentsData = tournamentsData.filter(tournament => 
+      // Scope to assigned tournaments for tournament admins / staff
+      if (
+        user &&
+        !isSystemAdmin(user.role) &&
+        (user.role === 'tournament-admin' || isTournamentStaff(user.role)) &&
+        user.assignedTournaments
+      ) {
+        tournamentsData = tournamentsData.filter((tournament) =>
           user.assignedTournaments?.includes(tournament.id)
         );
       }
@@ -117,6 +142,7 @@ export function RegistrationsManager({
       setTournaments(tournamentsData);
     } catch (error) {
       console.error('Error loading tournaments:', error);
+      setLoading(false);
     }
   };
 
@@ -314,6 +340,15 @@ export function RegistrationsManager({
         registrationUpdate,
       );
 
+      const { upsertPublicPlayer } = await import('@/lib/public-players');
+      await upsertPublicPlayer(db, participant.tournamentId, participantId, {
+        name: values.name,
+        partnerName: values.partnerName || undefined,
+        profilePhotoUrl: participant.profilePhotoUrl,
+        partnerProfilePhotoUrl: participant.partnerProfilePhotoUrl,
+        selectedCategory: values.selectedCategory as Registration['selectedCategory'],
+      });
+
       const playerUpdate = toFirestore(
         Object.fromEntries(playerKeys.map((k) => [k, cleaned[k]])),
       );
@@ -385,6 +420,11 @@ export function RegistrationsManager({
       await Promise.all(playersSnapshot.docs.map((playerDoc) => deleteDoc(playerDoc.ref)));
 
       await deleteDoc(doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId));
+      try {
+        await deleteDoc(doc(db, 'tournaments', participant.tournamentId, 'publicPlayers', participantId));
+      } catch {
+        // Projection may not exist for legacy registrations
+      }
 
       // Keep the tournament participant count accurate for approved registrations.
       if (participant.registrationStatus === 'approved') {
@@ -780,7 +820,13 @@ export function RegistrationsManager({
             registeredAt: new Date(),
           };
 
-          await addDoc(collection(db, 'tournaments', String(row.tournamentId), 'registrations'), registrationData);
+          const regRef = await addDoc(collection(db, 'tournaments', String(row.tournamentId), 'registrations'), registrationData);
+          const { upsertPublicPlayer } = await import('@/lib/public-players');
+          await upsertPublicPlayer(db, String(row.tournamentId), regRef.id, {
+            name: String(row.name ?? ''),
+            partnerName: row.partnerName ? String(row.partnerName) : undefined,
+            selectedCategory: row.selectedCategory as Registration['selectedCategory'],
+          });
           successCount++;
         } catch (error) {
           console.error(`Error importing row ${row.rowIndex}:`, error);

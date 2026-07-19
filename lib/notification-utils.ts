@@ -110,11 +110,10 @@ export async function sendNotification(
   }
   
   try {
+    const { getAuthHeaders } = await import('@/lib/client-auth-headers');
     const response = await fetch('/api/send-notification', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify({
         tokens,
         notification: {
