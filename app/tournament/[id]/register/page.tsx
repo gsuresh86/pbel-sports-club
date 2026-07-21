@@ -653,23 +653,22 @@ export default function TournamentRegistrationPage() {
           alt={`${tournament?.name} banner`}
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60 flex items-center justify-center">
-          <div className="text-center text-white max-w-4xl px-4">
-            <Trophy className="h-16 w-16 mx-auto mb-4 text-yellow-400" />
-            {tournament?.showRegistrationTitle !== false && (
-              <h1 className="text-5xl font-bold mb-3 drop-shadow-lg">{tournament?.name}</h1>
-            )}
-            <div className="flex items-center justify-center gap-6 text-lg">
-              <span className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                {new Date(tournament!.startDate).toLocaleDateString()} – {new Date(tournament!.endDate).toLocaleDateString()}
-              </span>
-              <span className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                {tournament?.venue}
-              </span>
-            </div>
-          </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/60" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white px-4 pb-12">
+          <Trophy className="h-16 w-16 mb-4 text-yellow-400" />
+          {tournament?.showRegistrationTitle !== false && (
+            <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg max-w-4xl">{tournament?.name}</h1>
+          )}
+        </div>
+        <div className="absolute inset-x-0 bottom-4 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-6 text-sm sm:text-lg text-white px-4">
+          <span className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            {new Date(tournament!.startDate).toLocaleDateString()} – {new Date(tournament!.endDate).toLocaleDateString()}
+          </span>
+          <span className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            {tournament?.venue}
+          </span>
         </div>
       </div>
 
