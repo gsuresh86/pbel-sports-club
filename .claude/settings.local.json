@@ -22,7 +22,11 @@
       "Bash(git *)",
       "Bash(node *)",
       "Bash(npm test *)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(ls components/ui)",
+      "Bash(cat components.json)",
+      "Bash(sudo -n true)",
+      "WebFetch(domain:ui.shadcn.com)"
     ],
     "deny": [],
     "ask": []
