@@ -660,14 +660,16 @@ export default function TournamentRegistrationPage() {
             <h1 className="text-3xl sm:text-5xl font-bold mb-3 drop-shadow-lg max-w-4xl">{tournament?.name}</h1>
           )}
         </div>
-        <div className="absolute inset-x-0 bottom-4 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-6 text-sm sm:text-lg text-white px-4">
-          <span className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-            {new Date(tournament!.startDate).toLocaleDateString()} – {new Date(tournament!.endDate).toLocaleDateString()}
+        <div className="absolute inset-x-0 bottom-4 flex flex-row items-center justify-between gap-2 text-xs sm:text-lg text-white px-4">
+          <span className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <Calendar className="h-3.5 w-3.5 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span className="truncate">
+              {new Date(tournament!.startDate).toLocaleDateString()} – {new Date(tournament!.endDate).toLocaleDateString()}
+            </span>
           </span>
-          <span className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
-            {tournament?.venue}
+          <span className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <MapPin className="h-3.5 w-3.5 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span className="truncate">{tournament?.venue}</span>
           </span>
         </div>
       </div>
