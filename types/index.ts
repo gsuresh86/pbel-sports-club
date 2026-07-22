@@ -118,7 +118,7 @@ export interface Tournament {
   /** @deprecated Use contacts[0] — kept for legacy tournament documents */
   contactPhone?: string;
   showVolunteerNomination?: boolean;
-  /** Fee for doubles category registrations (per person). Default 700. */
+  /** @deprecated Unused — doubles now use entryFee once per registration. Kept for legacy docs. */
   doublesFee?: number;
   /** Discounted fee when a participant re-registers for an additional category. Default 300. */
   repeatFee?: number;

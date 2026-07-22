@@ -63,7 +63,6 @@ type TournamentFormData = {
   paymentQrCode: string;
   whatsappGroupLink: string;
   contacts: TournamentContact[];
-  doublesFee: string;
   repeatFee: string;
   limitRegistrationsPerParticipant: boolean;
   maxRegistrationsPerParticipant: string;
@@ -101,7 +100,6 @@ const emptyFormData = (): TournamentFormData => ({
     { name: '', phone: '' },
     { name: '', phone: '' },
   ],
-  doublesFee: '700',
   repeatFee: '300',
   limitRegistrationsPerParticipant: true,
   maxRegistrationsPerParticipant: '3',
@@ -139,7 +137,6 @@ function tournamentToFormData(tournament: Tournament): TournamentFormData {
     paymentQrCode: tournament.paymentQrCode || '',
     whatsappGroupLink: tournament.whatsappGroupLink || '',
     contacts: normalizeTournamentContactsForForm(getTournamentContacts(tournament)),
-    doublesFee: tournament.doublesFee?.toString() || '700',
     repeatFee: tournament.repeatFee?.toString() || '300',
     limitRegistrationsPerParticipant: tournament.limitRegistrationsPerParticipant ?? true,
     maxRegistrationsPerParticipant: tournament.maxRegistrationsPerParticipant?.toString() || '3',
@@ -359,9 +356,6 @@ export function TournamentFormDrawer({
       }
       tournamentData.contactName = null as unknown as string;
       tournamentData.contactPhone = null as unknown as string;
-      if (formData.doublesFee && formData.doublesFee.trim() !== '') {
-        tournamentData.doublesFee = parseFloat(formData.doublesFee);
-      }
       if (formData.repeatFee && formData.repeatFee.trim() !== '') {
         tournamentData.repeatFee = parseFloat(formData.repeatFee);
       }
@@ -571,7 +565,7 @@ export function TournamentFormDrawer({
                     onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                   <div className="space-y-2">
                     <Label htmlFor="entryFee">Entry Fee (₹)</Label>
                     <Input
@@ -580,18 +574,7 @@ export function TournamentFormDrawer({
                       value={formData.entryFee}
                       onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doublesFee">Doubles Fee (₹ per person)</Label>
-                    <Input
-                      id="doublesFee"
-                      type="number"
-                      min="0"
-                      placeholder="700"
-                      value={formData.doublesFee}
-                      onChange={(e) => setFormData({ ...formData, doublesFee: e.target.value })}
-                    />
-                    <p className="text-xs text-gray-500">Fee per player for doubles categories</p>
+                    <p className="text-xs text-gray-500">Per person. Doubles = entry fee × 2</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="repeatFee">Repeat Registration Fee (₹)</Label>

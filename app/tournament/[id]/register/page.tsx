@@ -27,6 +27,28 @@ type FormErrors = Partial<Record<string, string>>;
 const DOUBLES_CATEGORIES: CategoryType[] = ['mens-doubles', 'womens-doubles', 'mixed-doubles', 'family-doubles'];
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team'];
 
+const MALE_CATEGORIES = new Set<string>([
+  'boys-under-13',
+  'boys-under-18',
+  'mens-single',
+  'mens-doubles',
+  'mens-team',
+]);
+const FEMALE_CATEGORIES = new Set<string>([
+  'girls-under-13',
+  'girls-under-18',
+  'womens-single',
+  'womens-doubles',
+  'womens-team',
+]);
+
+/** Infer gender from category. Mixed doubles / open / family / kids teams return null. */
+function genderFromCategory(category: string): 'male' | 'female' | null {
+  if (MALE_CATEGORIES.has(category)) return 'male';
+  if (FEMALE_CATEGORIES.has(category)) return 'female';
+  return null;
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   'girls-under-13': 'Girls Under 13',
   'boys-under-13': 'Boys Under 13',
@@ -353,6 +375,19 @@ export default function TournamentRegistrationPage() {
     setErrors(validateForm(next, tournament));
   };
 
+  const handleCategoryChange = (category: string) => {
+    touch('selectedCategory');
+    const inferredGender = genderFromCategory(category);
+    const next = {
+      ...formData,
+      selectedCategory: category,
+      ...(inferredGender ? { gender: inferredGender } : {}),
+    };
+    setFormData(next);
+    setErrors(validateForm(next, tournament));
+    if (inferredGender) touch('gender');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -611,20 +646,19 @@ export default function TournamentRegistrationPage() {
   const isDoubles = isDoublesCategory(formData.selectedCategory);
   const isTeam = isTeamCategory(formData.selectedCategory);
 
-  const DOUBLES_FEE = tournament?.doublesFee ?? 700;
   const REPEAT_FEE = tournament?.repeatFee ?? 300;
+  const ENTRY_FEE = tournament?.entryFee || 0;
 
   const isReturningParticipant = registrationCount !== null && registrationCount > 0;
   const isPartnerReturning = partnerRegistrationCount !== null && partnerRegistrationCount > 0;
 
   const primaryFee = (() => {
-    if (isDoubles) return isReturningParticipant ? REPEAT_FEE : DOUBLES_FEE;
-    if (!tournament?.entryFee) return 0;
-    return isReturningParticipant ? REPEAT_FEE : tournament.entryFee;
+    if (!ENTRY_FEE) return 0;
+    return isReturningParticipant ? REPEAT_FEE : ENTRY_FEE;
   })();
 
   const partnerFee = isDoubles
-    ? (isPartnerReturning ? REPEAT_FEE : DOUBLES_FEE)
+    ? (!ENTRY_FEE ? 0 : isPartnerReturning ? REPEAT_FEE : ENTRY_FEE)
     : 0;
 
   const effectiveFee =
@@ -791,7 +825,7 @@ export default function TournamentRegistrationPage() {
                     <Label htmlFor="selectedCategory">Select Category *</Label>
                     <Select
                       value={formData.selectedCategory}
-                      onValueChange={(v) => { touch('selectedCategory'); updateField('selectedCategory', v); }}
+                      onValueChange={handleCategoryChange}
                     >
                       <SelectTrigger className={`w-full ${err('selectedCategory') ? 'border-red-500' : ''}`}>
                         <SelectValue placeholder="Select your category" />
@@ -888,8 +922,8 @@ export default function TournamentRegistrationPage() {
                 </div>
 
                 {/* ── Row: Date of birth + Gender ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="flex flex-col gap-1 min-w-0">
                     <Label htmlFor="dateOfBirth">Date of Birth *</Label>
                     <DatePickerInput
                       id="dateOfBirth"
@@ -901,7 +935,7 @@ export default function TournamentRegistrationPage() {
                     />
                     <FieldError message={err('dateOfBirth')} />
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-1 min-w-0">
                     <Label htmlFor="gender">Gender *</Label>
                     <Select value={formData.gender} onValueChange={(v) => { touch('gender'); updateField('gender', v); }}>
                       <SelectTrigger className={`w-full ${err('gender') ? 'border-red-500' : ''}`}>
@@ -948,8 +982,8 @@ export default function TournamentRegistrationPage() {
 
                 {/* ── Row: Tower + Flat (conditional) ── */}
                 {showTowerAndFlat && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div className="flex flex-col gap-1 min-w-0">
                       <Label htmlFor="tower">Tower *</Label>
                       <Select value={formData.tower} onValueChange={(v) => { touch('tower'); updateField('tower', v); }}>
                         <SelectTrigger className={`w-full ${err('tower') ? 'border-red-500' : ''}`}>
@@ -963,7 +997,7 @@ export default function TournamentRegistrationPage() {
                       </Select>
                       <FieldError message={err('tower')} />
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 min-w-0">
                       <Label htmlFor="flatNumber">Flat Number *</Label>
                       <Input
                         id="flatNumber"
@@ -1126,8 +1160,8 @@ export default function TournamentRegistrationPage() {
                         </div>
                       )}
                       {showTowerAndFlat && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="flex flex-col gap-1">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                          <div className="flex flex-col gap-1 min-w-0">
                             <Label htmlFor="partnerTower">Partner Tower *</Label>
                             <Select value={formData.partnerTower} onValueChange={(v) => { touch('partnerTower'); updateField('partnerTower', v); }}>
                               <SelectTrigger className={`w-full ${err('partnerTower') ? 'border-red-500' : ''}`}>
@@ -1141,7 +1175,7 @@ export default function TournamentRegistrationPage() {
                             </Select>
                             <FieldError message={err('partnerTower')} />
                           </div>
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1 min-w-0">
                             <Label htmlFor="partnerFlatNumber">Partner Flat Number *</Label>
                             <Input
                               id="partnerFlatNumber"
@@ -1170,7 +1204,7 @@ export default function TournamentRegistrationPage() {
                       {isDoubles && (
                         <div className="mt-2 text-xs text-yellow-700 space-y-0.5 border-t border-yellow-200 pt-2">
                           <p>You: ₹{primaryFee}{isReturningParticipant ? ' (returning rate)' : ''}</p>
-                          {formData.partnerEmail && (
+                          {formData.partnerName && (
                             <p>Partner: ₹{partnerFee}{isPartnerReturning ? ' (returning rate)' : ''}</p>
                           )}
                         </div>

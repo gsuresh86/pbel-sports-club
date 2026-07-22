@@ -7,19 +7,23 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 const DOUBLES: CategoryType[] = ['mens-doubles', 'womens-doubles', 'mixed-doubles', 'family-doubles'];
 
+/** Per person: first category → entryFee; additional → repeatFee.
+ * Doubles: primary + partner (entryFee × 2 when both are new).
+ */
 function calcPaymentAmount(
-  tournament: { entryFee?: number; doublesFee?: number; repeatFee?: number },
+  tournament: { entryFee?: number; repeatFee?: number },
   category: string,
   primaryCount: number,
   partnerCount: number
 ) {
-  const doublesFee = tournament.doublesFee ?? 700;
+  const entryFee = tournament.entryFee || 0;
   const repeatFee = tournament.repeatFee ?? 300;
+  const personFee = (priorCount: number) => (priorCount > 0 ? repeatFee : entryFee);
+
   if (DOUBLES.includes(category as CategoryType)) {
-    return (primaryCount > 0 ? repeatFee : doublesFee) + (partnerCount > 0 ? repeatFee : doublesFee);
+    return personFee(primaryCount) + personFee(partnerCount);
   }
-  if (primaryCount > 0) return repeatFee;
-  return tournament.entryFee || 0;
+  return personFee(primaryCount);
 }
 
 function normalizeName(name: string) {
@@ -179,7 +183,6 @@ export async function POST(request: Request, context: RouteContext) {
     const paymentAmount = calcPaymentAmount(
       {
         entryFee: tournament.entryFee as number | undefined,
-        doublesFee: tournament.doublesFee as number | undefined,
         repeatFee: tournament.repeatFee as number | undefined,
       },
       selectedCategory,
