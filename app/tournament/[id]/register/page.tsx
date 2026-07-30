@@ -648,9 +648,13 @@ export default function TournamentRegistrationPage() {
 
   const REPEAT_FEE = tournament?.repeatFee ?? 300;
   const ENTRY_FEE = tournament?.entryFee || 0;
+  const DOUBLES_FEE = tournament?.doublesFee;
 
   const isReturningParticipant = registrationCount !== null && registrationCount > 0;
   const isPartnerReturning = partnerRegistrationCount !== null && partnerRegistrationCount > 0;
+
+  // Flat doubles pricing only applies when neither partner is a returning participant.
+  const useFlatDoublesFee = isDoubles && DOUBLES_FEE != null && !isReturningParticipant && !isPartnerReturning;
 
   const primaryFee = (() => {
     if (!ENTRY_FEE) return 0;
@@ -1201,7 +1205,12 @@ export default function TournamentRegistrationPage() {
                       <p className="text-sm text-yellow-700">
                         Total: <strong>₹{effectiveFee}</strong>. Complete payment then provide the reference number.
                       </p>
-                      {isDoubles && (
+                      {isDoubles && useFlatDoublesFee && (
+                        <div className="mt-2 text-xs text-yellow-700 border-t border-yellow-200 pt-2">
+                          <p>Doubles registration fee (covers both partners): ₹{DOUBLES_FEE}</p>
+                        </div>
+                      )}
+                      {isDoubles && !useFlatDoublesFee && (
                         <div className="mt-2 text-xs text-yellow-700 space-y-0.5 border-t border-yellow-200 pt-2">
                           <p>You: ₹{primaryFee}{isReturningParticipant ? ' (returning rate)' : ''}</p>
                           {formData.partnerName && (

@@ -118,7 +118,7 @@ export interface Tournament {
   /** @deprecated Use contacts[0] — kept for legacy tournament documents */
   contactPhone?: string;
   showVolunteerNomination?: boolean;
-  /** @deprecated Unused — doubles now use entryFee once per registration. Kept for legacy docs. */
+  /** Flat registration fee for the doubles pair (covers both partners). When set, overrides entryFee × 2 for first-time doubles registrations; returning participants still pay repeatFee per person. */
   doublesFee?: number;
   /** Discounted fee when a participant re-registers for an additional category. Default 300. */
   repeatFee?: number;

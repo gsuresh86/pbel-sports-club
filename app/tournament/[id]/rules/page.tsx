@@ -315,6 +315,12 @@ export default function TournamentRulesPage() {
                       <p className="text-gray-500">₹{tournament.entryFee}</p>
                     </div>
                   )}
+                  {tournament.doublesFee && (
+                    <div>
+                      <p className="font-medium text-gray-700">Doubles Registration Fee</p>
+                      <p className="text-gray-500">₹{tournament.doublesFee} (per pair)</p>
+                    </div>
+                  )}
                   {tournament.prizePool && (
                     <div>
                       <p className="font-medium text-gray-700">Prize Pool</p>

@@ -47,6 +47,7 @@ type TournamentFormData = {
   registrationDeadline: string;
   maxParticipants: string;
   entryFee: string;
+  doublesFee: string;
   prizePool: string;
   rules: string;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
@@ -81,6 +82,7 @@ const emptyFormData = (): TournamentFormData => ({
   registrationDeadline: '',
   maxParticipants: '',
   entryFee: '',
+  doublesFee: '',
   prizePool: '',
   rules: '',
   status: 'upcoming',
@@ -119,6 +121,7 @@ function tournamentToFormData(tournament: Tournament): TournamentFormData {
     registrationDeadline: new Date(tournament.registrationDeadline).toISOString().split('T')[0],
     maxParticipants: tournament.maxParticipants?.toString() || '',
     entryFee: tournament.entryFee?.toString() || '',
+    doublesFee: tournament.doublesFee?.toString() || '',
     prizePool: tournament.prizePool?.toString() || '',
     rules: tournament.rules || '',
     status: tournament.status,
@@ -331,6 +334,11 @@ export function TournamentFormDrawer({
       }
       if (formData.entryFee && formData.entryFee.trim() !== '') {
         tournamentData.entryFee = parseFloat(formData.entryFee);
+      }
+      if (formData.doublesFee && formData.doublesFee.trim() !== '') {
+        tournamentData.doublesFee = parseFloat(formData.doublesFee);
+      } else {
+        tournamentData.doublesFee = null as unknown as number;
       }
       if (formData.prizePool && formData.prizePool.trim() !== '') {
         tournamentData.prizePool = parseFloat(formData.prizePool);
@@ -575,6 +583,19 @@ export function TournamentFormDrawer({
                       onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
                     />
                     <p className="text-xs text-gray-500">Per person. Doubles = entry fee × 2</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="doublesFee">Doubles Registration Fee (₹)</Label>
+                    <Input
+                      id="doublesFee"
+                      type="number"
+                      placeholder={formData.entryFee ? `${Number(formData.entryFee) * 2} (default)` : 'Optional'}
+                      value={formData.doublesFee}
+                      onChange={(e) => setFormData({ ...formData, doublesFee: e.target.value })}
+                    />
+                    <p className="text-xs text-gray-500">
+                      Optional flat price for the pair. Leave blank to keep entry fee × 2. Doesn&apos;t apply to returning participants.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="repeatFee">Repeat Registration Fee (₹)</Label>

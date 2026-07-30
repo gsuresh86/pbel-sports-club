@@ -377,12 +377,15 @@ export function isDoublesCategoryForFee(category: string): boolean {
 
 /** Compute payment amount from prior registration counts and tournament fees.
  * Per person: first category → entryFee; additional category → repeatFee.
- * Doubles: fee for primary + fee for partner (entryFee × 2 when both are new).
+ * Doubles: flat doublesFee when both partners are first-timers (falls back to
+ * entryFee × 2 when doublesFee is unset); otherwise per-person fee for each
+ * (returning partners pay repeatFee).
  */
 export function calculateRegistrationPaymentAmount(
   tournament: {
     entryFee?: number;
     repeatFee?: number;
+    doublesFee?: number;
   },
   category: string,
   primaryRegistrationCount: number,
@@ -393,6 +396,13 @@ export function calculateRegistrationPaymentAmount(
   const personFee = (priorCount: number) => (priorCount > 0 ? repeatFee : entryFee);
 
   if (isDoublesCategoryForFee(category)) {
+    if (
+      tournament.doublesFee != null &&
+      primaryRegistrationCount === 0 &&
+      partnerRegistrationCount === 0
+    ) {
+      return tournament.doublesFee;
+    }
     return personFee(primaryRegistrationCount) + personFee(partnerRegistrationCount);
   }
 
