@@ -673,7 +673,9 @@ export default function TournamentRegistrationPage() {
           registrationCount,
           partnerRegistrationCount ?? 0
         )
-      : primaryFee + partnerFee;
+      : useFlatDoublesFee
+        ? (DOUBLES_FEE ?? 0)
+        : primaryFee + partnerFee;
   const hasPayment = effectiveFee > 0;
   const hasPaymentAccounts = (tournament?.paymentAccounts?.length ?? 0) > 0;
 
