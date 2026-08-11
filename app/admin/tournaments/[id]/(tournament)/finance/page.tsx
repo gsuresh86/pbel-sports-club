@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/table';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, countsTowardCollectedRevenue } from '@/lib/utils';
 import {
   FINANCE_INCOME_CATEGORIES,
   FINANCE_EXPENSE_CATEGORIES,
@@ -139,7 +139,7 @@ export default function FinancePage() {
 
   // Registration income is auto-derived from paid registrations.
   const { registrationIncome, paidCount } = useMemo(() => {
-    const paid = registrations.filter((r) => r.paymentStatus === 'paid');
+    const paid = registrations.filter((r) => countsTowardCollectedRevenue(r));
     return {
       registrationIncome: paid.reduce((sum, r) => sum + (r.paymentAmount ?? 0), 0),
       paidCount: paid.length,

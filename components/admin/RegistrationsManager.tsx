@@ -492,36 +492,77 @@ export function RegistrationsManager({
 
   const handleStatusChange = async (participantId: string, newStatus: 'approved' | 'rejected') => {
     try {
-      const updateData: Partial<Registration> = {
-        registrationStatus: newStatus,
-      };
-
-      if (newStatus === 'approved') {
-        updateData.approvedAt = new Date();
-        updateData.approvedBy = user?.id;
-      }
-
       const participant = registrations.find(p => p.id === participantId);
       if (!participant || !participant.tournamentId) {
         throw new Error('Participant or tournament ID not found');
       }
 
-      await updateDoc(doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId), updateData);
-      
-      // Update local state
-      setRegistrations(prev => prev.map(p => 
-        p.id === participantId 
-          ? { ...p, registrationStatus: newStatus, approvedAt: newStatus === 'approved' ? new Date() : undefined, approvedBy: newStatus === 'approved' ? user?.id : undefined }
-          : p
-      ));
+      const updateData: Record<string, unknown> = {
+        registrationStatus: newStatus,
+      };
+
+      const shouldMarkPaid =
+        newStatus === 'approved' && participant.paymentStatus !== 'refunded';
+
+      if (newStatus === 'approved') {
+        updateData.approvedAt = new Date();
+        updateData.approvedBy = user?.id;
+        // Approval verifies payment for revenue / finance totals.
+        if (shouldMarkPaid) {
+          updateData.paymentStatus = 'paid';
+          updateData.paymentVerifiedAt = new Date();
+          updateData.paymentVerifiedBy = user?.id ?? null;
+        }
+      }
+
+      await updateDoc(
+        doc(db, 'tournaments', participant.tournamentId, 'registrations', participantId),
+        updateData
+      );
+
+      if (shouldMarkPaid) {
+        const playersSnapshot = await getDocs(
+          query(
+            collection(db, 'tournaments', participant.tournamentId, 'players'),
+            where('registrationId', '==', participantId)
+          )
+        );
+        await Promise.all(
+          playersSnapshot.docs.map((playerDoc) =>
+            updateDoc(playerDoc.ref, {
+              paymentStatus: 'paid',
+              paymentVerifiedAt: updateData.paymentVerifiedAt,
+              paymentVerifiedBy: updateData.paymentVerifiedBy,
+            })
+          )
+        );
+      }
+
+      setRegistrations((prev) =>
+        prev.map((p) => {
+          if (p.id !== participantId) return p;
+          return {
+            ...p,
+            registrationStatus: newStatus,
+            approvedAt: newStatus === 'approved' ? new Date() : p.approvedAt,
+            approvedBy: newStatus === 'approved' ? user?.id : p.approvedBy,
+            ...(shouldMarkPaid
+              ? {
+                  paymentStatus: 'paid' as const,
+                  paymentVerifiedAt: new Date(),
+                  paymentVerifiedBy: user?.id,
+                }
+              : {}),
+          };
+        })
+      );
 
       // Update tournament participant count
-      const participantForCount = registrations.find(p => p.id === participantId);
-      if (participantForCount && newStatus === 'approved') {
-        const tournament = tournaments.find(t => t.id === participantForCount.tournamentId);
+      if (newStatus === 'approved' && participant.registrationStatus !== 'approved') {
+        const tournament = tournaments.find((t) => t.id === participant.tournamentId);
         if (tournament) {
           await updateDoc(doc(db, 'tournaments', tournament.id), {
-            currentParticipants: tournament.currentParticipants + 1
+            currentParticipants: tournament.currentParticipants + 1,
           });
         }
       }
@@ -551,6 +592,7 @@ export function RegistrationsManager({
     const matchesTournament = selectedTournament === 'all' || participant.tournamentId === selectedTournament;
     const matchesSearch = searchTerm === '' ||
       participant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (participant.partnerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       participant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       participant.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || participant.registrationStatus === statusFilter;
@@ -1046,7 +1088,38 @@ export function RegistrationsManager({
                     return (
                       <TableRow key={participant.id} className="group">
                         <TableCell className={`${STICKY_CELL} left-0 w-14`}>
-                          {participant.profilePhotoUrl ? (
+                          {participant.partnerName?.trim() ? (
+                            <div className="relative h-8 w-11">
+                              {participant.profilePhotoUrl ? (
+                                <div className="absolute left-0 top-0 h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[1]">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={participant.profilePhotoUrl}
+                                    alt={participant.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="absolute left-0 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-[10px] font-medium text-muted-foreground ring-2 ring-white z-[1]">
+                                  {getInitials(participant.name) || '—'}
+                                </div>
+                              )}
+                              {participant.partnerProfilePhotoUrl ? (
+                                <div className="absolute left-3 top-0 h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[2]">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={participant.partnerProfilePhotoUrl}
+                                    alt={participant.partnerName}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="absolute left-3 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-medium text-indigo-700 ring-2 ring-white z-[2]">
+                                  {getInitials(participant.partnerName) || '—'}
+                                </div>
+                              )}
+                            </div>
+                          ) : participant.profilePhotoUrl ? (
                             <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-100">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
@@ -1061,8 +1134,16 @@ export function RegistrationsManager({
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className={`${STICKY_CELL} left-14 min-w-[140px] max-w-[180px] font-medium`}>
+                        <TableCell className={`${STICKY_CELL} left-14 min-w-[140px] max-w-[200px] font-medium`}>
                           <span className="block truncate" title={participant.name}>{participant.name}</span>
+                          {participant.partnerName?.trim() && (
+                            <span
+                              className="block truncate text-xs font-normal text-muted-foreground"
+                              title={participant.partnerName}
+                            >
+                              & {participant.partnerName}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate" title={participant.email}>{participant.email}</TableCell>
                         <TableCell>{participant.phone}</TableCell>

@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { User } from '@/types';
-import { dedupeByNamePhone, parsePaymentRecipient, cn } from '@/lib/utils';
+import { dedupeByNamePhone, parsePaymentRecipient, cn, countsTowardCollectedRevenue } from '@/lib/utils';
 import {
   Users,
   Clock,
@@ -185,9 +185,11 @@ export default function OverviewPage() {
         (level[p.expertiseLevel as keyof typeof level] || 0) + 1;
     });
 
-    const paid = participants.filter((p) => p.paymentStatus === 'paid');
+    const paid = participants.filter((p) => countsTowardCollectedRevenue(p));
     const totalRevenue = paid.reduce((sum, p) => sum + (p.paymentAmount ?? 0), 0);
-    const pendingPayment = participants.filter((p) => p.paymentStatus === 'pending').length;
+    const pendingPayment = participants.filter(
+      (p) => p.paymentStatus === 'pending' && p.registrationStatus !== 'approved'
+    ).length;
     const pendingRegistrations = participants.filter((p) => p.registrationStatus === 'pending');
     const pendingRegistrationCount = pendingRegistrations.length;
     const expectedFromPendingRegistrations = pendingRegistrations.reduce(
@@ -263,7 +265,7 @@ export default function OverviewPage() {
       map.set(key, { name: account.name, number: account.number, amount: 0, count: 0 });
     });
     participants
-      .filter((p) => p.paymentStatus === 'paid')
+      .filter((p) => countsTowardCollectedRevenue(p))
       .forEach((p) => {
         const recipient = parsePaymentRecipient(p.selectedPaymentAccount);
         const key = p.selectedPaymentAccount?.trim() || '__unassigned__';
@@ -292,7 +294,7 @@ export default function OverviewPage() {
   const pendingParticipants = participants.filter(
     (p) => p.registrationStatus === 'pending'
   ).length;
-  const paidParticipants = participants.filter((p) => p.paymentStatus === 'paid').length;
+  const paidParticipants = participants.filter((p) => countsTowardCollectedRevenue(p)).length;
   const totalMatches = matches.length;
   const completedMatches = matches.filter((m) => m.status === 'completed').length;
   const liveMatches = matches.filter((m) => m.status === 'live').length;

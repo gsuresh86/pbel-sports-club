@@ -612,7 +612,14 @@ export default function TournamentRegistrationPage() {
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
             <p className="text-gray-600 mb-4">
-              Thank you for registering for <strong>{tournament?.name}</strong>. Your registration is pending approval.
+              Thank you for registering for <strong>{tournament?.name}</strong>
+              {formData.partnerName.trim() ? (
+                <>
+                  {' '}
+                  — <strong>{formData.name}</strong> & <strong>{formData.partnerName}</strong>
+                </>
+              ) : null}
+              . Your registration is pending approval.
             </p>
             <p className="text-sm text-gray-500 mb-6">
               You will receive a confirmation email once your registration is approved.

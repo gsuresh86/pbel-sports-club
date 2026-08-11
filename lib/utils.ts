@@ -375,6 +375,16 @@ export function isDoublesCategoryForFee(category: string): boolean {
   return (DOUBLES_CATEGORIES_FOR_FEE as readonly string[]).includes(category);
 }
 
+/** Collected revenue: explicitly paid, or approved (approval verifies payment). */
+export function countsTowardCollectedRevenue(registration: {
+  paymentStatus?: 'pending' | 'paid' | 'refunded';
+  registrationStatus?: 'pending' | 'approved' | 'rejected';
+}): boolean {
+  if (registration.paymentStatus === 'refunded') return false;
+  if (registration.paymentStatus === 'paid') return true;
+  return registration.registrationStatus === 'approved';
+}
+
 /** Compute payment amount from prior registration counts and tournament fees.
  * Per person: first category → entryFee; additional category → repeatFee.
  * Doubles: flat doublesFee when both partners are first-timers (falls back to

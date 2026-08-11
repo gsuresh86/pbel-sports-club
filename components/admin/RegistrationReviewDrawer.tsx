@@ -111,7 +111,38 @@ export default function RegistrationReviewDrawer({
         <DrawerHeader className="flex-shrink-0 border-b text-left">
           <div className="flex items-start justify-between gap-3 pr-8">
             <div className="flex min-w-0 items-start gap-3">
-              {participant.profilePhotoUrl ? (
+              {hasPartner && participant.partnerName ? (
+                <div className="relative h-14 w-[4.5rem] shrink-0">
+                  {participant.profilePhotoUrl ? (
+                    <div className="absolute left-0 top-0 h-14 w-14 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[1]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={participant.profilePhotoUrl}
+                        alt={participant.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="absolute left-0 top-0 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-sm text-muted-foreground ring-2 ring-white z-[1]">
+                      {getInitials(participant.name)}
+                    </div>
+                  )}
+                  {participant.partnerProfilePhotoUrl ? (
+                    <div className="absolute left-5 top-0 h-14 w-14 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[2]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={participant.partnerProfilePhotoUrl}
+                        alt={participant.partnerName}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="absolute left-5 top-0 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-sm text-indigo-700 ring-2 ring-white z-[2]">
+                      {getInitials(participant.partnerName)}
+                    </div>
+                  )}
+                </div>
+              ) : participant.profilePhotoUrl ? (
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -126,7 +157,11 @@ export default function RegistrationReviewDrawer({
                 </div>
               )}
               <div className="min-w-0">
-                <DrawerTitle className="truncate">{participant.name}</DrawerTitle>
+                <DrawerTitle className="truncate">
+                  {participant.partnerName?.trim()
+                    ? `${participant.name} & ${participant.partnerName}`
+                    : participant.name}
+                </DrawerTitle>
                 <DrawerDescription className="mt-1">
                   {participant.tournamentName} · {participant.registrationCode}
                 </DrawerDescription>

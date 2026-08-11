@@ -26,6 +26,25 @@ interface SpinResult extends Registration {
 
 const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
+function isDoublesCategory(category: string | undefined): boolean {
+  return !!category && category.includes('doubles');
+}
+
+function pairLabel(registration: Registration): string {
+  const partner = registration.partnerName?.trim();
+  return partner ? `${registration.name} & ${partner}` : registration.name;
+}
+
+function personInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+}
+
 export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const { confirm, ConfirmDialogComponent } = useConfirmDialog();
   const { alert, AlertDialogComponent } = useAlertDialog();
@@ -477,17 +496,82 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     }
   };
 
-  const PlayerAvatar = ({ registration, size = 'md' }: { registration: Registration; size?: 'sm' | 'md' | 'lg' }) => {
-    const initials = registration.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-    const sizeClasses = { sm: 'w-10 h-10 text-sm', md: 'w-16 h-16 text-lg', lg: 'w-24 h-24 text-2xl' };
-    const px = { sm: 40, md: 64, lg: 96 }[size];
-    return registration.profilePhotoUrl ? (
-      <div className={`${sizeClasses[size]} rounded-full overflow-hidden flex-shrink-0`}>
-        <Image src={registration.profilePhotoUrl} alt={registration.name} width={px} height={px} className="object-cover w-full h-full" />
+  const SingleFace = ({
+    name,
+    photoUrl,
+    sizePx,
+    className,
+    gradient,
+  }: {
+    name: string;
+    photoUrl?: string;
+    sizePx: number;
+    className?: string;
+    gradient?: string;
+  }) =>
+    photoUrl ? (
+      <div
+        className={`rounded-full overflow-hidden flex-shrink-0 bg-gray-100 ${className ?? ''}`}
+        style={{ width: sizePx, height: sizePx }}
+      >
+        <Image
+          src={photoUrl}
+          alt={name}
+          width={sizePx}
+          height={sizePx}
+          className="object-cover w-full h-full object-top"
+        />
       </div>
     ) : (
-      <div className={`${sizeClasses[size]} rounded-full bg-gray-800 text-white flex items-center justify-center font-bold flex-shrink-0`}>
-        {initials}
+      <div
+        className={`rounded-full text-white flex items-center justify-center font-bold flex-shrink-0 ${
+          gradient ? `bg-gradient-to-br ${gradient}` : 'bg-gray-800'
+        } ${className ?? ''}`}
+        style={{ width: sizePx, height: sizePx, fontSize: Math.max(10, sizePx * 0.28) }}
+      >
+        {personInitials(name)}
+      </div>
+    );
+
+  const PlayerAvatar = ({
+    registration,
+    size = 'md',
+  }: {
+    registration: Registration;
+    size?: 'sm' | 'md' | 'lg';
+  }) => {
+    const sizePx = { sm: 40, md: 64, lg: 96 }[size];
+    const showPartner =
+      isDoublesCategory(registration.selectedCategory) && !!registration.partnerName?.trim();
+
+    if (!showPartner) {
+      return (
+        <SingleFace
+          name={registration.name}
+          photoUrl={registration.profilePhotoUrl}
+          sizePx={sizePx}
+        />
+      );
+    }
+
+    const face = Math.round(sizePx * 0.72);
+    return (
+      <div className="relative flex-shrink-0" style={{ width: sizePx + face * 0.35, height: sizePx }}>
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 ring-2 ring-white rounded-full z-[1]">
+          <SingleFace
+            name={registration.name}
+            photoUrl={registration.profilePhotoUrl}
+            sizePx={face}
+          />
+        </div>
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 ring-2 ring-white rounded-full z-[2]">
+          <SingleFace
+            name={registration.partnerName!}
+            photoUrl={registration.partnerProfilePhotoUrl}
+            sizePx={face}
+            gradient="from-indigo-600 to-cyan-500"
+          />
+        </div>
       </div>
     );
   };
@@ -609,8 +693,11 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                 /* ── Orbital bubble layout ── */
                 const HALF = 360;
                 const AVATAR = 46;
+                const PAIR_W = 68;
+                const showDoublesFaces = isDoublesCategory(selectedCategory || undefined);
+                const slotW = showDoublesFaces ? PAIR_W : AVATAR;
                 const RADII = [108, 170, 234, 298];
-                const SPACING = 54;
+                const SPACING = showDoublesFaces ? 72 : 54;
                 const positions: { x: number; y: number }[] = [];
                 let remaining = unassignedRegistrations.length;
                 for (const r of RADII) {
@@ -652,32 +739,109 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                         {unassignedRegistrations.map((reg, i) => {
                           if (!positions[i]) return null;
                           const pos = positions[i];
-                          const initials = reg.name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
                           const color = bubbleColors[reg.name.charCodeAt(0) % bubbleColors.length];
+                          const partnerColor = bubbleColors[(reg.name.charCodeAt(0) + 3) % bubbleColors.length];
                           const isSelected = spinResult?.id === reg.id && !isSpinning;
+                          const hasPartner =
+                            showDoublesFaces && !!reg.partnerName?.trim();
+                          const face = hasPartner ? 36 : AVATAR;
                           return (
                             <div
                               key={reg.id}
-                              title={reg.name}
+                              title={pairLabel(reg)}
                               className="absolute transition-all duration-300"
                               style={{
-                                width: AVATAR, height: AVATAR,
-                                left: HALF + pos.x - AVATAR / 2,
+                                width: hasPartner ? slotW : AVATAR,
+                                height: AVATAR,
+                                left: HALF + pos.x - (hasPartner ? slotW : AVATAR) / 2,
                                 top: HALF + pos.y - AVATAR / 2,
                               }}
                             >
-                              <div className={`w-full h-full rounded-full overflow-hidden border-2 shadow-md transition-all duration-300 ${
-                                isSelected
-                                  ? 'border-green-400 ring-4 ring-green-300 scale-125 shadow-green-300'
-                                  : isSpinning
-                                    ? 'border-white/60 opacity-60'
-                                    : 'border-white hover:scale-110 hover:shadow-lg'
-                              }`}>
-                                {reg.profilePhotoUrl ? (
-                                  <Image src={reg.profilePhotoUrl} alt={reg.name} width={AVATAR} height={AVATAR} className="object-cover w-full h-full object-top" />
+                              <div
+                                className={`relative w-full h-full transition-all duration-300 ${
+                                  isSelected
+                                    ? 'scale-125'
+                                    : isSpinning
+                                      ? 'opacity-60'
+                                      : 'hover:scale-110'
+                                }`}
+                              >
+                                {hasPartner ? (
+                                  <>
+                                    <div
+                                      className={`absolute left-0 top-0 rounded-full overflow-hidden border-2 shadow-md z-[1] ${
+                                        isSelected
+                                          ? 'border-green-400 ring-2 ring-green-300 shadow-green-300'
+                                          : 'border-white'
+                                      }`}
+                                      style={{ width: face, height: face }}
+                                    >
+                                      {reg.profilePhotoUrl ? (
+                                        <Image
+                                          src={reg.profilePhotoUrl}
+                                          alt={reg.name}
+                                          width={face}
+                                          height={face}
+                                          className="object-cover w-full h-full object-top"
+                                        />
+                                      ) : (
+                                        <div
+                                          className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-[10px] font-bold`}
+                                        >
+                                          {personInitials(reg.name)}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div
+                                      className={`absolute right-0 top-1 rounded-full overflow-hidden border-2 shadow-md z-[2] ${
+                                        isSelected
+                                          ? 'border-green-400 ring-2 ring-green-300 shadow-green-300'
+                                          : 'border-white'
+                                      }`}
+                                      style={{ width: face, height: face }}
+                                    >
+                                      {reg.partnerProfilePhotoUrl ? (
+                                        <Image
+                                          src={reg.partnerProfilePhotoUrl}
+                                          alt={reg.partnerName!}
+                                          width={face}
+                                          height={face}
+                                          className="object-cover w-full h-full object-top"
+                                        />
+                                      ) : (
+                                        <div
+                                          className={`w-full h-full bg-gradient-to-br ${partnerColor} flex items-center justify-center text-white text-[10px] font-bold`}
+                                        >
+                                          {personInitials(reg.partnerName!)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </>
                                 ) : (
-                                  <div className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-[11px] font-bold`}>
-                                    {initials}
+                                  <div
+                                    className={`w-full h-full rounded-full overflow-hidden border-2 shadow-md ${
+                                      isSelected
+                                        ? 'border-green-400 ring-4 ring-green-300 shadow-green-300'
+                                        : isSpinning
+                                          ? 'border-white/60'
+                                          : 'border-white hover:shadow-lg'
+                                    }`}
+                                  >
+                                    {reg.profilePhotoUrl ? (
+                                      <Image
+                                        src={reg.profilePhotoUrl}
+                                        alt={reg.name}
+                                        width={AVATAR}
+                                        height={AVATAR}
+                                        className="object-cover w-full h-full object-top"
+                                      />
+                                    ) : (
+                                      <div
+                                        className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center text-white text-[11px] font-bold`}
+                                      >
+                                        {personInitials(reg.name)}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -740,10 +904,18 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
               <div className="relative">
                 <div className="text-5xl mb-3 leading-none">🎉</div>
                 <p className="text-white font-extrabold text-lg uppercase tracking-widest drop-shadow">Congratulations!</p>
-                <p className="text-white/80 text-xs mt-0.5 font-medium">Player Selected</p>
+                <p className="text-white/80 text-xs mt-0.5 font-medium">
+                  {isDoublesCategory(spinResult.selectedCategory) ? 'Pair Selected' : 'Player Selected'}
+                </p>
                 {/* Avatar inside header */}
                 <div className="flex justify-center mt-5">
-                  <div className="ring-4 ring-white/60 rounded-full shadow-lg">
+                  <div
+                    className={
+                      isDoublesCategory(spinResult.selectedCategory) && spinResult.partnerName?.trim()
+                        ? ''
+                        : 'ring-4 ring-white/60 rounded-full shadow-lg'
+                    }
+                  >
                     <PlayerAvatar registration={spinResult} size="lg" />
                   </div>
                 </div>
@@ -752,7 +924,12 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
             {/* Player info */}
             <div className="px-6 py-5 text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-0.5">{spinResult.name}</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-0.5">{pairLabel(spinResult)}</h3>
+              {isDoublesCategory(spinResult.selectedCategory) && spinResult.partnerName?.trim() && (
+                <p className="text-xs text-gray-400 mb-1">
+                  {spinResult.name} · {spinResult.partnerName}
+                </p>
+              )}
               {(spinResult.tower || spinResult.flatNumber) && (
                 <p className="text-sm text-gray-500 mb-3">{spinResult.tower || ''}{spinResult.flatNumber ? ` - ${spinResult.flatNumber}` : ''}</p>
               )}
@@ -834,7 +1011,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                     <div key={result.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                       <PlayerAvatar registration={result} size="sm" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{result.name}</p>
+                        <p className="font-semibold text-sm truncate">{pairLabel(result)}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 bg-blue-100 text-blue-800 rounded-lg px-2.5 py-1 text-xs font-semibold">
                         <Target className="h-3 w-3" />
