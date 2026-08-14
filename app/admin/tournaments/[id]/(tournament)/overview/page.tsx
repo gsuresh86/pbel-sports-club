@@ -767,7 +767,6 @@ export default function OverviewPage() {
                         const maxTotal = Math.max(
                           ...analytics.categories.map(([, c]) => c.total)
                         );
-                        const CHART_H = 140;
                         const abbrev = (cat: string) =>
                           cat
                             .replace('girls-under', 'G-U')
@@ -780,68 +779,65 @@ export default function OverviewPage() {
                             .replace('-', ' ');
                         return (
                           <>
-                            <div className="overflow-x-auto">
-                              <div
-                                className="flex items-end gap-2 min-w-max pb-1"
-                                style={{ height: CHART_H + 32 }}
-                              >
-                                {analytics.categories.map(([cat, counts]) => {
-                                  const colH = maxTotal
-                                    ? Math.round((counts.total / maxTotal) * CHART_H)
-                                    : 4;
-                                  const approvedH = counts.total
-                                    ? Math.round((counts.approved / counts.total) * colH)
-                                    : 0;
-                                  const pendingH = counts.total
-                                    ? Math.round((counts.pending / counts.total) * colH)
-                                    : 0;
-                                  const rejectedH = colH - approvedH - pendingH;
-                                  return (
-                                    <div
-                                      key={cat}
-                                      className="flex flex-col items-center gap-1 w-14 flex-shrink-0"
-                                      title={cat.replace(/-/g, ' ')}
-                                    >
-                                      <span className="text-[11px] font-semibold text-slate-700 tabular-nums">
-                                        {counts.total}
-                                      </span>
-                                      <div
-                                        className="w-10 flex flex-col-reverse overflow-hidden rounded-t"
-                                        style={{ height: colH, minHeight: 4 }}
-                                      >
-                                        <div
-                                          className="w-full bg-emerald-500 transition-all"
-                                          style={{ height: approvedH }}
-                                        />
-                                        <div
-                                          className="w-full bg-amber-400 transition-all"
-                                          style={{ height: pendingH }}
-                                        />
-                                        <div
-                                          className="w-full bg-rose-400 transition-all"
-                                          style={{ height: rejectedH }}
-                                        />
+                            <div className="space-y-2">
+                              {analytics.categories.map(([cat, counts]) => {
+                                const pct = maxTotal
+                                  ? Math.round((counts.total / maxTotal) * 100)
+                                  : 0;
+                                const approvedPct = counts.total
+                                  ? Math.round((counts.approved / counts.total) * pct)
+                                  : 0;
+                                const pendingPct = counts.total
+                                  ? Math.round((counts.pending / counts.total) * pct)
+                                  : 0;
+                                const rejectedPct = Math.max(
+                                  pct - approvedPct - pendingPct,
+                                  0
+                                );
+                                const segments = [
+                                  { key: 'approved', color: 'bg-emerald-500', width: approvedPct },
+                                  { key: 'pending', color: 'bg-amber-400', width: pendingPct },
+                                  { key: 'rejected', color: 'bg-rose-400', width: rejectedPct },
+                                ].filter((s) => s.width > 0);
+                                return (
+                                  <div
+                                    key={cat}
+                                    className="flex items-center gap-2"
+                                    title={`${cat.replace(/-/g, ' ')}: ${counts.approved} approved, ${counts.pending} pending, ${counts.rejected} rejected`}
+                                  >
+                                    <span className="text-xs w-20 flex-shrink-0 text-slate-600 capitalize truncate">
+                                      {abbrev(cat)}
+                                    </span>
+                                    <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
+                                      <div className="h-full flex gap-x-0.5">
+                                        {segments.map((s) => (
+                                          <div
+                                            key={s.key}
+                                            className={`h-full ${s.color} transition-all`}
+                                            style={{ width: `${s.width}%` }}
+                                          />
+                                        ))}
                                       </div>
-                                      <span className="text-[9px] text-slate-400 text-center leading-tight capitalize w-full truncate">
-                                        {abbrev(cat)}
-                                      </span>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                    <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-6 flex-shrink-0 text-right">
+                                      {counts.total}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-2">
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-3">
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-2 w-2 rounded-sm bg-emerald-500" />
-                                approved
+                                Approved
                               </span>
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-2 w-2 rounded-sm bg-amber-400" />
-                                pending
+                                Pending
                               </span>
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-2 w-2 rounded-sm bg-rose-400" />
-                                rejected
+                                Rejected
                               </span>
                             </div>
                           </>
