@@ -30,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Team, Pool, Tournament, CategoryType } from '@/types';
+import { Team, Pool, Tournament, CategoryType, Registration } from '@/types';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
 import { TeamLogo } from '@/components/TeamLogo';
 import { Users, Plus, Edit, Trash2, Crown, Target, UserPlus, Shuffle, X } from 'lucide-react';
@@ -237,15 +237,37 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   };
 
   const filteredTeams = teams.filter(t => selectedCategory === 'all' || t.category === selectedCategory);
-  const filteredPools = pools.filter(p => selectedCategory === 'all' || p.category === selectedCategory);
+  const filteredPools = pools
+    .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
   const isTeamCategory = (category: CategoryType) => TEAM_CATEGORIES.includes(category);
+
+  const poolMemberNoun = (category: CategoryType, count = 1) => {
+    const plural = count === 1 ? '' : 's';
+    if (isTeamCategory(category)) return `team${plural}`;
+    if (category.includes('doubles')) return `pair${plural}`;
+    return `player${plural}`;
+  };
+
+  const memberDisplayName = (reg: Registration) => {
+    const partner = reg.partnerName?.trim();
+    return partner ? `${reg.name} & ${partner}` : reg.name;
+  };
 
   const getPlayersForTeam = (team: Team) =>
     registrations.filter(r => (team.players || []).includes(r.id));
 
   const getTeamsForPool = (pool: Pool) =>
     teams.filter(t => pool.teams.includes(t.id));
+
+  const getPlayersForPool = (pool: Pool) => {
+    const byId = new Map(registrations.map(r => [r.id, r]));
+    return pool.teams.map(id => byId.get(id)).filter((r): r is Registration => !!r);
+  };
+
+  const getCategoryPlayers = (category: CategoryType) =>
+    registrations.filter(r => r.selectedCategory === category && r.registrationStatus !== 'rejected');
 
   const getPoolForTeam = (team: Team) =>
     pools.find(p => p.teams.includes(team.id) || p.id === team.poolId);
@@ -350,7 +372,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   const savePoolTeamAssignments = async () => {
     if (!assigningPool) return;
     if (selectedTeamsForPool.length > assigningPool.maxTeams) {
-      alert(`Cannot assign more than ${assigningPool.maxTeams} teams to this pool.`);
+      alert(`Cannot assign more than ${assigningPool.maxTeams} ${poolMemberNoun(assigningPool.category, assigningPool.maxTeams)} to this pool.`);
       return;
     }
 
@@ -361,28 +383,30 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         updatedAt: new Date(),
       });
 
-      const categoryTeams = getCategoryTeams(assigningPool.category);
-      const teamsToRemovePool = categoryTeams.filter(
-        team => assigningPool.teams.includes(team.id) && !selectedTeamsForPool.includes(team.id)
-      );
-      const teamsToAddPool = categoryTeams.filter(
-        team => !assigningPool.teams.includes(team.id) && selectedTeamsForPool.includes(team.id)
-      );
+      if (isTeamCategory(assigningPool.category)) {
+        const categoryTeams = getCategoryTeams(assigningPool.category);
+        const teamsToRemovePool = categoryTeams.filter(
+          team => assigningPool.teams.includes(team.id) && !selectedTeamsForPool.includes(team.id)
+        );
+        const teamsToAddPool = categoryTeams.filter(
+          team => !assigningPool.teams.includes(team.id) && selectedTeamsForPool.includes(team.id)
+        );
 
-      await Promise.all([
-        ...teamsToRemovePool.map(team =>
-          updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
-            poolId: null,
-            updatedAt: new Date(),
-          })
-        ),
-        ...teamsToAddPool.map(team =>
-          updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
-            poolId: assigningPool.id,
-            updatedAt: new Date(),
-          })
-        ),
-      ]);
+        await Promise.all([
+          ...teamsToRemovePool.map(team =>
+            updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+              poolId: null,
+              updatedAt: new Date(),
+            })
+          ),
+          ...teamsToAddPool.map(team =>
+            updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
+              poolId: assigningPool.id,
+              updatedAt: new Date(),
+            })
+          ),
+        ]);
+      }
 
       for (const otherPool of pools.filter(
         p => p.id !== assigningPool.id && p.category === assigningPool.category
@@ -393,14 +417,16 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           teams: otherPool.teams.filter(id => !selectedTeamsForPool.includes(id)),
           updatedAt: new Date(),
         });
-        await Promise.all(
-          overlap.map(teamId =>
-            updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
-              poolId: assigningPool.id,
-              updatedAt: new Date(),
-            })
-          )
-        );
+        if (isTeamCategory(assigningPool.category)) {
+          await Promise.all(
+            overlap.map(teamId =>
+              updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
+                poolId: assigningPool.id,
+                updatedAt: new Date(),
+              })
+            )
+          );
+        }
       }
 
       invalidateTournament(tournament.id);
@@ -410,6 +436,21 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       alert('Failed to update pool assignments. Please try again.');
     } finally {
       setSavingPoolAssignments(false);
+    }
+  };
+
+  const removePlayerFromPool = async (playerId: string, poolId: string) => {
+    if (!confirm('Remove this player from the pool?')) return;
+    try {
+      const pool = pools.find(p => p.id === poolId);
+      if (!pool) return;
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId), {
+        teams: pool.teams.filter(id => id !== playerId),
+        updatedAt: new Date(),
+      });
+      invalidateTournament(tournament.id);
+    } catch (error) {
+      console.error('Error removing player from pool:', error);
     }
   };
 
@@ -432,6 +473,57 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       }
       if (!assigned) break;
     }
+  };
+
+  const LEVEL_PRIORITY: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
+
+  const autoAssignPlayersToPools = async (category: CategoryType) => {
+    const categoryPools = pools.filter(p => p.category === category);
+    if (categoryPools.length === 0) return;
+
+    const assignedIds = new Set(categoryPools.flatMap(p => p.teams));
+    const unassigned = registrations.filter(
+      r => r.selectedCategory === category &&
+        r.registrationStatus !== 'rejected' &&
+        !assignedIds.has(r.id)
+    );
+    if (unassigned.length === 0) return;
+
+    // Sort E → A → I → B so round-robin naturally mixes levels across pools
+    const sorted = [...unassigned].sort(
+      (a, b) => (LEVEL_PRIORITY[a.expertiseLevel] ?? 4) - (LEVEL_PRIORITY[b.expertiseLevel] ?? 4)
+    );
+
+    const additions: Record<string, string[]> = {};
+    const capacity = categoryPools.map(p => ({ id: p.id, remaining: p.maxTeams - p.teams.length }));
+
+    let poolIndex = 0;
+    for (const player of sorted) {
+      let assigned = false;
+      for (let i = 0; i < capacity.length; i++) {
+        const slot = capacity[(poolIndex + i) % capacity.length];
+        if (slot.remaining > 0) {
+          additions[slot.id] = [...(additions[slot.id] ?? []), player.id];
+          slot.remaining--;
+          poolIndex = ((poolIndex + i) % capacity.length + 1) % capacity.length;
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) break;
+    }
+
+    await Promise.all(
+      Object.entries(additions).map(([poolId, newIds]) => {
+        const pool = categoryPools.find(p => p.id === poolId)!;
+        return updateDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId), {
+          teams: [...pool.teams, ...newIds],
+          updatedAt: new Date(),
+        });
+      })
+    );
+
+    invalidateTournament(tournament.id);
   };
 
   const SKILL_RANK: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
@@ -651,82 +743,91 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         {/* Pools Table */}
         <TabsContent value="pools" className="mt-4 space-y-4">
           {(() => {
-            const unassignedTeams = getUnassignedTeams(
-              selectedCategory !== 'all' ? (selectedCategory as CategoryType) : undefined
-            );
+            const filterCategory =
+              selectedCategory !== 'all' ? (selectedCategory as CategoryType) : undefined;
+            const unassignedTeams = getUnassignedTeams(filterCategory);
 
-            return unassignedTeams.length > 0 ? (
-              <div className="border rounded-lg p-4 bg-amber-50/50">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Unassigned teams ({unassignedTeams.length})</h3>
-                    <p className="text-sm text-gray-600">Assign teams to pools before generating matches.</p>
-                  </div>
-                  {selectedCategory !== 'all' && isTeamCategory(selectedCategory as CategoryType) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => autoAssignTeamsToPools(selectedCategory as CategoryType)}
-                      disabled={filteredPools.length === 0}
-                    >
-                      <Shuffle className="h-4 w-4 mr-2" />
-                      Auto assign
-                    </Button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {unassignedTeams.map(team => {
-                    const categoryPools = pools.filter(p => p.category === team.category);
-                    return (
-                      <div
-                        key={team.id}
-                        className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white rounded-md border"
-                      >
-                        <div>
-                          <span className="font-medium text-sm">{team.name}</span>
-                          <Badge variant="outline" className="ml-2 text-xs py-0">
-                            {formatCategory(team.category)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={teamPoolSelections[team.id] || ''}
-                            onValueChange={value =>
-                              setTeamPoolSelections(prev => ({ ...prev, [team.id]: value }))
-                            }
-                          >
-                            <SelectTrigger className="w-36 h-8 text-xs">
-                              <SelectValue placeholder="Select pool" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {categoryPools.map(pool => (
-                                <SelectItem key={pool.id} value={pool.id}>
-                                  {pool.name} ({pool.teams.length}/{pool.maxTeams})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            disabled={!teamPoolSelections[team.id]}
-                            onClick={() => assignTeamToPool(team.id, teamPoolSelections[team.id])}
-                          >
-                            Assign
-                          </Button>
-                        </div>
+            return (
+              <>
+                {unassignedTeams.length > 0 && (
+                  <div className="border rounded-lg p-4 bg-amber-50/50">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Unassigned teams ({unassignedTeams.length})</h3>
+                        <p className="text-sm text-gray-600">Assign teams to pools before generating matches.</p>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null;
+                      {filterCategory && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            isTeamCategory(filterCategory)
+                              ? autoAssignTeamsToPools(filterCategory)
+                              : autoAssignPlayersToPools(filterCategory)
+                          }
+                          disabled={filteredPools.length === 0}
+                        >
+                          <Shuffle className="h-4 w-4 mr-2" />
+                          Auto assign
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {unassignedTeams.map(team => {
+                        const categoryPools = pools.filter(p => p.category === team.category);
+                        return (
+                          <div
+                            key={team.id}
+                            className="flex flex-wrap items-center justify-between gap-2 p-2 bg-white rounded-md border"
+                          >
+                            <div>
+                              <span className="font-medium text-sm">{team.name}</span>
+                              <Badge variant="outline" className="ml-2 text-xs py-0">
+                                {formatCategory(team.category)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={teamPoolSelections[team.id] || ''}
+                                onValueChange={value =>
+                                  setTeamPoolSelections(prev => ({ ...prev, [team.id]: value }))
+                                }
+                              >
+                                <SelectTrigger className="w-36 h-8 text-xs">
+                                  <SelectValue placeholder="Select pool" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categoryPools.map(pool => (
+                                    <SelectItem key={pool.id} value={pool.id}>
+                                      {pool.name} ({pool.teams.length}/{pool.maxTeams})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="sm"
+                                disabled={!teamPoolSelections[team.id]}
+                                onClick={() => assignTeamToPool(team.id, teamPoolSelections[team.id])}
+                              >
+                                Assign
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </>
+            );
           })()}
 
           {filteredPools.length === 0 ? (
             <div className="text-center py-12 border rounded-lg">
               <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No pools created</h3>
-              <p className="text-gray-600 mb-4">Create pools to organize teams into groups</p>
+              <p className="text-gray-600 mb-4">Create pools to organize teams or players into groups</p>
               <Button onClick={() => setShowCreatePool(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Pool
@@ -741,14 +842,17 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     <TableHead className="py-2">Name</TableHead>
                     <TableHead className="py-2">Category</TableHead>
                     <TableHead className="py-2">Status</TableHead>
-                    <TableHead className="py-2">Teams</TableHead>
+                    <TableHead className="py-2">Members</TableHead>
                     <TableHead className="py-2 text-center w-20">Cap.</TableHead>
                     <TableHead className="py-2 text-right w-20">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPools.map((pool, idx) => {
-                    const poolTeams = getTeamsForPool(pool);
+                    const teamPool = isTeamCategory(pool.category);
+                    const poolTeams = teamPool ? getTeamsForPool(pool) : [];
+                    const poolPlayers = teamPool ? [] : getPlayersForPool(pool);
+                    const members = teamPool ? poolTeams : poolPlayers;
                     return (
                       <TableRow key={pool.id} className="text-sm">
                         <TableCell className="py-1.5 text-gray-400 text-xs">{idx + 1}</TableCell>
@@ -762,9 +866,9 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                           </Badge>
                         </TableCell>
                         <TableCell className="py-1.5">
-                          {poolTeams.length === 0 ? (
+                          {members.length === 0 ? (
                             <span className="text-gray-400 text-xs">None</span>
-                          ) : (
+                          ) : teamPool ? (
                             <div className="flex flex-wrap gap-1">
                               {poolTeams.map(t => (
                                 <Badge key={t.id} variant="secondary" className="text-xs py-0 pr-1 gap-1">
@@ -780,24 +884,44 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                                 </Badge>
                               ))}
                             </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {poolPlayers.map(player => (
+                                <Badge key={player.id} variant="secondary" className="text-xs py-0 pr-1 gap-1">
+                                  {memberDisplayName(player)}
+                                  <span
+                                    className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-400 text-white text-[9px] font-bold shrink-0"
+                                    title={player.expertiseLevel}
+                                  >
+                                    {player.expertiseLevel?.[0]?.toUpperCase() ?? '?'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="ml-0.5 rounded hover:bg-gray-300/80 p-0.5"
+                                    onClick={() => removePlayerFromPool(player.id, pool.id)}
+                                    aria-label={`Remove ${memberDisplayName(player)} from pool`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </TableCell>
                         <TableCell className="py-1.5 text-center text-xs text-gray-500">
-                          {poolTeams.length}/{pool.maxTeams}
+                          {members.length}/{pool.maxTeams}
                         </TableCell>
                         <TableCell className="py-1.5 text-right">
                           <div className="flex justify-end gap-1">
-                            {isTeamCategory(pool.category) && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0"
-                                title="Assign teams"
-                                onClick={() => openAssignTeamsToPool(pool)}
-                              >
-                                <UserPlus className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              title={teamPool ? 'Assign teams' : 'Assign players'}
+                              onClick={() => openAssignTeamsToPool(pool)}
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                            </Button>
                             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEditPool(pool)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
@@ -850,15 +974,15 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                               <div className="flex items-center gap-1.5 text-sm min-w-0">
                                 {p.isCaptain && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
                                 <span className={`truncate ${p.isCaptain ? 'font-medium' : ''}`}>{p.name}</span>
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0 font-semibold" title={p.level}>
+                                  {p.level?.[0]?.toUpperCase() ?? '?'}
+                                </Badge>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {p.phone && (
-                                  <a href={`tel:${p.phone}`} className="text-xs text-gray-500 hover:text-gray-700 tabular-nums">
-                                    {p.phone}
-                                  </a>
-                                )}
-                                <Badge variant="outline" className="capitalize text-[10px]">{p.level}</Badge>
-                              </div>
+                              {p.phone && (
+                                <a href={`tel:${p.phone}`} className="text-xs text-gray-500 hover:text-gray-700 tabular-nums shrink-0">
+                                  {p.phone}
+                                </a>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -1145,13 +1269,18 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         </div>
       )}
 
-      {/* Assign Teams to Pool Dialog */}
+      {/* Assign members to Pool Dialog */}
       <Dialog open={!!assigningPool} onOpenChange={open => { if (!open) closeAssignTeamsToPool(); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Assign teams — {assigningPool?.name}</DialogTitle>
+            <DialogTitle>
+              {assigningPool && isTeamCategory(assigningPool.category) ? 'Assign teams' : 'Assign players'}{' '}
+              — {assigningPool?.name}
+            </DialogTitle>
             <DialogDescription>
-              Select teams for this pool. Each team can only belong to one pool at a time.
+              {assigningPool && isTeamCategory(assigningPool.category)
+                ? 'Select teams for this pool. Each team can only belong to one pool at a time.'
+                : 'Select players for this pool. Each player can only belong to one pool at a time.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1165,51 +1294,96 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                 <div>
                   <span className="text-gray-500">Capacity</span>
                   <div className="font-medium">
-                    {selectedTeamsForPool.length}/{assigningPool.maxTeams} teams
+                    {selectedTeamsForPool.length}/{assigningPool.maxTeams}{' '}
+                    {poolMemberNoun(assigningPool.category, selectedTeamsForPool.length)}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                {getCategoryTeams(assigningPool.category).map(team => {
-                  const inOtherPool = pools.some(
-                    p => p.id !== assigningPool.id && p.teams.includes(team.id)
-                  );
-                  return (
-                    <div
-                      key={team.id}
-                      className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <Checkbox
-                        id={`assign-team-${team.id}`}
-                        checked={selectedTeamsForPool.includes(team.id)}
-                        onCheckedChange={checked =>
-                          handleTeamSelectionForPool(team.id, checked === true)
-                        }
-                      />
-                      <div className="flex-1 min-w-0">
-                        <Label htmlFor={`assign-team-${team.id}`} className="font-medium cursor-pointer">
-                          {team.name}
-                        </Label>
-                        <div className="text-sm text-gray-600">
-                          {getPlayersForTeam(team).length} players
-                          {inOtherPool && (
-                            <span className="text-orange-600 ml-2">(in another pool)</span>
-                          )}
+              {isTeamCategory(assigningPool.category) ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                    {getCategoryTeams(assigningPool.category).map(team => {
+                      const inOtherPool = pools.some(
+                        p => p.id !== assigningPool.id && p.teams.includes(team.id)
+                      );
+                      return (
+                        <div
+                          key={team.id}
+                          className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                        >
+                          <Checkbox
+                            id={`assign-team-${team.id}`}
+                            checked={selectedTeamsForPool.includes(team.id)}
+                            onCheckedChange={checked =>
+                              handleTeamSelectionForPool(team.id, checked === true)
+                            }
+                          />
+                          <div className="flex-1 min-w-0">
+                            <Label htmlFor={`assign-team-${team.id}`} className="font-medium cursor-pointer">
+                              {team.name}
+                            </Label>
+                            <div className="text-sm text-gray-600">
+                              {getPlayersForTeam(team).length} players
+                              {inOtherPool && (
+                                <span className="text-orange-600 ml-2">(in another pool)</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
 
-              {getCategoryTeams(assigningPool.category).length === 0 && (
-                <p className="text-center py-6 text-gray-500 text-sm">No teams in this category yet.</p>
+                  {getCategoryTeams(assigningPool.category).length === 0 && (
+                    <p className="text-center py-6 text-gray-500 text-sm">No teams in this category yet.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                    {getCategoryPlayers(assigningPool.category).map(player => {
+                      const inOtherPool = pools.some(
+                        p => p.id !== assigningPool.id && p.teams.includes(player.id)
+                      );
+                      return (
+                        <div
+                          key={player.id}
+                          className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                        >
+                          <Checkbox
+                            id={`assign-player-${player.id}`}
+                            checked={selectedTeamsForPool.includes(player.id)}
+                            onCheckedChange={checked =>
+                              handleTeamSelectionForPool(player.id, checked === true)
+                            }
+                          />
+                          <div className="flex-1 min-w-0">
+                            <Label htmlFor={`assign-player-${player.id}`} className="font-medium cursor-pointer">
+                              {memberDisplayName(player)}
+                            </Label>
+                            <div className="text-sm text-gray-600 capitalize">
+                              {player.expertiseLevel}
+                              {inOtherPool && (
+                                <span className="text-orange-600 ml-2">(in another pool)</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {getCategoryPlayers(assigningPool.category).length === 0 && (
+                    <p className="text-center py-6 text-gray-500 text-sm">No players in this category yet.</p>
+                  )}
+                </>
               )}
 
               {selectedTeamsForPool.length > assigningPool.maxTeams && (
                 <p className="text-sm text-red-600 text-center">
-                  Cannot assign more than {assigningPool.maxTeams} teams to this pool.
+                  Cannot assign more than {assigningPool.maxTeams}{' '}
+                  {poolMemberNoun(assigningPool.category, assigningPool.maxTeams)} to this pool.
                 </p>
               )}
 
