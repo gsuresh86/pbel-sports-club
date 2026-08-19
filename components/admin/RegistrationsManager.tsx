@@ -22,6 +22,7 @@ import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/adm
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parsePaymentRecipient, getInitials } from '@/lib/utils';
+import { categoriesMatch, normalizeCategorySlug, countPublicListedPlayers } from '@/lib/categoryLabels';
 import {
   canAccessTournamentConsole,
   canAccessTournamentRoute,
@@ -538,6 +539,18 @@ export function RegistrationsManager({
         );
       }
 
+      if (newStatus === 'rejected') {
+        try {
+          const { deletePublicPlayer } = await import('@/lib/public-players');
+          await deletePublicPlayer(db, participant.tournamentId, participantId);
+        } catch {
+          // Projection may not exist for legacy registrations
+        }
+      } else {
+        const { upsertPublicPlayer } = await import('@/lib/public-players');
+        await upsertPublicPlayer(db, participant.tournamentId, participantId, participant);
+      }
+
       setRegistrations((prev) =>
         prev.map((p) => {
           if (p.id !== participantId) return p;
@@ -583,7 +596,7 @@ export function RegistrationsManager({
     new Set(
       registrations
         .filter(p => selectedTournament === 'all' || p.tournamentId === selectedTournament)
-        .map(p => p.selectedCategory)
+        .map(p => normalizeCategorySlug(p.selectedCategory) ?? p.selectedCategory)
         .filter(Boolean),
     ),
   ).sort();
@@ -596,10 +609,18 @@ export function RegistrationsManager({
       participant.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       participant.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || participant.registrationStatus === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || participant.selectedCategory === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || categoriesMatch(participant.selectedCategory, categoryFilter);
 
     return matchesTournament && matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const statsScope = registrations.filter((participant) => {
+    const matchesTournament = selectedTournament === 'all' || participant.tournamentId === selectedTournament;
+    const matchesCategory = categoryFilter === 'all' || categoriesMatch(participant.selectedCategory, categoryFilter);
+    return matchesTournament && matchesCategory;
+  });
+  const publicListedCount = statsScope.filter((p) => p.registrationStatus !== 'rejected').length;
+  const publicPlayerCount = countPublicListedPlayers(statsScope);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -853,11 +874,13 @@ export function RegistrationsManager({
 
       for (const row of validRows) {
         try {
+          const selectedCategory = normalizeCategorySlug(String(row.selectedCategory ?? ''));
           const registrationData = {
             ...row,
             age: parseInt(String(row.age)),
             gender: String(row.gender).toLowerCase(),
             expertiseLevel: String(row.expertiseLevel).toLowerCase(),
+            selectedCategory,
             isResident: true, // Default to true for imported registrations
             registeredAt: new Date(),
           };
@@ -867,7 +890,7 @@ export function RegistrationsManager({
           await upsertPublicPlayer(db, String(row.tournamentId), regRef.id, {
             name: String(row.name ?? ''),
             partnerName: row.partnerName ? String(row.partnerName) : undefined,
-            selectedCategory: row.selectedCategory as Registration['selectedCategory'],
+            selectedCategory,
           });
           successCount++;
         } catch (error) {
@@ -941,8 +964,11 @@ export function RegistrationsManager({
           <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
             <Users className="h-4 w-4 shrink-0 text-blue-600" />
             <div className="min-w-0">
-              <p className="text-xs font-medium text-blue-700">Total</p>
-              <p className="text-lg font-semibold leading-tight text-blue-900">{registrations.length}</p>
+              <p className="text-xs font-medium text-blue-700">Players</p>
+              <p className="text-lg font-semibold leading-tight text-blue-900">{publicPlayerCount}</p>
+              <p className="text-[10px] leading-tight text-blue-700/80">
+                {publicListedCount} listed · {statsScope.length} regs
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
@@ -950,7 +976,7 @@ export function RegistrationsManager({
             <div className="min-w-0">
               <p className="text-xs font-medium text-amber-700">Pending</p>
               <p className="text-lg font-semibold leading-tight text-amber-900">
-                {registrations.filter(p => p.registrationStatus === 'pending').length}
+                {statsScope.filter(p => p.registrationStatus === 'pending').length}
               </p>
             </div>
           </div>
@@ -959,7 +985,7 @@ export function RegistrationsManager({
             <div className="min-w-0">
               <p className="text-xs font-medium text-green-700">Approved</p>
               <p className="text-lg font-semibold leading-tight text-green-900">
-                {registrations.filter(p => p.registrationStatus === 'approved').length}
+                {statsScope.filter(p => p.registrationStatus === 'approved').length}
               </p>
             </div>
           </div>
@@ -968,7 +994,7 @@ export function RegistrationsManager({
             <div className="min-w-0">
               <p className="text-xs font-medium text-red-700">Rejected</p>
               <p className="text-lg font-semibold leading-tight text-red-900">
-                {registrations.filter(p => p.registrationStatus === 'rejected').length}
+                {statsScope.filter(p => p.registrationStatus === 'rejected').length}
               </p>
             </div>
           </div>

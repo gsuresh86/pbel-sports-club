@@ -3,12 +3,17 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { canCreateTournamentStaff, getCallerUser } from '@/lib/api-auth';
 import { getAdminFirestore, isAdminConfigured } from '@/lib/firebase-admin';
 import { isSystemAdmin } from '@/lib/permissions';
+import { normalizeCategorySlug } from '@/lib/categoryLabels';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+function isRejected(status: unknown): boolean {
+  return status === 'rejected';
+}
+
 /**
  * Backfill tournaments/{id}/publicPlayers from registrations (staff only).
- * Safe to re-run; merges display fields only.
+ * Writes non-rejected registrations and deletes stale/rejected projections.
  */
 export async function POST(request: Request, context: RouteContext) {
   try {
@@ -37,16 +42,23 @@ export async function POST(request: Request, context: RouteContext) {
 
     const db = getAdminFirestore();
     const regsSnap = await db.collection('tournaments').doc(tournamentId).collection('registrations').get();
+    const publicSnap = await db.collection('tournaments').doc(tournamentId).collection('publicPlayers').get();
 
-    let written = 0;
-    const batchSize = 400;
-    let batch = db.batch();
-    let ops = 0;
+    const keepIds = new Set<string>();
+    const writes: { id: string; payload: Record<string, unknown> }[] = [];
 
     for (const regDoc of regsSnap.docs) {
       const data = regDoc.data();
+      if (isRejected(data.registrationStatus)) continue;
+
       const name = typeof data.name === 'string' ? data.name.trim() : '';
-      const selectedCategory = data.selectedCategory as string | undefined;
+      const rawCategory =
+        typeof data.selectedCategory === 'string'
+          ? data.selectedCategory
+          : data.selectedCategory != null
+            ? String(data.selectedCategory)
+            : undefined;
+      const selectedCategory = normalizeCategorySlug(rawCategory);
       if (!name || !selectedCategory) continue;
 
       const payload: Record<string, unknown> = {
@@ -65,27 +77,49 @@ export async function POST(request: Request, context: RouteContext) {
         payload.partnerProfilePhotoUrl = data.partnerProfilePhotoUrl.trim();
       }
 
-      const ref = db.collection('tournaments').doc(tournamentId).collection('publicPlayers').doc(regDoc.id);
-      batch.set(ref, payload, { merge: true });
+      keepIds.add(regDoc.id);
+      writes.push({ id: regDoc.id, payload });
+    }
+
+    const deletes = publicSnap.docs.filter((d) => !keepIds.has(d.id));
+
+    const batchSize = 400;
+    let written = 0;
+    let removed = 0;
+    let batch = db.batch();
+    let ops = 0;
+
+    const commitIfNeeded = async (force = false) => {
+      if (ops === 0) return;
+      if (!force && ops < batchSize) return;
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    };
+
+    for (const write of writes) {
+      const ref = db.collection('tournaments').doc(tournamentId).collection('publicPlayers').doc(write.id);
+      batch.set(ref, write.payload, { merge: true });
       written += 1;
       ops += 1;
-
-      if (ops >= batchSize) {
-        await batch.commit();
-        batch = db.batch();
-        ops = 0;
-      }
+      await commitIfNeeded();
     }
 
-    if (ops > 0) {
-      await batch.commit();
+    for (const pubDoc of deletes) {
+      batch.delete(pubDoc.ref);
+      removed += 1;
+      ops += 1;
+      await commitIfNeeded();
     }
+
+    await commitIfNeeded(true);
 
     return NextResponse.json({
       success: true,
       tournamentId,
       registrations: regsSnap.size,
       written,
+      removed,
     });
   } catch (error: unknown) {
     console.error('Error syncing public players:', error);

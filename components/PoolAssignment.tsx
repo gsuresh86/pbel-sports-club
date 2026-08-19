@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Team, Pool, Registration, Tournament, CategoryType, Match } from '@/types';
+import { categoriesMatch } from '@/lib/categoryLabels';
 import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X, Swords, Trophy, Award } from 'lucide-react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog'; // ConfirmDialogComponent still rendered
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
@@ -252,17 +253,21 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
   const getCategoryTeams = () => {
     if (!selectedCategory) return [];
-    return teams.filter(team => team.category === selectedCategory);
+    return teams.filter(team => categoriesMatch(team.category, selectedCategory));
   };
 
   const getCategoryPools = () => {
     if (!selectedCategory) return [];
-    return pools.filter(pool => pool.category === selectedCategory);
+    return pools.filter(pool => categoriesMatch(pool.category, selectedCategory));
   };
 
   const getCategoryPlayers = () => {
     if (!selectedCategory) return [];
-    return registrations.filter(registration => registration.selectedCategory === selectedCategory);
+    return registrations.filter(
+      registration =>
+        registration.registrationStatus !== 'rejected' &&
+        categoriesMatch(registration.selectedCategory, selectedCategory),
+    );
   };
 
   const getUnassignedPlayers = () => {
@@ -279,7 +284,9 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
 
   const getPoolPlayers = (pool: Pool) => {
     return registrations
-      .filter(registration => pool.teams.includes(registration.id))
+      .filter(registration =>
+        pool.teams.includes(registration.id) && registration.registrationStatus !== 'rejected',
+      )
       .sort((a, b) =>
         (SKILL_RANK[a.expertiseLevel] ?? 4) - (SKILL_RANK[b.expertiseLevel] ?? 4) ||
         a.name.localeCompare(b.name)

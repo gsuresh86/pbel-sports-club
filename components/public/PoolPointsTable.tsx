@@ -43,11 +43,36 @@ function PoolPointsTableInner({
   teams: Team[];
   qualifiedIds: Set<string> | null;
 }) {
-  if (rows.every(r => r.played === 0)) {
+  if (rows.length === 0) {
     return (
       <p className="text-sm text-slate-500 italic px-5 py-6 text-center">
-        No completed matches yet — standings will appear here after results are entered.
+        No {label.toLowerCase()}s assigned yet
       </p>
+    );
+  }
+
+  if (rows.every(r => r.played === 0)) {
+    return (
+      <div>
+        <p className="text-[11px] text-slate-500 px-4 sm:px-5 pt-3">
+          No completed matches yet — standings will appear after results are entered.
+        </p>
+        <ul className="divide-y divide-white/5 mt-1">
+          {rows.map((row, idx) => (
+            <li key={row.id} className="flex items-center gap-3 px-4 sm:px-5 py-2.5">
+              <span className="text-slate-500 text-xs font-bold tabular-nums w-5">{idx + 1}</span>
+              {isTeamCat && (
+                <TeamLogo
+                  logoUrl={teams.find(t => t.id === row.id)?.logoUrl}
+                  name={row.name}
+                  size={24}
+                />
+              )}
+              <span className="text-sm font-semibold text-white truncate">{row.name}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     );
   }
 

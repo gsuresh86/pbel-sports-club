@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { FieldValue, type DocumentData, type Firestore } from 'firebase-admin/firestore';
 import { getAdminFirestore, isAdminConfigured } from '@/lib/firebase-admin';
 import type { CategoryType } from '@/types';
+import { categoriesMatch, normalizeCategorySlug } from '@/lib/categoryLabels';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -104,7 +105,9 @@ export async function POST(request: Request, context: RouteContext) {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const email = typeof body.email === 'string' ? body.email.trim() : '';
     const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-    const selectedCategory = body.selectedCategory as CategoryType | undefined;
+    const selectedCategory = normalizeCategorySlug(
+      typeof body.selectedCategory === 'string' ? body.selectedCategory : undefined
+    );
 
     if (!name || !email || !phone || !selectedCategory) {
       return NextResponse.json(
@@ -146,7 +149,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const categories = (tournament.categories as string[] | undefined) ?? [];
-    if (categories.length > 0 && !categories.includes(selectedCategory)) {
+    if (categories.length > 0 && !categories.some((c) => categoriesMatch(c, selectedCategory))) {
       return NextResponse.json({ error: 'Selected category is not available' }, { status: 400 });
     }
 

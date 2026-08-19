@@ -1,11 +1,13 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   setDoc,
   type Firestore,
 } from 'firebase/firestore';
 import type { CategoryType, PublicPlayer, Registration } from '@/types';
+import { normalizeCategorySlug } from '@/lib/categoryLabels';
 
 const PUBLIC_PLAYER_KEYS = [
   'tournamentId',
@@ -38,7 +40,7 @@ export function toPublicPlayer(
     partnerName: source.partnerName?.trim() || undefined,
     profilePhotoUrl: source.profilePhotoUrl?.trim() || undefined,
     partnerProfilePhotoUrl: source.partnerProfilePhotoUrl?.trim() || undefined,
-    selectedCategory: source.selectedCategory as CategoryType,
+    selectedCategory: (normalizeCategorySlug(source.selectedCategory) ?? source.selectedCategory) as CategoryType,
     updatedAt: new Date(),
   };
 }
@@ -69,6 +71,14 @@ export async function upsertPublicPlayer(
   });
 }
 
+export async function deletePublicPlayer(
+  db: Firestore,
+  tournamentId: string,
+  registrationId: string
+): Promise<void> {
+  await deleteDoc(publicPlayerRef(db, tournamentId, registrationId));
+}
+
 export async function listPublicPlayers(
   db: Firestore,
   tournamentId: string
@@ -76,6 +86,8 @@ export async function listPublicPlayers(
   const snap = await getDocs(publicPlayersRef(db, tournamentId));
   return snap.docs.map((d) => {
     const data = d.data();
+    const selectedCategory =
+      normalizeCategorySlug(data.selectedCategory as string) ?? (data.selectedCategory as CategoryType);
     return {
       id: d.id,
       tournamentId: (data.tournamentId as string) ?? tournamentId,
@@ -83,7 +95,7 @@ export async function listPublicPlayers(
       partnerName: data.partnerName as string | undefined,
       profilePhotoUrl: data.profilePhotoUrl as string | undefined,
       partnerProfilePhotoUrl: data.partnerProfilePhotoUrl as string | undefined,
-      selectedCategory: data.selectedCategory as CategoryType,
+      selectedCategory,
       updatedAt: data.updatedAt?.toDate?.() ?? undefined,
     } satisfies PublicPlayer;
   });

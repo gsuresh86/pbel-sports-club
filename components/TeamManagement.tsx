@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Team, Pool, Tournament, CategoryType, Registration } from '@/types';
+import { categoriesMatch } from '@/lib/categoryLabels';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
 import { TeamLogo } from '@/components/TeamLogo';
 import { Users, Plus, Edit, Trash2, Crown, Target, UserPlus, Shuffle, X } from 'lucide-react';
@@ -236,9 +237,9 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     }
   };
 
-  const filteredTeams = teams.filter(t => selectedCategory === 'all' || t.category === selectedCategory);
+  const filteredTeams = teams.filter(t => selectedCategory === 'all' || categoriesMatch(t.category, selectedCategory));
   const filteredPools = pools
-    .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
+    .filter(p => selectedCategory === 'all' || categoriesMatch(p.category, selectedCategory))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
   const isTeamCategory = (category: CategoryType) => TEAM_CATEGORIES.includes(category);
@@ -267,20 +268,20 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   };
 
   const getCategoryPlayers = (category: CategoryType) =>
-    registrations.filter(r => r.selectedCategory === category && r.registrationStatus !== 'rejected');
+    registrations.filter(r => categoriesMatch(r.selectedCategory, category) && r.registrationStatus !== 'rejected');
 
   const getPoolForTeam = (team: Team) =>
     pools.find(p => p.teams.includes(team.id) || p.id === team.poolId);
 
   const getCategoryTeams = (category: CategoryType) =>
-    teams.filter(t => t.category === category);
+    teams.filter(t => categoriesMatch(t.category, category));
 
   const getUnassignedTeams = (category?: CategoryType) => {
     const categoryTeams = category
       ? getCategoryTeams(category)
       : filteredTeams.filter(t => isTeamCategory(t.category));
     const assignedIds = new Set(
-      pools.flatMap(p => (category ? (p.category === category ? p.teams : []) : p.teams))
+      pools.flatMap(p => (category ? (categoriesMatch(p.category, category) ? p.teams : []) : p.teams))
     );
     return categoryTeams.filter(t => !assignedIds.has(t.id) && !t.poolId);
   };
@@ -455,7 +456,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   };
 
   const autoAssignTeamsToPools = async (category: CategoryType) => {
-    const categoryPools = pools.filter(p => p.category === category);
+    const categoryPools = pools.filter(p => categoriesMatch(p.category, category));
     const unassigned = getUnassignedTeams(category);
     if (categoryPools.length === 0 || unassigned.length === 0) return;
 
@@ -478,12 +479,12 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
   const LEVEL_PRIORITY: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
 
   const autoAssignPlayersToPools = async (category: CategoryType) => {
-    const categoryPools = pools.filter(p => p.category === category);
+    const categoryPools = pools.filter(p => categoriesMatch(p.category, category));
     if (categoryPools.length === 0) return;
 
     const assignedIds = new Set(categoryPools.flatMap(p => p.teams));
     const unassigned = registrations.filter(
-      r => r.selectedCategory === category &&
+      r => categoriesMatch(r.selectedCategory, category) &&
         r.registrationStatus !== 'rejected' &&
         !assignedIds.has(r.id)
     );
@@ -530,7 +531,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
   const getRosterTeams = (category: 'mens-team' | 'womens-team') =>
     teams
-      .filter(t => t.category === category)
+      .filter(t => categoriesMatch(t.category, category))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(team => ({
         team,

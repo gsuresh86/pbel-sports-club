@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { BarChart3, ExternalLink, Users2 } from 'lucide-react';
 import type { Match, Pool, PublicPlayer, Team, Tournament } from '@/types';
-import { formatCategoryLabel } from '@/lib/categoryLabels';
+import { formatCategoryLabel, categoriesMatch } from '@/lib/categoryLabels';
 import { isTeamCategory } from '@/lib/poolStandings';
 import PoolPointsTable from '@/components/public/PoolPointsTable';
 
@@ -73,7 +73,7 @@ export default function TournamentStandingsView({
 
   const filteredPools = useMemo(
     () => pools
-      .filter(p => categoryFilter === 'all' || p.category === categoryFilter)
+      .filter(p => categoryFilter === 'all' || categoriesMatch(p.category, categoryFilter))
       .sort(sortPools),
     [pools, categoryFilter],
   );

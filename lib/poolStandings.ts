@@ -1,12 +1,14 @@
 import type { CategoryType, Match, Pool, Team } from '@/types';
 import { isRubberMatch } from '@/lib/teamMatchRubbers';
+import { normalizeCategorySlug } from '@/lib/categoryLabels';
 
 export const TEAM_CATEGORIES: CategoryType[] = [
   'mens-team', 'womens-team', 'kids-team-u13', 'kids-team-u18', 'open-team',
 ];
 
 export function isTeamCategory(cat: string): boolean {
-  return TEAM_CATEGORIES.includes(cat as CategoryType);
+  const slug = normalizeCategorySlug(cat) ?? cat;
+  return TEAM_CATEGORIES.includes(slug as CategoryType);
 }
 
 export interface PoolStandingRow {

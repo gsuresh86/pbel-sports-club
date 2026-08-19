@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
+import { categoriesMatch } from '@/lib/categoryLabels';
 import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Trophy } from 'lucide-react';
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -142,18 +143,20 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const filterRegistrations = () => {
     if (!selectedCategory) return;
 
-    const filtered = registrations.filter(r => r.selectedCategory === selectedCategory);
+    const filtered = registrations.filter(
+      r => r.registrationStatus !== 'rejected' && categoriesMatch(r.selectedCategory, selectedCategory),
+    );
     setFilteredRegistrations(filtered);
 
     let assignedPlayerIds: string[];
     if (isTeamCategory()) {
       assignedPlayerIds = teams
-        .filter(team => team.category === selectedCategory)
+        .filter(team => categoriesMatch(team.category, selectedCategory))
         .flatMap(team => team.players);
     } else {
       // pool.teams stores player IDs for non-team categories
       assignedPlayerIds = pools
-        .filter(pool => pool.category === selectedCategory)
+        .filter(pool => categoriesMatch(pool.category, selectedCategory))
         .flatMap(pool => pool.teams);
     }
 
@@ -191,7 +194,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   // scans for the team that fits them, and assigns them.
   const assignRandomPlayerToTeam = async () => {
     const categoryTeams = teams
-      .filter(t => t.category === selectedCategory)
+      .filter(t => categoriesMatch(t.category, selectedCategory))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     if (categoryTeams.length === 0) return;
 
@@ -228,7 +231,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   const assignRandomPlayerToPool = async () => {
     const categoryPools = pools
-      .filter(p => p.category === selectedCategory)
+      .filter(p => categoriesMatch(p.category, selectedCategory))
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     if (categoryPools.length === 0) return;
 
@@ -243,8 +246,8 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     if (unassignedRegistrations.length === 0) return;
 
     const targets = isTeamCategory()
-      ? teams.filter(t => t.category === selectedCategory).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-      : pools.filter(p => p.category === selectedCategory).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      ? teams.filter(t => categoriesMatch(t.category, selectedCategory)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      : pools.filter(p => categoriesMatch(p.category, selectedCategory)).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
     if (targets.length === 0) return;
 
@@ -366,7 +369,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     if (!selectedCategory) return;
 
     if (isTeamCategory()) {
-      const categoryTeams = teams.filter(t => t.category === selectedCategory);
+      const categoryTeams = teams.filter(t => categoriesMatch(t.category, selectedCategory));
       if (categoryTeams.length === 0) return;
 
       // Give each team one expert, one advanced and one intermediate, then fill
@@ -388,7 +391,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       await loadData();
       filterRegistrations();
     } else {
-      const categoryPools = pools.filter(p => p.category === selectedCategory);
+      const categoryPools = pools.filter(p => categoriesMatch(p.category, selectedCategory));
       if (categoryPools.length === 0) return;
       let poolIndex = 0;
       for (const registration of unassignedRegistrations) {
@@ -403,7 +406,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     if (!selectedCategory) return;
     try {
       if (isTeamCategory()) {
-        const categoryTeams = teams.filter(t => t.category === selectedCategory);
+        const categoryTeams = teams.filter(t => categoriesMatch(t.category, selectedCategory));
         await Promise.all(categoryTeams.map(team =>
           updateDoc(doc(db, 'tournaments', tournament.id, 'teams', team.id), {
             players: [],
@@ -411,7 +414,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           })
         ));
       } else {
-        const categoryPools = pools.filter(p => p.category === selectedCategory);
+        const categoryPools = pools.filter(p => categoriesMatch(p.category, selectedCategory));
         await Promise.all(categoryPools.map(pool =>
           updateDoc(doc(db, 'tournaments', tournament.id, 'pools', pool.id), {
             teams: [],
@@ -441,9 +444,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
     let totalAssigned = 0;
     if (isTeamCategory()) {
-      totalAssigned = teams.filter(t => t.category === selectedCategory).reduce((sum, t) => sum + t.players.length, 0);
+      totalAssigned = teams.filter(t => categoriesMatch(t.category, selectedCategory)).reduce((sum, t) => sum + t.players.length, 0);
     } else {
-      totalAssigned = pools.filter(p => p.category === selectedCategory).reduce((sum, p) => sum + p.teams.length, 0);
+      totalAssigned = pools.filter(p => categoriesMatch(p.category, selectedCategory)).reduce((sum, p) => sum + p.teams.length, 0);
     }
 
     if (totalAssigned === 0) {
@@ -468,7 +471,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
     const totalAssigned = totalPlayers - totalUnassigned;
 
     if (isTeamCategory()) {
-      const categoryTeams = teams.filter(t => t.category === selectedCategory);
+      const categoryTeams = teams.filter(t => categoriesMatch(t.category, selectedCategory));
       const assignedFiltered = categoryTeams.reduce((sum, team) => {
         return sum + team.players.filter(pid => filteredRegistrations.some(r => r.id === pid)).length;
       }, 0);
@@ -481,7 +484,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         bucketLabel: 'Team',
       };
     } else {
-      const categoryPools = pools.filter(p => p.category === selectedCategory);
+      const categoryPools = pools.filter(p => categoriesMatch(p.category, selectedCategory));
       const assignedFiltered = categoryPools.reduce((sum, pool) => {
         return sum + pool.teams.filter(pid => filteredRegistrations.some(r => r.id === pid)).length;
       }, 0);
@@ -607,14 +610,14 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
   const stats = getStats();
   const categoryTargets = isTeamCategory()
-    ? teams.filter(t => t.category === selectedCategory)
-    : pools.filter(p => p.category === selectedCategory);
+    ? teams.filter(t => categoriesMatch(t.category, selectedCategory))
+    : pools.filter(p => categoriesMatch(p.category, selectedCategory));
   const bucketLabel = isTeamCategory() ? 'team' : 'pool';
 
   return (
     <div className="space-y-3">
       {/* Single card — no pool warning sits above it */}
-      {selectedCategory && !isTeamCategory() && pools.filter(p => p.category === selectedCategory).length === 0 && (
+      {selectedCategory && !isTeamCategory() && pools.filter(p => categoriesMatch(p.category, selectedCategory)).length === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           No pools found for this category. Create pools in the <strong>Pools</strong> tab first, then come back to spin.
         </div>
@@ -947,7 +950,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   <Select value={selectedTeam} onValueChange={setSelectedTeam}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="Select team" /></SelectTrigger>
                     <SelectContent>
-                      {teams.filter(t => t.category === selectedCategory).map(team => (
+                      {teams.filter(t => categoriesMatch(t.category, selectedCategory)).map(team => (
                         <SelectItem key={team.id} value={team.id}>{team.name} ({team.players.length})</SelectItem>
                       ))}
                     </SelectContent>
@@ -961,7 +964,7 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   <Select value={selectedPool} onValueChange={setSelectedPool}>
                     <SelectTrigger className="w-full"><SelectValue placeholder="Select pool" /></SelectTrigger>
                     <SelectContent>
-                      {pools.filter(p => p.category === selectedCategory).map(pool => (
+                      {pools.filter(p => categoriesMatch(p.category, selectedCategory)).map(pool => (
                         <SelectItem key={pool.id} value={pool.id}>{pool.name} ({pool.teams.length})</SelectItem>
                       ))}
                     </SelectContent>

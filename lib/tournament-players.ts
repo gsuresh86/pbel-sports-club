@@ -70,6 +70,7 @@ export function buildUniquePlayersFromRegistrations(participants: Registration[]
   };
 
   participants.forEach((p) => {
+    if (p.registrationStatus === 'rejected') return;
     upsert(p.name, p.phone, p.tshirtSize, p.tshirtTaken, p.expertiseLevel, p.profilePhotoUrl, p.selectedCategory, {
       id: p.id,
       role: 'primary',

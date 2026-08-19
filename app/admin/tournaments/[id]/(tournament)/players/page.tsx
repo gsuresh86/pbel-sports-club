@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CategoryType } from '@/types';
+import { categoriesMatch, normalizeCategorySlug } from '@/lib/categoryLabels';
 import { Camera, Check, Download, Edit, Loader2, Users, X } from 'lucide-react';
 import Image from 'next/image';
 import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
@@ -97,9 +98,10 @@ export default function PlayersPage() {
       }
     };
     participants.forEach((p) => {
-      upsert(p.name, p.phone, p.tshirtSize, p.tshirtTaken, p.expertiseLevel, p.profilePhotoUrl, p.selectedCategory, { id: p.id, role: 'primary' });
+      if (p.registrationStatus === 'rejected') return;
+      upsert(p.name, p.phone, p.tshirtSize, p.tshirtTaken, p.expertiseLevel, p.profilePhotoUrl, normalizeCategorySlug(p.selectedCategory) ?? p.selectedCategory, { id: p.id, role: 'primary' });
       if (p.partnerName?.trim()) {
-        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, p.partnerTshirtTaken, undefined, p.partnerProfilePhotoUrl, p.selectedCategory, { id: p.id, role: 'partner' });
+        upsert(p.partnerName, p.partnerPhone, p.partnerTshirtSize, p.partnerTshirtTaken, undefined, p.partnerProfilePhotoUrl, normalizeCategorySlug(p.selectedCategory) ?? p.selectedCategory, { id: p.id, role: 'partner' });
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
@@ -113,7 +115,7 @@ export default function PlayersPage() {
   const filteredPlayers = useMemo(() => {
     return uniquePlayers.filter((p) => {
       const matchesSearch = !playerSearch || p.name.toLowerCase().includes(playerSearch.toLowerCase()) || p.phone.includes(playerSearch);
-      const matchesCategory = playerCategoryFilter === 'all' || p.categories.includes(playerCategoryFilter as CategoryType);
+      const matchesCategory = playerCategoryFilter === 'all' || p.categories.some((cat) => categoriesMatch(cat, playerCategoryFilter));
       return matchesSearch && matchesCategory;
     });
   }, [uniquePlayers, playerSearch, playerCategoryFilter]);

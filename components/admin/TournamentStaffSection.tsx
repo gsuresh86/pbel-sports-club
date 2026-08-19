@@ -189,9 +189,22 @@ export function TournamentStaffSection({
           isActive: true,
         }),
       });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create staff user');
+      if (response.status === 503) {
+        const { createTournamentStaffUser } = await import('@/lib/create-staff-user-client');
+        await createTournamentStaffUser({
+          email,
+          password: form.password,
+          name,
+          role: staffPayload.role,
+          assignedTournaments: staffPayload.assignedTournaments,
+          tournamentRoles: staffPayload.tournamentRoles,
+          tournamentPermissions: staffPayload.tournamentPermissions,
+        });
+      } else {
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create staff user');
+        }
       }
       setDialogOpen(false);
       await loadUsers();

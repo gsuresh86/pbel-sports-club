@@ -128,7 +128,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   // Backfill public display projections once per tournament session (staff only)
   useEffect(() => {
     if (!queriesEnabled || !tournamentId || !user) return;
-    const key = `publicPlayersSynced:${tournamentId}`;
+    const key = `publicPlayersSynced:v5:${tournamentId}`;
     if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
 
     let cancelled = false;

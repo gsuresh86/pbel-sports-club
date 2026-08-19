@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { User } from '@/types';
 import { dedupeByNamePhone, parsePaymentRecipient, cn, countsTowardCollectedRevenue } from '@/lib/utils';
+import { normalizeCategorySlug, playerHeadcount } from '@/lib/categoryLabels';
 import {
   Users,
   Clock,
@@ -163,16 +164,18 @@ export default function OverviewPage() {
   const analytics = useMemo(() => {
     const catMap = new Map<
       string,
-      { total: number; approved: number; pending: number; rejected: number }
+      { total: number; approved: number; pending: number; rejected: number; players: number }
     >();
     participants.forEach((p) => {
-      if (!catMap.has(p.selectedCategory))
-        catMap.set(p.selectedCategory, { total: 0, approved: 0, pending: 0, rejected: 0 });
-      const e = catMap.get(p.selectedCategory)!;
+      const cat = normalizeCategorySlug(p.selectedCategory) ?? p.selectedCategory;
+      if (!catMap.has(cat))
+        catMap.set(cat, { total: 0, approved: 0, pending: 0, rejected: 0, players: 0 });
+      const e = catMap.get(cat)!;
       e.total++;
       e[p.registrationStatus as 'approved' | 'pending' | 'rejected']++;
+      if (p.registrationStatus !== 'rejected') e.players += playerHeadcount(p);
     });
-    const categories = Array.from(catMap.entries()).sort((a, b) => b[1].total - a[1].total);
+    const categories = Array.from(catMap.entries()).sort((a, b) => b[1].players - a[1].players);
 
     const gender = { male: 0, female: 0, other: 0 };
     participants.forEach((p) => {
@@ -765,7 +768,7 @@ export default function OverviewPage() {
                     ) : (
                       (() => {
                         const maxTotal = Math.max(
-                          ...analytics.categories.map(([, c]) => c.total)
+                          ...analytics.categories.map(([, c]) => c.players || c.total)
                         );
                         const abbrev = (cat: string) =>
                           cat
@@ -781,29 +784,25 @@ export default function OverviewPage() {
                           <>
                             <div className="space-y-2">
                               {analytics.categories.map(([cat, counts]) => {
+                                const listed = counts.approved + counts.pending;
                                 const pct = maxTotal
-                                  ? Math.round((counts.total / maxTotal) * 100)
+                                  ? Math.round((counts.players / maxTotal) * 100)
                                   : 0;
-                                const approvedPct = counts.total
-                                  ? Math.round((counts.approved / counts.total) * pct)
+                                const approvedPct = listed
+                                  ? Math.round((counts.approved / listed) * pct)
                                   : 0;
-                                const pendingPct = counts.total
-                                  ? Math.round((counts.pending / counts.total) * pct)
+                                const pendingPct = listed
+                                  ? Math.round((counts.pending / listed) * pct)
                                   : 0;
-                                const rejectedPct = Math.max(
-                                  pct - approvedPct - pendingPct,
-                                  0
-                                );
                                 const segments = [
                                   { key: 'approved', color: 'bg-emerald-500', width: approvedPct },
                                   { key: 'pending', color: 'bg-amber-400', width: pendingPct },
-                                  { key: 'rejected', color: 'bg-rose-400', width: rejectedPct },
                                 ].filter((s) => s.width > 0);
                                 return (
                                   <div
                                     key={cat}
                                     className="flex items-center gap-2"
-                                    title={`${cat.replace(/-/g, ' ')}: ${counts.approved} approved, ${counts.pending} pending, ${counts.rejected} rejected`}
+                                    title={`${cat.replace(/-/g, ' ')}: ${counts.players} players · ${listed} listed · ${counts.rejected} rejected`}
                                   >
                                     <span className="text-xs w-20 flex-shrink-0 text-slate-600 capitalize truncate">
                                       {abbrev(cat)}
@@ -819,8 +818,8 @@ export default function OverviewPage() {
                                         ))}
                                       </div>
                                     </div>
-                                    <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-6 flex-shrink-0 text-right">
-                                      {counts.total}
+                                    <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-8 flex-shrink-0 text-right">
+                                      {counts.players}
                                     </span>
                                   </div>
                                 );
@@ -834,10 +833,6 @@ export default function OverviewPage() {
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-2 w-2 rounded-sm bg-amber-400" />
                                 Pending
-                              </span>
-                              <span className="inline-flex items-center gap-1">
-                                <span className="h-2 w-2 rounded-sm bg-rose-400" />
-                                Rejected
                               </span>
                             </div>
                           </>

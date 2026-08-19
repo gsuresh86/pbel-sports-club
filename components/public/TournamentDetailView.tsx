@@ -38,7 +38,8 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import TournamentStandingsView from '@/components/public/TournamentStandingsView';
 import { TeamLogo } from '@/components/TeamLogo';
-import { formatCategoryLabel } from '@/lib/categoryLabels';
+import { formatCategoryLabel, categoriesMatch, isDoublesCategory, playerHeadcount, collectPublicCategorySlugs, uniqueCategoryPlayers, categoryAssignmentIds, countPublicCategoryPeople } from '@/lib/categoryLabels';
+import { isTeamCategory } from '@/lib/poolStandings';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { isRubberMatch, isTeamTieMatch, rubberTypeLabel } from '@/lib/teamMatchRubbers';
 import { getMatchCardDisplayScores } from '@/lib/match-scoring';
@@ -361,7 +362,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
             <div className="border-t border-white/10 bg-black/20 backdrop-blur-sm">
               <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Players', value: participants.length, icon: Users, color: 'text-blue-400' },
+                  { label: 'Players', value: participants.reduce((n, p) => n + playerHeadcount(p), 0), icon: Users, color: 'text-blue-400' },
                   { label: 'Teams', value: teams.length, icon: Shield, color: 'text-purple-400' },
                   { label: 'Matches', value: displayMatches.length, icon: Activity, color: 'text-yellow-400' },
                   { label: 'Pools', value: pools.length, icon: Users2, color: 'text-emerald-400' },
@@ -432,20 +433,30 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
               <div className="bg-slate-900 rounded-2xl p-6 border border-white/5">
                   <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-4">Categories</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {tournament.categories?.map(cat => {
-                      const catTeamCount = teams.filter(t => t.category === cat).length;
-                      const catPlayerCount = participants.filter(p => p.selectedCategory === cat).length;
-                      const catPoolCount = pools.filter(p => p.category === cat).length;
-                      const isTCat = cat.includes('team') && !cat.includes('doubles') && !cat.includes('kids-team-u13') && !cat.includes('kids-team-u18') && !cat.includes('under-');
+                    {collectPublicCategorySlugs(
+                      tournament.categories,
+                      participants.map(p => p.selectedCategory),
+                      teams.map(t => t.category),
+                      pools.map(p => p.category),
+                    ).map(cat => {
+                      const extraIds = categoryAssignmentIds(cat, teams, pools);
+                      const catRegs = uniqueCategoryPlayers(cat, participants, extraIds);
+                      const catTeamCount = teams.filter(t => categoriesMatch(t.category, cat)).length;
+                      const catPlayerCount = countPublicCategoryPeople(catRegs, extraIds);
+                      const catPoolCount = pools.filter(p => categoriesMatch(p.category, cat)).length;
+                      const isTCat = isTeamCategory(cat);
                       const parts: string[] = [];
                       if (isTCat) parts.push(`${catTeamCount} teams`);
                       if (catPoolCount > 0) parts.push(`${catPoolCount} pools`);
                       parts.push(`${catPlayerCount} players`);
+                      if (isDoublesCategory(cat) && catRegs.length > 0) {
+                        parts.push(`${catRegs.length} ${catRegs.length === 1 ? 'pair' : 'pairs'}`);
+                      }
                       return (
                         <Link key={cat} href={`/tournament/${tournamentId}/category/${cat}`}
                           className="group flex flex-col gap-1 bg-white/5 hover:bg-yellow-400/10 border border-white/10 hover:border-yellow-400/40 rounded-xl px-4 py-3 transition-all">
                           <span className="text-sm font-bold text-white capitalize group-hover:text-yellow-400 transition-colors leading-tight">
-                            {cat.replace(/-/g, ' ')}
+                            {formatCategoryLabel(cat)}
                           </span>
                           <span className="text-[10px] text-slate-500">
                             {parts.join(' · ')}
@@ -642,8 +653,8 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
                   >
                     <option value="all">All Categories</option>
-                    {tournament.categories?.filter(cat => cat === 'mens-team' || cat === 'womens-team').map(cat => (
-                      <option key={cat} value={cat}>{cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</option>
+                    {tournament.categories?.filter(cat => isTeamCategory(cat)).map(cat => (
+                      <option key={cat} value={cat}>{formatCategoryLabel(cat)}</option>
                     ))}
                   </select>
                   {teamsCatFilter !== 'all' && (
@@ -659,7 +670,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {teams
-                    .filter(t => teamsCatFilter === 'all' || t.category === teamsCatFilter)
+                    .filter(t => teamsCatFilter === 'all' || categoriesMatch(t.category, teamsCatFilter))
                     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
                     .map(team => {
                     const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as PublicPlayer[];

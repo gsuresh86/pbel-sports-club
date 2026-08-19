@@ -76,6 +76,24 @@ service cloud.firestore {
             && hasTournamentAdminRoleSlug(tournamentId));
     }
 
+    // Tournament admins (global role or assigned slug/permission) can add staff accounts.
+    function canManageTournamentUsers(tournamentId) {
+      return isAdmin()
+        || isTournamentAdmin()
+        || (isAssignedToTournament(tournamentId)
+            && (hasTournamentPermission(tournamentId, 'tournament.users')
+                || hasTournamentPermission(tournamentId, 'tournament.overview')
+                || hasTournamentAdminRoleSlug(tournamentId)));
+    }
+
+    function canCreateStaffProfile(userId) {
+      return request.auth.uid != userId
+        && request.resource.data.role in ['staff', 'referee', 'tournament-admin']
+        && request.resource.data.assignedTournaments is list
+        && request.resource.data.assignedTournaments.size() > 0
+        && canManageTournamentUsers(request.resource.data.assignedTournaments[0]);
+    }
+
     // Staff accounts created via the permission system use role == 'staff'
     // (with tournamentRoles/tournamentPermissions). They still need the staff
     // directory for tournament user management.
@@ -111,10 +129,12 @@ service cloud.firestore {
         isAdmin() ||
         (canAccessStaffDirectory() && isStaffDirectoryRole())
       );
-      // Public signup may only create own doc as role "public"
-      allow create: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.data.role == 'public';
+      // Public signup may only create own doc as role "public".
+      // Tournament admins may create staff profiles for a new Auth uid.
+      allow create: if request.auth != null && (
+        (request.auth.uid == userId && request.resource.data.role == 'public')
+        || canCreateStaffProfile(userId)
+      );
       allow update: if request.auth != null && (
         // Self-update: profile fields only — never privileges
         (request.auth.uid == userId && !userPrivilegeKeysChanged()) ||

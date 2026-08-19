@@ -97,6 +97,19 @@ export async function cloneTournament(
     regIdMap.set(regDoc.id, newRegRef.id);
   }
 
+  // 1b. Public player projections
+  const publicPlayerSnap = await getDocs(
+    collection(db, 'tournaments', sourceTournamentId, 'publicPlayers')
+  );
+  for (const publicDoc of publicPlayerSnap.docs) {
+    const newId = regIdMap.get(publicDoc.id);
+    if (!newId) continue;
+    await setDoc(doc(db, 'tournaments', newTournamentId, 'publicPlayers', newId), {
+      ...stripFirestoreId(publicDoc.data() as Record<string, unknown>),
+      tournamentId: newTournamentId,
+    });
+  }
+
   // 2. Players
   const playerSnap = await getDocs(
     collection(db, 'tournaments', sourceTournamentId, 'players')
@@ -319,7 +332,7 @@ export async function deleteTournament(tournamentId: string): Promise<void> {
     deleteRefs.push({ path: `winners/${winnerDoc.id}` });
   }
 
-  const subcollections = ['players', 'registrations', 'teams', 'pools'] as const;
+  const subcollections = ['players', 'registrations', 'publicPlayers', 'teams', 'pools'] as const;
   for (const sub of subcollections) {
     const snap = await getDocs(collection(db, 'tournaments', tournamentId, sub));
     for (const subDoc of snap.docs) {

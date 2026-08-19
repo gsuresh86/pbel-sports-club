@@ -7,6 +7,8 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesRef } from '@/lib/firestore-paths';
 import { Tournament, PublicPlayer, Team, Pool, Match } from '@/types';
 import { listPublicPlayers } from '@/lib/public-players';
+import { categoriesMatch, formatCategoryLabel, isDoublesCategory, uniqueCategoryPlayers, categoryAssignmentIds, countPublicCategoryPeople, canonicalPublicPlayerId } from '@/lib/categoryLabels';
+import { isTeamCategory } from '@/lib/poolStandings';
 import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import { TeamLogo } from '@/components/TeamLogo';
 import Link from 'next/link';
@@ -15,20 +17,29 @@ import TournamentStandingsView from '@/components/public/TournamentStandingsView
 
 // ── helpers ────────────────────────────────────────────────────────────────
 function fmtCategory(cat: string) {
-  return cat.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  return formatCategoryLabel(cat);
 }
 
-function isTeamCategory(cat: string) {
-  // Doubles are pair registrations (primary + partner), not team assignments
-  if (cat.includes('doubles')) return false;
-  // Kids and under-age categories are individual
-  if (cat.includes('kids-team-u13') || cat.includes('kids-team-u18')) return false;
-  if (cat.includes('under-')) return false;
-  return cat.includes('team');
+
+function sortByName<T extends { name: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+  );
 }
 
-function isDoublesCategory(cat: string) {
-  return cat.includes('doubles');
+function playersInPool(pool: Pool, byId: Map<string, PublicPlayer>): PublicPlayer[] {
+  return sortByName(
+    (pool.teams ?? []).map((id) => {
+      const existing = byId.get(id) ?? byId.get(canonicalPublicPlayerId(id));
+      if (existing) return existing;
+      return {
+        id,
+        tournamentId: pool.tournamentId,
+        name: 'Player',
+        selectedCategory: pool.category,
+      } as PublicPlayer;
+    }),
+  );
 }
 
 
@@ -159,11 +170,33 @@ function DoublesCard({ registration }: { registration: PublicPlayer }) {
   );
 }
 
+function PlayerGrid({ players, isDoubles }: { players: PublicPlayer[]; isDoubles: boolean }) {
+  if (players.length === 0) {
+    return <p className="text-slate-500 text-sm italic px-2">No players assigned yet</p>;
+  }
+  if (isDoubles) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {players.map(reg => (
+          <DoublesCard key={reg.id} registration={reg} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+      {players.map(player => (
+        <PlayerCard key={player.id} player={player} />
+      ))}
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function CategoryPage() {
   const params = useParams();
   const tournamentId = params.id as string;
-  const categorySlug = params.category as string;
+  const categorySlug = decodeURIComponent(params.category as string);
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<PublicPlayer[]>([]);
@@ -214,13 +247,22 @@ export default function CategoryPage() {
     );
   }
 
-  const catTeams = teams.filter(t => t.category === categorySlug);
-  const catPlayers = participants.filter(p => p.selectedCategory === categorySlug);
-  const catPools = pools.filter(p => p.category === categorySlug);
-  const isCatTeam = isTeamCategory(categorySlug);
+  const extraIds = categoryAssignmentIds(categorySlug, teams, pools);
+  const catTeams = teams.filter(t => categoriesMatch(t.category, categorySlug));
+  const catPlayers = uniqueCategoryPlayers(categorySlug, participants, extraIds);
+  const catPools = sortByName(pools.filter(p => categoriesMatch(p.category, categorySlug)));
+  const playersById = new Map(participants.map(p => [p.id, p]));
+  const rosteredIds = new Set(catTeams.flatMap(t => t.players ?? []));
+  const assignedPoolMemberIds = new Set(catPools.flatMap(p => p.teams ?? []));
+  const hasTeamSquads = isTeamCategory(categorySlug) && catTeams.length > 0;
+  const unassignedPlayers = sortByName(
+    catPlayers.filter(p => hasTeamSquads ? !rosteredIds.has(p.id) : !assignedPoolMemberIds.has(p.id) && !assignedPoolMemberIds.has(canonicalPublicPlayerId(p.id))),
+  );
+  const isCatTeam = hasTeamSquads;
   const isDoubles = isDoublesCategory(categorySlug);
   const label = fmtCategory(categorySlug);
   const poolsAvailable = catPools.length > 0;
+  const publicPlayerCount = countPublicCategoryPeople(catPlayers, extraIds);
 
   return (
     <div className="bg-slate-950 min-h-screen">
@@ -273,7 +315,10 @@ export default function CategoryPage() {
             {isCatTeam && <span className="flex items-center gap-1.5"><Shield className="h-4 w-4 text-purple-400" />{catTeams.length} Teams</span>}
             <span className="flex items-center gap-1.5">
               <Users className="h-4 w-4 text-blue-400" />
-              {isDoubles ? `${catPlayers.length} pairs` : `${catPlayers.length} players`}
+              {publicPlayerCount} players
+              {isDoubles && catPlayers.length > 0
+                ? ` · ${catPlayers.length} ${catPlayers.length === 1 ? 'pair' : 'pairs'}`
+                : ''}
             </span>
             {poolsAvailable && <span className="flex items-center gap-1.5"><Users2 className="h-4 w-4 text-emerald-400" />{catPools.length} Pools</span>}
           </div>
@@ -285,7 +330,8 @@ export default function CategoryPage() {
 
         {/* TEAM CATEGORIES — tab-controlled */}
         {isCatTeam && activeSection === 'squads' && (
-          catTeams.length === 0 ? (
+          <>
+          {catTeams.length === 0 ? (
             <div className="text-center py-24">
               <Shield className="h-12 w-12 text-slate-600 mx-auto mb-4" />
               <p className="text-slate-400">No teams assigned to this category yet</p>
@@ -325,7 +371,21 @@ export default function CategoryPage() {
                 </section>
               );
             })
-          )
+          )}
+          {unassignedPlayers.length > 0 && (
+            <section className="mt-12">
+              <div className="flex items-center justify-between bg-gradient-to-r from-slate-700/30 to-slate-600/10 rounded-2xl px-6 py-5 mb-5 border border-white/5">
+                <div>
+                  <h2 className="text-2xl font-black text-white">Unassigned</h2>
+                  <p className="text-sm text-white/50 mt-0.5">
+                    {unassignedPlayers.length} {unassignedPlayers.length === 1 ? 'player' : 'players'} not yet on a team
+                  </p>
+                </div>
+              </div>
+              <PlayerGrid players={unassignedPlayers} isDoubles={false} />
+            </section>
+          )}
+          </>
         )}
 
         {isCatTeam && activeSection === 'points' && tournament && (
@@ -356,7 +416,52 @@ export default function CategoryPage() {
 
         {/* INDIVIDUAL / DOUBLES — tab-controlled when pools exist */}
         {!isCatTeam && (!poolsAvailable || activeSection === 'squads') && (
-          catPlayers.length === 0 ? (
+          poolsAvailable ? (
+            <div className="space-y-12">
+              {catPools.map((pool, pi) => {
+                const poolPlayers = playersInPool(pool, playersById);
+                const memberCount = (pool.teams ?? []).length;
+                const memberLabel = isDoubles
+                  ? (memberCount === 1 ? 'pair' : 'pairs')
+                  : (memberCount === 1 ? 'player' : 'players');
+                const grad = TEAM_HEADER_GRADIENTS[pi % TEAM_HEADER_GRADIENTS.length];
+                return (
+                  <section key={pool.id}>
+                    <div className={`flex items-center justify-between bg-gradient-to-r ${grad} rounded-2xl px-6 py-5 mb-5 border border-white/5`}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center">
+                          <Users2 className="h-6 w-6 text-emerald-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-black text-white">{pool.name}</h2>
+                          <p className="text-sm text-white/50 mt-0.5">
+                            {memberCount} {memberLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <PlayerGrid players={poolPlayers} isDoubles={isDoubles} />
+                  </section>
+                );
+              })}
+              {unassignedPlayers.length > 0 && (
+                <section>
+                  <div className="flex items-center justify-between bg-gradient-to-r from-slate-700/30 to-slate-600/10 rounded-2xl px-6 py-5 mb-5 border border-white/5">
+                    <div>
+                      <h2 className="text-2xl font-black text-white">Unassigned</h2>
+                      <p className="text-sm text-white/50 mt-0.5">
+                        {unassignedPlayers.length} {isDoubles ? 'pairs' : 'players'} not yet in a pool
+                      </p>
+                    </div>
+                  </div>
+                  <PlayerGrid players={unassignedPlayers} isDoubles={isDoubles} />
+                </section>
+              )}
+              {catPlayers.length === 0 && catPools.every(p => (p.teams ?? []).length === 0) && (
+                <p className="text-slate-500 text-sm italic px-2">No players registered in this category yet</p>
+              )}
+            </div>
+          ) : catPlayers.length === 0 ? (
             <div className="text-center py-24">
               <Users className="h-12 w-12 text-slate-600 mx-auto mb-4" />
               <p className="text-slate-400">No players registered in this category yet</p>
@@ -367,19 +472,7 @@ export default function CategoryPage() {
                 <Trophy className="h-3.5 w-3.5" />
                 {isDoubles ? 'Pairs' : 'Players'} — {label}
               </h2>
-              {isDoubles ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {catPlayers.map(reg => (
-                    <DoublesCard key={reg.id} registration={reg} />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-                  {catPlayers.map(player => (
-                    <PlayerCard key={player.id} player={player} />
-                  ))}
-                </div>
-              )}
+              <PlayerGrid players={catPlayers} isDoubles={isDoubles} />
             </section>
           )
         )}
