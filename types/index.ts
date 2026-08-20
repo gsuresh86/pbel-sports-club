@@ -102,8 +102,8 @@ export interface Tournament {
   banner?: string; // URL to the uploaded banner image
   /** Whether the tournament name is overlaid on the registration-page banner (default: true). */
   showRegistrationTitle?: boolean;
-  /** Match format: 11pt or 21pt single set, best of 3, best of 3 (15pt sets), or 30pt single set */
-  matchFormat?: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
+  /** Match format: 11pt or 21pt single set, best of 3 (11/15/21pt), or 30pt single set */
+  matchFormat?: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30';
   /** Registration form field visibility toggles (default: true for backwards compatibility) */
   showTowerAndFlat?: boolean;
   showEmergencyContact?: boolean;
@@ -287,8 +287,8 @@ export interface Match {
   status: 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed';
   winner?: string;
   notes?: string;
-  /** Override tournament default: 11pt or 21pt single set, best of 3, best of 3 (15pt sets), or 30pt single set */
-  matchFormat?: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-15pt' | 'single-set-30';
+  /** Override tournament default: 11pt or 21pt single set, best of 3 (11/15/21pt), or 30pt single set */
+  matchFormat?: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30';
   updatedAt: Date;
   createdBy: string;
 }
