@@ -285,7 +285,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const getPoolPlayers = (pool: Pool) => {
     return registrations
       .filter(registration =>
-        pool.teams.includes(registration.id) && registration.registrationStatus !== 'rejected',
+        pool.teams.some((id) => id.trim() === registration.id.trim()) && registration.registrationStatus !== 'rejected',
       )
       .sort((a, b) =>
         (SKILL_RANK[a.expertiseLevel] ?? 4) - (SKILL_RANK[b.expertiseLevel] ?? 4) ||

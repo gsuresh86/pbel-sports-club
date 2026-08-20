@@ -7,7 +7,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import type { CategoryType, PublicPlayer, Registration } from '@/types';
-import { normalizeCategorySlug } from '@/lib/categoryLabels';
+import { normalizeCategorySlug, normalizePersonName } from '@/lib/categoryLabels';
 
 const PUBLIC_PLAYER_KEYS = [
   'tournamentId',
@@ -36,8 +36,8 @@ export function toPublicPlayer(
   return {
     id: registrationId,
     tournamentId,
-    name: (source.name ?? '').trim(),
-    partnerName: source.partnerName?.trim() || undefined,
+    name: normalizePersonName(source.name) || (source.name ?? '').trim(),
+    partnerName: normalizePersonName(source.partnerName) || undefined,
     profilePhotoUrl: source.profilePhotoUrl?.trim() || undefined,
     partnerProfilePhotoUrl: source.partnerProfilePhotoUrl?.trim() || undefined,
     selectedCategory: (normalizeCategorySlug(source.selectedCategory) ?? source.selectedCategory) as CategoryType,
@@ -91,8 +91,8 @@ export async function listPublicPlayers(
     return {
       id: d.id,
       tournamentId: (data.tournamentId as string) ?? tournamentId,
-      name: (data.name as string) ?? '',
-      partnerName: data.partnerName as string | undefined,
+      name: normalizePersonName(data.name as string) || ((data.name as string) ?? ''),
+      partnerName: normalizePersonName(data.partnerName as string) || (data.partnerName as string | undefined),
       profilePhotoUrl: data.profilePhotoUrl as string | undefined,
       partnerProfilePhotoUrl: data.partnerProfilePhotoUrl as string | undefined,
       selectedCategory,

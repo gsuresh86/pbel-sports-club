@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase';
 import { tournamentMatchesRef } from '@/lib/firestore-paths';
 import { Tournament, PublicPlayer, Team, Pool, Match } from '@/types';
 import { listPublicPlayers } from '@/lib/public-players';
-import { categoriesMatch, formatCategoryLabel, isDoublesCategory, uniqueCategoryPlayers, categoryAssignmentIds, countPublicCategoryPeople, canonicalPublicPlayerId } from '@/lib/categoryLabels';
+import { categoriesMatch, formatCategoryLabel, isDoublesCategory, uniqueCategoryPlayers, categoryAssignmentIds, countPublicCategoryPeople, canonicalPublicPlayerId, publicPlayerLookupMap, resolveAssignedPublicPlayer, normalizeAssignmentId, normalizePersonName } from '@/lib/categoryLabels';
 import { isTeamCategory } from '@/lib/poolStandings';
 import { ArrowLeft, Shield, Users, Star, Trophy, Users2, BarChart3, ExternalLink } from 'lucide-react';
 import { TeamLogo } from '@/components/TeamLogo';
@@ -27,19 +27,50 @@ function sortByName<T extends { name: string }>(items: T[]): T[] {
   );
 }
 
-function playersInPool(pool: Pool, byId: Map<string, PublicPlayer>): PublicPlayer[] {
-  return sortByName(
-    (pool.teams ?? []).map((id) => {
-      const existing = byId.get(id) ?? byId.get(canonicalPublicPlayerId(id));
-      if (existing) return existing;
-      return {
-        id,
+function nameFromMatches(assignedId: string, matches: Match[]): string | undefined {
+  const id = normalizeAssignmentId(assignedId);
+  const canonical = canonicalPublicPlayerId(id);
+  for (const match of matches) {
+    const slots: Array<[string | undefined, string | undefined]> = [
+      [match.player1Id, match.player1Name],
+      [match.player2Id, match.player2Name],
+      [match.player1PartnerId, match.player1PartnerName],
+      [match.player2PartnerId, match.player2PartnerName],
+    ];
+    for (const [slotId, slotName] of slots) {
+      const slot = normalizeAssignmentId(slotId);
+      const name = normalizePersonName(slotName);
+      if (!slot || !name) continue;
+      if (slot === id || slot === canonical || canonicalPublicPlayerId(slot) === canonical) {
+        return name;
+      }
+    }
+  }
+  return undefined;
+}
+
+function playersInPool(pool: Pool, byId: Map<string, PublicPlayer>, matches: Match[]): PublicPlayer[] {
+  const resolved = (pool.teams ?? []).map((rawId, index) => {
+    const id = normalizeAssignmentId(rawId);
+    if (!id) return null;
+    const existing = resolveAssignedPublicPlayer(byId, id);
+    const name =
+      normalizePersonName(existing?.name) ||
+      nameFromMatches(id, matches);
+    if (!name) return null;
+    return {
+      ...(existing ?? {
         tournamentId: pool.tournamentId,
-        name: 'Player',
         selectedCategory: pool.category,
-      } as PublicPlayer;
-    }),
-  );
+      }),
+      id: `${id}#${index}`,
+      name,
+      partnerName: normalizePersonName(existing?.partnerName) || existing?.partnerName,
+      profilePhotoUrl: existing?.profilePhotoUrl,
+      partnerProfilePhotoUrl: existing?.partnerProfilePhotoUrl,
+    } as PublicPlayer;
+  });
+  return sortByName(resolved.filter((player): player is PublicPlayer => player != null));
 }
 
 
@@ -251,12 +282,18 @@ export default function CategoryPage() {
   const catTeams = teams.filter(t => categoriesMatch(t.category, categorySlug));
   const catPlayers = uniqueCategoryPlayers(categorySlug, participants, extraIds);
   const catPools = sortByName(pools.filter(p => categoriesMatch(p.category, categorySlug)));
-  const playersById = new Map(participants.map(p => [p.id, p]));
-  const rosteredIds = new Set(catTeams.flatMap(t => t.players ?? []));
-  const assignedPoolMemberIds = new Set(catPools.flatMap(p => p.teams ?? []));
+  const playersById = publicPlayerLookupMap(participants);
+  const rosteredIds = new Set(catTeams.flatMap(t => t.players ?? []).map((id) => canonicalPublicPlayerId(id)));
+  const assignedPoolMemberIds = new Set(
+    catPools.flatMap((p) => (p.teams ?? []).map((id) => canonicalPublicPlayerId(id)).filter(Boolean)),
+  );
   const hasTeamSquads = isTeamCategory(categorySlug) && catTeams.length > 0;
   const unassignedPlayers = sortByName(
-    catPlayers.filter(p => hasTeamSquads ? !rosteredIds.has(p.id) : !assignedPoolMemberIds.has(p.id) && !assignedPoolMemberIds.has(canonicalPublicPlayerId(p.id))),
+    catPlayers.filter(p => {
+      const id = canonicalPublicPlayerId(p.id);
+      if (hasTeamSquads) return !rosteredIds.has(id) && !rosteredIds.has(p.id);
+      return !assignedPoolMemberIds.has(id);
+    }),
   );
   const isCatTeam = hasTeamSquads;
   const isDoubles = isDoublesCategory(categorySlug);
@@ -419,7 +456,7 @@ export default function CategoryPage() {
           poolsAvailable ? (
             <div className="space-y-12">
               {catPools.map((pool, pi) => {
-                const poolPlayers = playersInPool(pool, playersById);
+                const poolPlayers = playersInPool(pool, playersById, matches);
                 const memberCount = (pool.teams ?? []).length;
                 const memberLabel = isDoubles
                   ? (memberCount === 1 ? 'pair' : 'pairs')

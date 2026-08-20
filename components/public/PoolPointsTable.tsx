@@ -4,6 +4,14 @@ import type { CategoryType, Match, Pool, PublicPlayer, Team } from '@/types';
 import { TeamLogo } from '@/components/TeamLogo';
 import { getQualifyCount } from '@/lib/knockoutBracket';
 import {
+  canonicalPublicPlayerId,
+  isPartnerAssignmentId,
+  normalizeAssignmentId,
+  normalizePersonName,
+  publicPlayerLookupMap,
+  resolveAssignedPublicPlayer,
+} from '@/lib/categoryLabels';
+import {
   computePoolStandings,
   isPoolPlayComplete,
   type PoolStandingRow,
@@ -161,11 +169,37 @@ function PoolPointsTableInner({
 export default function PoolPointsTable({
   pool, matches, isTeamCat, teams, participants, isDoubles, categoryQualifyCounts,
 }: Props) {
+  const playersById = publicPlayerLookupMap(participants);
   const nameLookup = (id: string) => {
     if (isTeamCat) return teams.find(t => t.id === id)?.name ?? `Team ${id.slice(0, 6)}`;
-    const p = participants.find(r => r.id === id);
-    if (!p) return `Player ${id.slice(0, 6)}`;
-    return isDoubles && p.partnerName ? `${p.name} & ${p.partnerName}` : p.name;
+    const assigned = normalizeAssignmentId(id);
+    const p = resolveAssignedPublicPlayer(playersById, assigned);
+    const resolvedName = normalizePersonName(p?.name);
+    if (resolvedName) {
+      const partner = normalizePersonName(p?.partnerName);
+      if (isDoubles && partner && !isPartnerAssignmentId(assigned)) {
+        return `${resolvedName} & ${partner}`;
+      }
+      return resolvedName;
+    }
+    const canonical = canonicalPublicPlayerId(assigned);
+    for (const match of matches) {
+      const slots: Array<[string | undefined, string | undefined]> = [
+        [match.player1Id, match.player1Name],
+        [match.player2Id, match.player2Name],
+        [match.player1PartnerId, match.player1PartnerName],
+        [match.player2PartnerId, match.player2PartnerName],
+      ];
+      for (const [slotId, slotName] of slots) {
+        const slot = normalizeAssignmentId(slotId);
+        const name = normalizePersonName(slotName);
+        if (!slot || !name) continue;
+        if (slot === assigned || slot === canonical || canonicalPublicPlayerId(slot) === canonical) {
+          return name;
+        }
+      }
+    }
+    return 'Unknown';
   };
 
   const rows = computePoolStandings(pool, matches, {

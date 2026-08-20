@@ -8,7 +8,10 @@ import {
   countPublicListedPlayers,
   isDoublesCategory,
   normalizeCategorySlug,
+  normalizePersonName,
   playerHeadcount,
+  publicPlayerLookupMap,
+  resolveAssignedPublicPlayer,
   uniqueCategoryPlayers,
 } from './categoryLabels.ts';
 
@@ -86,6 +89,17 @@ test('uniqueCategoryPlayers resolves registration-primary pool ids', () => {
   const listed = uniqueCategoryPlayers('boys-under-13', players, ['reg1-primary']);
   assert.equal(listed.length, 1);
   assert.equal(listed[0].id, 'reg1');
+});
+
+test('resolveAssignedPublicPlayer trims whitespace on pool ids and names', () => {
+  const byId = publicPlayerLookupMap([
+    { id: 'reg1', name: '  Akhil   Reddy  ', partnerName: ' Sathwik ' },
+  ]);
+  const padded = resolveAssignedPublicPlayer(byId, '  reg1-primary  ');
+  assert.equal(padded?.name, 'Akhil Reddy');
+  const partner = resolveAssignedPublicPlayer(byId, 'reg1-partner ');
+  assert.equal(partner?.name, 'Sathwik');
+  assert.equal(normalizePersonName('AKHIL   REDDY ANNAP...'), 'AKHIL REDDY ANNAP...');
 });
 
 test('countPublicCategoryPeople includes assigned slots missing from publicPlayers', () => {

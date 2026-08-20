@@ -263,8 +263,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     teams.filter(t => pool.teams.includes(t.id));
 
   const getPlayersForPool = (pool: Pool) => {
-    const byId = new Map(registrations.map(r => [r.id, r]));
-    return pool.teams.map(id => byId.get(id)).filter((r): r is Registration => !!r);
+    const byId = new Map(registrations.flatMap((r) => [[r.id, r], [r.id.trim(), r]] as [string, Registration][]));
+    return pool.teams
+      .map((id) => byId.get(id) ?? byId.get(id.trim()))
+      .filter((r): r is Registration => !!r);
   };
 
   const getCategoryPlayers = (category: CategoryType) =>

@@ -128,8 +128,16 @@ export function collectPublicCategorySlugs(
 }
 
 /** Pool/team assignment ids sometimes use `{registrationId}-primary`. */
+export function normalizeAssignmentId(id: string | undefined | null): string {
+  return (id ?? '').trim();
+}
+
+export function normalizePersonName(name: string | undefined | null): string {
+  return (name ?? '').replace(/\s+/g, ' ').trim();
+}
+
 export function canonicalPublicPlayerId(id: string): string {
-  return id.replace(/-(primary|partner)$/i, '');
+  return normalizeAssignmentId(id).replace(/-(primary|partner)$/i, '');
 }
 
 export function categoryAssignmentIds(
@@ -139,30 +147,92 @@ export function categoryAssignmentIds(
 ): string[] {
   const ids: string[] = [];
   for (const team of teams) {
-    if (categoriesMatch(team.category, category)) ids.push(...(team.players ?? []));
+    if (categoriesMatch(team.category, category)) {
+      ids.push(...(team.players ?? []).map((id) => normalizeAssignmentId(id)).filter(Boolean));
+    }
   }
   for (const pool of pools) {
-    if (categoriesMatch(pool.category, category)) ids.push(...(pool.teams ?? []));
+    if (categoriesMatch(pool.category, category)) {
+      ids.push(...(pool.teams ?? []).map((id) => normalizeAssignmentId(id)).filter(Boolean));
+    }
   }
   return ids;
 }
 
-function findParticipant<T extends { id: string }>(byId: Map<string, T>, id: string): T | undefined {
-  return byId.get(id) ?? byId.get(canonicalPublicPlayerId(id));
+type AssignablePublicPlayer = {
+  id: string;
+  name?: string;
+  partnerName?: string;
+  profilePhotoUrl?: string;
+  partnerProfilePhotoUrl?: string;
+};
+
+export function isPartnerAssignmentId(id: string): boolean {
+  return /-(partner)$/i.test(normalizeAssignmentId(id));
+}
+
+/** Map public players by document id and stripped `{id}-primary` / `{id}-partner` keys. */
+export function publicPlayerLookupMap<T extends { id: string }>(players: T[]): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const player of players) {
+    const trimmed = normalizeAssignmentId(player.id);
+    map.set(player.id, player);
+    if (trimmed) map.set(trimmed, player);
+    const canonical = canonicalPublicPlayerId(trimmed);
+    if (canonical && !map.has(canonical)) map.set(canonical, player);
+  }
+  return map;
+}
+
+export function resolveAssignedPublicPlayer<T extends AssignablePublicPlayer>(
+  byId: Map<string, T>,
+  assignedId: string,
+): T | undefined {
+  const id = normalizeAssignmentId(assignedId);
+  if (!id) return undefined;
+  const existing =
+    byId.get(assignedId) ??
+    byId.get(id) ??
+    byId.get(canonicalPublicPlayerId(id));
+  if (!existing) return undefined;
+  const name = normalizePersonName(existing.name);
+  const partnerName = normalizePersonName(existing.partnerName);
+  if (isPartnerAssignmentId(id) && partnerName) {
+    return {
+      ...existing,
+      id,
+      name: partnerName,
+      profilePhotoUrl: existing.partnerProfilePhotoUrl,
+      partnerName: name || existing.name,
+      partnerProfilePhotoUrl: existing.profilePhotoUrl,
+    };
+  }
+  return {
+    ...existing,
+    id,
+    name: name || existing.name,
+    partnerName: partnerName || existing.partnerName,
+  };
+}
+
+function findParticipant<T extends AssignablePublicPlayer>(byId: Map<string, T>, id: string): T | undefined {
+  return resolveAssignedPublicPlayer(byId, id);
 }
 
 /** Players listed in a category, plus anyone assigned to that category's teams/pools. */
-export function uniqueCategoryPlayers<T extends { id: string; selectedCategory?: string }>(
+export function uniqueCategoryPlayers<T extends AssignablePublicPlayer & { selectedCategory?: string }>(
   category: string,
   participants: T[],
   extraIds: Iterable<string> = [],
 ): T[] {
-  const byId = new Map(participants.map((p) => [p.id, p]));
+  const byId = publicPlayerLookupMap(participants);
   const out: T[] = [];
   const seen = new Set<string>();
   const add = (player?: T) => {
-    if (!player || seen.has(player.id)) return;
-    seen.add(player.id);
+    if (!player) return;
+    const key = canonicalPublicPlayerId(player.id) || player.id;
+    if (seen.has(key)) return;
+    seen.add(key);
     out.push(player);
   };
   participants.filter((p) => categoriesMatch(p.selectedCategory, category)).forEach(add);
@@ -177,14 +247,15 @@ export function countPublicCategoryPeople<T extends { id: string; partnerName?: 
 ): number {
   const listedIds = new Set<string>();
   for (const player of listed) {
-    listedIds.add(player.id);
+    listedIds.add(normalizeAssignmentId(player.id));
     listedIds.add(canonicalPublicPlayerId(player.id));
   }
   let missingAssigned = 0;
   const seenExtra = new Set<string>();
   for (const id of extraIds) {
-    if (!id || seenExtra.has(id) || listedIds.has(id) || listedIds.has(canonicalPublicPlayerId(id))) continue;
-    seenExtra.add(id);
+    const assigned = normalizeAssignmentId(id);
+    if (!assigned || seenExtra.has(assigned) || listedIds.has(assigned) || listedIds.has(canonicalPublicPlayerId(assigned))) continue;
+    seenExtra.add(assigned);
     missingAssigned += 1;
   }
   return listed.reduce((n, player) => n + playerHeadcount(player), 0) + missingAssigned;
