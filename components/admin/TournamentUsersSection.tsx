@@ -469,7 +469,7 @@ export function TournamentUsersSection({
                   </p>
                 ) : (
                   <Select value={selectedExistingId} onValueChange={setSelectedExistingId}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder={`Choose a ${config.label.toLowerCase()}...`} />
                     </SelectTrigger>
                     <SelectContent>

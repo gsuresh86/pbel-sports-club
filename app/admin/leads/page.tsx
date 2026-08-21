@@ -859,6 +859,7 @@ export default function LeadsManagementPage() {
                   value={tournamentFormData.description}
                   onChange={(e) => setTournamentFormData({ ...tournamentFormData, description: e.target.value })}
                   rows={3}
+                  placeholder="e.g. Community championship open to all skill levels"
                 />
               </div>
 

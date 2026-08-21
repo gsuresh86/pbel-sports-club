@@ -579,9 +579,9 @@ export default function ManageTournamentsPage() {
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Priority alerts */}
           <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-5 py-4 border-b border-slate-100">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
               <CardTitle className="text-base font-semibold text-slate-900">
-                Priority Alerts
+                Alerts
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-3">
@@ -643,7 +643,7 @@ export default function ManageTournamentsPage() {
 
           {/* Upcoming schedule */}
           <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-5 py-4 border-b border-slate-100">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
               <CardTitle className="text-base font-semibold text-slate-900">
                 Upcoming Schedule
               </CardTitle>
@@ -700,7 +700,7 @@ export default function ManageTournamentsPage() {
 
           {/* Needs attention mini table */}
           <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-5 py-4 border-b border-slate-100">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
               <CardTitle className="text-base font-semibold text-slate-900">
                 Needs Attention
               </CardTitle>

@@ -703,7 +703,7 @@ export default function UserManagementPage() {
 
         {/* Add/Edit User Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
               <DialogDescription>
@@ -794,7 +794,7 @@ export default function UserManagementPage() {
                         }
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full h-9">
                         <SelectValue placeholder="Add a tournament..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -810,7 +810,6 @@ export default function UserManagementPage() {
                     
                     {formData.assignedTournaments.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Assigned Tournaments:</p>
                         <div className="space-y-1">
                           {formData.assignedTournaments.map((tournamentId) => {
                             const tournament = tournaments.find(t => t.id === tournamentId);

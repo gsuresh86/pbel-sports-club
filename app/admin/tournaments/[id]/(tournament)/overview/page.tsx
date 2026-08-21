@@ -21,6 +21,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { User } from '@/types';
 import { dedupeByNamePhone, parsePaymentRecipient, cn, countsTowardCollectedRevenue } from '@/lib/utils';
@@ -1036,27 +1043,23 @@ export default function OverviewPage() {
                 All referee users are already assigned.
               </p>
             ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto py-2">
-                {unassignedReferees.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={async () => {
-                      await addRefereeToTournament(u.id);
-                      setRefereeDialogOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-200 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-semibold text-sm flex-shrink-0">
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{u.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{u.email}</p>
-                    </div>
-                    <UserPlus className="h-4 w-4 text-slate-400 ml-auto flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
+              <Select
+                onValueChange={async (id) => {
+                  await addRefereeToTournament(id);
+                  setRefereeDialogOpen(false);
+                }}
+              >
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue placeholder="Select a referee…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedReferees.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name} — {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </DialogContent>
         </Dialog>
@@ -1077,27 +1080,23 @@ export default function OverviewPage() {
                 All tournament-admin users are already assigned.
               </p>
             ) : (
-              <div className="space-y-2 max-h-72 overflow-y-auto py-2">
-                {unassignedAdmins.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={async () => {
-                      await addAdminToTournament(u.id);
-                      setAdminDialogOpen(false);
-                    }}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-sky-50 hover:border-sky-200 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-semibold text-sm flex-shrink-0">
-                      {u.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{u.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{u.email}</p>
-                    </div>
-                    <UserPlus className="h-4 w-4 text-slate-400 ml-auto flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
+              <Select
+                onValueChange={async (id) => {
+                  await addAdminToTournament(id);
+                  setAdminDialogOpen(false);
+                }}
+              >
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue placeholder="Select a tournament admin…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedAdmins.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name} — {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </DialogContent>
         </Dialog>

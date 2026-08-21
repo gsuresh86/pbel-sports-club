@@ -690,6 +690,7 @@ export function TournamentFormDrawer({
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
+                  placeholder="e.g. Community championship open to all skill levels"
                 />
               </div>
 
