@@ -5,7 +5,7 @@ import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn, formatMatchSideLabel } from '@/lib/utils';
 import { rubberTypeLabel, rubberWinnerSide, rubberScoreLine } from '@/lib/teamMatchRubbers';
 import { publicTournamentPath, scoreboardPath } from '@/lib/tournament-banner';
-import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
+import { ServeIcon } from '@/components/icons/ServeIcon';
 import { TeamLogo } from '@/components/TeamLogo';
 import type { LiveScore, Match, PublicPlayer } from '@/types';
 
@@ -214,7 +214,7 @@ export function TeamTieScoreboardDisplay({
                           {side1}
                         </span>
                         {servingSide === 'player1' && (
-                          <ShuttlecockIcon className="shrink-0 h-4 w-4 sm:h-7 sm:w-7 lg:h-9 lg:w-9 text-white" title="Serving" />
+                          <ServeIcon className="shrink-0 h-4 w-4 sm:h-7 sm:w-7 lg:h-9 lg:w-9 text-white" title="Serving" />
                         )}
                       </span>
                       <span className="font-black tabular-nums text-white whitespace-nowrap text-base sm:text-2xl lg:text-3xl px-1 sm:px-2">
@@ -222,7 +222,7 @@ export function TeamTieScoreboardDisplay({
                       </span>
                       <span className="flex items-center justify-end gap-1.5 min-w-0">
                         {servingSide === 'player2' && (
-                          <ShuttlecockIcon className="shrink-0 h-4 w-4 sm:h-7 sm:w-7 lg:h-9 lg:w-9 text-white" title="Serving" />
+                          <ServeIcon className="shrink-0 h-4 w-4 sm:h-7 sm:w-7 lg:h-9 lg:w-9 text-white" title="Serving" />
                         )}
                         <span
                           className={cn(

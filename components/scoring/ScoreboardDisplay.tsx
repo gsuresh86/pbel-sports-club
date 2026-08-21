@@ -6,7 +6,7 @@ import { ExternalLink, Play, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { publicTournamentPath } from '@/lib/tournament-banner';
-import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
+import { ServeIcon } from '@/components/icons/ServeIcon';
 import { TeamLogo } from '@/components/TeamLogo';
 import {
   MatchWinCelebration,
@@ -233,7 +233,7 @@ export function ScoreboardDisplay({
           </div>
           <div className="h-12 sm:h-24 lg:h-32 mt-3 sm:mt-6 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
             {showServing && sides.left.serving && (
-              <ShuttlecockIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
+              <ServeIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
             )}
           </div>
           {sides.left.sets > 0 && (
@@ -272,7 +272,7 @@ export function ScoreboardDisplay({
           </div>
           <div className="h-12 sm:h-24 lg:h-32 mt-3 sm:mt-6 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
             {showServing && sides.right.serving && (
-              <ShuttlecockIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
+              <ServeIcon className="h-10 w-10 sm:h-20 sm:w-20 lg:h-28 lg:w-28 text-white animate-pulse drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]" title="Serving" />
             )}
           </div>
           {sides.right.sets > 0 && (

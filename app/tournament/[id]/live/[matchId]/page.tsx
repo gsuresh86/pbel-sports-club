@@ -13,7 +13,7 @@ import { Play, Clock, MapPin, Target, Trophy, Users, ArrowLeft, RefreshCw, Monit
 import Link from 'next/link';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { scoreboardPath } from '@/lib/tournament-banner';
-import { ShuttlecockIcon } from '@/components/icons/ShuttlecockIcon';
+import { ServeIcon } from '@/components/icons/ServeIcon';
 
 export default function LiveMatchPage() {
   const params = useParams();
@@ -217,7 +217,7 @@ export default function LiveMatchPage() {
                       </div>
                       <div className="h-8 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.left.serving)}>
                         {showServing && sides.left.serving && (
-                          <ShuttlecockIcon
+                          <ServeIcon
                             className={`h-6 w-6 sm:h-8 sm:w-8 animate-pulse ${
                               sides.left.color === 'blue' ? 'text-blue-600' : 'text-red-600'
                             }`}
@@ -250,7 +250,7 @@ export default function LiveMatchPage() {
                       </div>
                       <div className="h-8 mt-1 flex items-center justify-center" aria-hidden={!(showServing && sides.right.serving)}>
                         {showServing && sides.right.serving && (
-                          <ShuttlecockIcon
+                          <ServeIcon
                             className={`h-6 w-6 sm:h-8 sm:w-8 animate-pulse ${
                               sides.right.color === 'blue' ? 'text-blue-600' : 'text-red-600'
                             }`}
