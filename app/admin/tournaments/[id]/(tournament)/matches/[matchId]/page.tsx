@@ -46,8 +46,10 @@ import { formatMatchSideLabel } from '@/lib/utils';
 import {
   getKnockoutPropagationClearUpdates,
   getKnockoutPropagationUpdates,
-  isKnockoutRound,
   getMatchKnockoutType,
+  KNOCKOUT_ROUNDS,
+  KNOCKOUT_ROUND_LABELS,
+  type KnockoutRound,
   resolveKnockoutBracketSide,
 } from '@/lib/knockoutBracket';
 import {
@@ -142,6 +144,9 @@ export default function MatchDetailPage() {
 
   // Edit match details form
   const [editForm, setEditForm] = useState({
+    round: '',
+    knockoutType: 'none' as 'none' | KnockoutRound,
+    matchNumber: '',
     scheduledTime: '', venue: '', court: '', referee: '', notes: '',
     matchFormat: 'best-of-3' as MatchFormat,
     status: 'scheduled' as Match['status'],
@@ -364,6 +369,9 @@ export default function MatchDetailPage() {
 
   const openEditForm = () => {
     setEditForm({
+      round: match.round,
+      knockoutType: getMatchKnockoutType(match) ?? 'none',
+      matchNumber: String(match.matchNumber),
       scheduledTime: toISTLocal(new Date(match.scheduledTime)),
       venue: match.venue ?? '',
       court: match.court ?? '',
@@ -381,6 +389,11 @@ export default function MatchDetailPage() {
     setSaving(true);
     try {
       await updateDoc(tournamentMatchRef(tournamentId, matchId), {
+        round: editForm.round,
+        ...(editForm.knockoutType !== 'none'
+          ? { knockoutType: editForm.knockoutType }
+          : { knockoutType: deleteField() }),
+        matchNumber: /^\d+$/.test(editForm.matchNumber) ? parseInt(editForm.matchNumber) : editForm.matchNumber,
         scheduledTime: fromISTLocal(editForm.scheduledTime),
         venue: editForm.venue,
         court: editForm.court || null,
@@ -719,6 +732,33 @@ export default function MatchDetailPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Match type</Label>
+                    <Select
+                      value={editForm.knockoutType}
+                      onValueChange={(v) => setEditForm(f => ({ ...f, knockoutType: v as 'none' | KnockoutRound }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="None (pool / friendly)" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None (pool / friendly)</SelectItem>
+                        {KNOCKOUT_ROUNDS.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {KNOCKOUT_ROUND_LABELS[type]} ({type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Round label</Label>
+                    <Input value={editForm.round} onChange={e => setEditForm(f => ({ ...f, round: e.target.value }))} placeholder="e.g. MD QF" />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Match #</Label>
+                    <Input value={editForm.matchNumber} onChange={e => setEditForm(f => ({ ...f, matchNumber: e.target.value }))} />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Scheduled Time (IST)</Label>

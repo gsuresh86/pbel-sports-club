@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import { canAccessTournamentConsole, isFullTournamentAdmin } from '@/lib/permissions';
-import { updateDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { updateDoc, setDoc, deleteDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   tournamentLiveScoreRef,
@@ -46,8 +46,10 @@ import { getFormatLabel, MATCH_FORMAT_SELECT_OPTIONS, resolveMatchFormat, type M
 import {
   getKnockoutSlotMembers,
   bracketSlotDisplayLabel,
-  isKnockoutRound,
   getMatchKnockoutType,
+  KNOCKOUT_ROUNDS,
+  KNOCKOUT_ROUND_LABELS,
+  type KnockoutRound,
   getKnockoutPropagationUpdates,
   resolveKnockoutBracketSide,
   type BracketSlotMember,
@@ -477,6 +479,7 @@ export default function MatchesPage() {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editMatchForm, setEditMatchForm] = useState({
     round: '',
+    knockoutType: 'none' as 'none' | KnockoutRound,
     matchNumber: '',
     player1Id: '',
     player2Id: '',
@@ -495,6 +498,7 @@ export default function MatchesPage() {
     setEditingMatch(match);
     setEditMatchForm({
       round: match.round,
+      knockoutType: getMatchKnockoutType(match) ?? 'none',
       matchNumber: String(match.matchNumber),
       player1Id: match.player1Id,
       player2Id: match.player2Id,
@@ -526,6 +530,9 @@ export default function MatchesPage() {
     try {
       await updateDoc(tournamentMatchRef(tournamentId, editingMatch.id), {
         round: editMatchForm.round,
+        ...(editMatchForm.knockoutType !== 'none'
+          ? { knockoutType: editMatchForm.knockoutType }
+          : { knockoutType: deleteField() }),
         matchNumber: /^\d+$/.test(editMatchForm.matchNumber) ? parseInt(editMatchForm.matchNumber) : editMatchForm.matchNumber,
         player1Id: lookup1.id,
         player1Name: lookup1.name,
@@ -1089,10 +1096,27 @@ export default function MatchesPage() {
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 min-w-0">
-                <Label>Round</Label>
-                <Input value={editMatchForm.round} onChange={(e) => setEditMatchForm((f) => ({ ...f, round: e.target.value }))} placeholder="e.g. Quarter Final" />
+                <Label>Match type</Label>
+                <Select
+                  value={editMatchForm.knockoutType}
+                  onValueChange={(v) => setEditMatchForm((f) => ({ ...f, knockoutType: v as 'none' | KnockoutRound }))}
+                >
+                  <SelectTrigger className="w-full"><SelectValue placeholder="None (pool / friendly)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (pool / friendly)</SelectItem>
+                    {KNOCKOUT_ROUNDS.map(type => (
+                      <SelectItem key={type} value={type}>
+                        {KNOCKOUT_ROUND_LABELS[type]} ({type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1 min-w-0">
+                <Label>Round label</Label>
+                <Input value={editMatchForm.round} onChange={(e) => setEditMatchForm((f) => ({ ...f, round: e.target.value }))} placeholder="e.g. MD QF" />
+              </div>
+              <div className="space-y-1 min-w-0 sm:col-span-2">
                 <Label>Match #</Label>
                 <Input type="text" value={editMatchForm.matchNumber} onChange={(e) => setEditMatchForm((f) => ({ ...f, matchNumber: e.target.value }))} />
               </div>
