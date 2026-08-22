@@ -43,7 +43,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
   {
     slug: 'referee',
     name: 'Referee',
-    description: 'Can view and score matches for assigned tournaments.',
+    description: 'Can view, score, and edit matches for assigned tournaments.',
     permissions: ['tournament.matches', 'tournament.matches.write'],
     isSystem: true,
   },
@@ -161,8 +161,8 @@ export const PERMISSION_GROUPS: {
       { key: 'tournament.matches', label: 'View matches' },
       {
         key: 'tournament.matches.write',
-        label: 'Score & update matches',
-        hint: 'Requires view matches',
+        label: 'Score & edit matches',
+        hint: 'Score live matches and edit match details',
       },
     ],
   },

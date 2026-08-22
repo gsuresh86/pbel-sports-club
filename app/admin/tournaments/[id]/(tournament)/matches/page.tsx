@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { DatePickerInput, DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -42,6 +42,7 @@ import {
   countRubbersWon,
 } from '@/lib/teamMatchRubbers';
 import { isTeamCategory } from '@/lib/poolStandings';
+import { getFormatLabel, resolveMatchFormat, type MatchFormat } from '@/lib/match-scoring';
 import {
   getKnockoutSlotMembers,
   bracketSlotDisplayLabel,
@@ -61,6 +62,20 @@ import {
   CheckCircle, Edit, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
+
+const MATCH_FORMAT_ORDER: MatchFormat[] = [
+  'single-set-11',
+  'single-set',
+  'single-set-30',
+  'best-of-3-11pt',
+  'best-of-3-15pt',
+  'best-of-3',
+];
+
+function formatOrderIndex(format: MatchFormat): number {
+  const index = MATCH_FORMAT_ORDER.indexOf(format);
+  return index === -1 ? MATCH_FORMAT_ORDER.length : index;
+}
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 const toISTLocal = (date: Date) => new Date(date.getTime() + IST_OFFSET_MS).toISOString().slice(0, 16);
@@ -225,6 +240,7 @@ export default function MatchesPage() {
   const [search, setSearch] = useState('');
   const [roundFilter, setRoundFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [formatFilter, setFormatFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('scheduled');
   const [dateFilter, setDateFilter] = useState<string>('');
 
@@ -235,6 +251,10 @@ export default function MatchesPage() {
       ...topLevelMatches.map(m => m.category).filter(Boolean),
     ]),
   ).sort() as string[];
+
+  const distinctFormats = Array.from(
+    new Set(topLevelMatches.map(m => resolveMatchFormat(m, tournament))),
+  ).sort((a, b) => formatOrderIndex(a) - formatOrderIndex(b));
 
   const q = search.toLowerCase();
   const filteredMatches = topLevelMatches.filter(m => {
@@ -248,6 +268,7 @@ export default function MatchesPage() {
     if (roundFilter !== 'all' && m.round !== roundFilter) return false;
     const matchCategory = m.category ?? poolNameToCategory.get(m.round);
     if (categoryFilter !== 'all' && matchCategory !== categoryFilter) return false;
+    if (formatFilter !== 'all' && resolveMatchFormat(m, tournament) !== formatFilter) return false;
     if (statusFilter !== 'all' && m.status !== statusFilter) return false;
     if (dateFilter) {
       const matchDate = toISTLocal(new Date(m.scheduledTime)).slice(0, 10);
@@ -256,8 +277,8 @@ export default function MatchesPage() {
     return true;
   });
 
-  const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || statusFilter !== 'scheduled' || dateFilter;
-  const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setStatusFilter('scheduled'); setDateFilter(''); };
+  const anyFilterActive = q || roundFilter !== 'all' || categoryFilter !== 'all' || formatFilter !== 'all' || statusFilter !== 'scheduled' || dateFilter;
+  const clearFilters = () => { setSearch(''); setRoundFilter('all'); setCategoryFilter('all'); setFormatFilter('all'); setStatusFilter('scheduled'); setDateFilter(''); };
 
   // Sorting
   const [sortKey, setSortKey] = useState<SortKey>('scheduledTime');
@@ -641,6 +662,22 @@ export default function MatchesPage() {
           </Select>
         )}
 
+        {distinctFormats.length > 0 && (
+          <Select value={formatFilter} onValueChange={setFormatFilter}>
+            <SelectTrigger className="h-8 w-[150px] text-xs">
+              <SelectValue placeholder="Format" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Formats</SelectItem>
+              {distinctFormats.map(format => (
+                <SelectItem key={format} value={format}>
+                  {getFormatLabel(format)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-[120px] text-xs">
             <SelectValue placeholder="Status" />
@@ -802,15 +839,18 @@ export default function MatchesPage() {
                       View
                     </Button>
                   </Link>
+                  {canRunMatches && (
+                    <Button
+                      size="sm" variant="ghost"
+                      className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
+                      onClick={() => openEditMatch(match)}
+                      title="Edit match"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
                   {isFullAdmin && (
                     <>
-                      <Button
-                        size="sm" variant="ghost"
-                        className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
-                        onClick={() => openEditMatch(match)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
                       <Button
                         size="sm" variant="ghost"
                         className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
@@ -945,23 +985,24 @@ export default function MatchesPage() {
                             <ExternalLink className="h-3 w-3" />
                           </Button>
                         </Link>
+                        {canRunMatches && (
+                          <Button
+                            size="sm" variant="ghost"
+                            className="h-7 w-7 p-0 text-xs touch-manipulation"
+                            onClick={() => openEditMatch(match)}
+                            title="Edit match"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {isFullAdmin && (
-                          <>
-                            <Button
-                              size="sm" variant="ghost"
-                              className="h-7 w-7 p-0 text-xs touch-manipulation"
-                              onClick={() => openEditMatch(match)}
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="sm" variant="ghost"
-                              className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => handleDeleteMatch(match.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
+                          <Button
+                            size="sm" variant="ghost"
+                            className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteMatch(match.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </div>
                     </TableCell>
@@ -1036,19 +1077,19 @@ export default function MatchesPage() {
       )}
 
       {/* Edit Match Dialog */}
-      {isFullAdmin && <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+      {canRunMatches && <Dialog open={editMatchOpen} onOpenChange={setEditMatchOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="pr-8 text-left">
             <DialogTitle>Edit Match</DialogTitle>
             <DialogDescription>Update match details</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 min-w-0">
                 <Label>Round</Label>
                 <Input value={editMatchForm.round} onChange={(e) => setEditMatchForm((f) => ({ ...f, round: e.target.value }))} placeholder="e.g. Quarter Final" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <Label>Match #</Label>
                 <Input type="text" value={editMatchForm.matchNumber} onChange={(e) => setEditMatchForm((f) => ({ ...f, matchNumber: e.target.value }))} />
               </div>
@@ -1068,11 +1109,11 @@ export default function MatchesPage() {
               const label2 = isTeamCat ? 'Team 2' : 'Player 2';
               const placeholder = isTeamCat ? 'Select team' : 'Select player';
               return (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1 min-w-0">
                     <Label>{label1}</Label>
                     <Select value={editMatchForm.player1Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}>
-                      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+                      <SelectTrigger className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
                       <SelectContent>
                         {opts1.map(o => (
                           <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
@@ -1080,10 +1121,10 @@ export default function MatchesPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 min-w-0">
                     <Label>{label2}</Label>
                     <Select value={editMatchForm.player2Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}>
-                      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+                      <SelectTrigger className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
                       <SelectContent>
                         {opts2.map(o => (
                           <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
@@ -1094,15 +1135,15 @@ export default function MatchesPage() {
                 </div>
               );
             })()}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Scheduled Time (IST)</Label>
-                <DateTimePickerInput value={editMatchForm.scheduledTime} onChange={(value) => setEditMatchForm((f) => ({ ...f, scheduledTime: value }))} />
-              </div>
-              <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
+              <Label>Scheduled Time (IST)</Label>
+              <DateTimePickerInput value={editMatchForm.scheduledTime} onChange={(value) => setEditMatchForm((f) => ({ ...f, scheduledTime: value }))} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 min-w-0">
                 <Label>Status</Label>
                 <Select value={editMatchForm.status} onValueChange={(v: Match['status']) => setEditMatchForm((f) => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="not-scheduled">Not scheduled</SelectItem>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
@@ -1113,45 +1154,43 @@ export default function MatchesPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <Label>Venue</Label>
                 <Input value={editMatchForm.venue} onChange={(e) => setEditMatchForm((f) => ({ ...f, venue: e.target.value }))} />
               </div>
-              <div className="space-y-1">
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1 min-w-0">
                 <Label>Court</Label>
                 <Input value={editMatchForm.court} onChange={(e) => setEditMatchForm((f) => ({ ...f, court: e.target.value }))} placeholder="e.g. Court 1" />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1 min-w-0">
                 <Label>Referee</Label>
                 <Input value={editMatchForm.referee} onChange={(e) => setEditMatchForm((f) => ({ ...f, referee: e.target.value }))} />
               </div>
-              <div className="space-y-1">
-                <Label>Match Format</Label>
-                <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                    <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                    <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                    <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                    <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                    <SelectItem value="single-set-30">30pt Single set</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
+              <Label>Match Format</Label>
+              <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
+                  <SelectItem value="single-set">Single set (21pt)</SelectItem>
+                  <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
+                  <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
+                  <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
+                  <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 min-w-0">
               <Label>Notes</Label>
               <Input value={editMatchForm.notes} onChange={(e) => setEditMatchForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <DialogFooter className="gap-2 pt-2 sm:pt-0">
               <Button variant="outline" onClick={() => setEditMatchOpen(false)}>Cancel</Button>
               <Button onClick={saveEditMatch} disabled={savingMatch}>{savingMatch ? 'Saving…' : 'Save Changes'}</Button>
-            </div>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>}

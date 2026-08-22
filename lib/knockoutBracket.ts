@@ -353,6 +353,51 @@ export function getKnockoutPropagationUpdates(
   return updates;
 }
 
+/** When a knockout match is reset, restore downstream slots that were filled from it. */
+export function getKnockoutPropagationClearUpdates(
+  resetMatch: Match,
+  allMatches: Match[],
+): KnockoutPropagationUpdate[] {
+  if (!isKnockoutRound(resetMatch.round)) return [];
+
+  const winner = getMatchWinner(resetMatch);
+  const loser = getMatchLoser(resetMatch);
+  if (!winner && !loser) return [];
+
+  const category = resetMatch.category;
+  const matchNumber = String(resetMatch.matchNumber);
+  const updates: KnockoutPropagationUpdate[] = [];
+
+  for (const m of allMatches) {
+    if (!isKnockoutRound(m.round) || m.id === resetMatch.id || isRubberMatch(m)) continue;
+    if (category && m.category && m.category !== category) continue;
+
+    const patch: KnockoutPropagationUpdate = { matchId: m.id };
+    let changed = false;
+
+    const sides: [string, string, 'player1Id' | 'player2Id', 'player1Name' | 'player2Name'][] = [
+      [m.player1Id, m.player1Name, 'player1Id', 'player1Name'],
+      [m.player2Id, m.player2Name, 'player2Id', 'player2Name'],
+    ];
+
+    for (const [id, name, idKey, nameKey] of sides) {
+      if (winner && (id === winner.id || name === winner.name)) {
+        patch[idKey] = `tbd-winner-${matchNumber}`;
+        patch[nameKey] = `Winner of ${matchNumber}`;
+        changed = true;
+      } else if (loser && (id === loser.id || name === loser.name)) {
+        patch[idKey] = `tbd-loser-${matchNumber}`;
+        patch[nameKey] = `Loser of ${matchNumber}`;
+        changed = true;
+      }
+    }
+
+    if (changed) updates.push(patch);
+  }
+
+  return updates;
+}
+
 const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
   SF: 'QF',
   F: 'SF',

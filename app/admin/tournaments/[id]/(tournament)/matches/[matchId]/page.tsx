@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { deleteDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, deleteField, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import {
@@ -14,7 +14,7 @@ import {
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
 import { canAccessTournamentConsole, isFullTournamentAdmin } from '@/lib/permissions';
-import { adminMatchScorePath, tournamentMatchRef } from '@/lib/firestore-paths';
+import { adminMatchScorePath, tournamentLiveScoreRef, tournamentMatchRef } from '@/lib/firestore-paths';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import TeamMatchLineupDialog from '@/components/TeamMatchLineupDialog';
@@ -44,7 +44,9 @@ import {
 } from '@/lib/teamMatchRubbers';
 import { formatMatchSideLabel } from '@/lib/utils';
 import {
+  getKnockoutPropagationClearUpdates,
   getKnockoutPropagationUpdates,
+  isKnockoutRound,
   resolveKnockoutBracketSide,
 } from '@/lib/knockoutBracket';
 import {
@@ -161,6 +163,12 @@ export default function MatchDetailPage() {
   const team2Obj = teams.find(t => t.id === match.player2Id);
 
   const isEditable = match.status !== 'cancelled';
+  const hasResultData =
+    match.status === 'completed'
+    || !!match.winner
+    || match.player1Score != null
+    || match.player2Score != null
+    || (match.sets?.length ?? 0) > 0;
 
   // Derive auto winner from individual sets input
   const p1Sets = parseInt(setsP1, 10);
@@ -188,8 +196,8 @@ export default function MatchDetailPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const openScoreForm = () => {
-    setSetsP1(String(match.player1Score ?? ''));
-    setSetsP2(String(match.player2Score ?? ''));
+    setSetsP1(match.player1Score != null ? String(match.player1Score) : '');
+    setSetsP2(match.player2Score != null ? String(match.player2Score) : '');
     setSetScorePairs(matchSetsToScorePairs(match.sets ?? []));
     setManualWinner(match.winner ?? null);
     setScoreFormOpen(true);
@@ -215,7 +223,7 @@ export default function MatchDetailPage() {
         status: 'completed', winner: effectiveWinner, player1Score: p1, player2Score: p2,
         actualEndTime: new Date(), updatedAt: new Date(),
       };
-      if (builtSets.length > 0) update.sets = builtSets;
+      update.sets = builtSets;
       if (!match.actualStartTime) update.actualStartTime = new Date();
       await updateDoc(tournamentMatchRef(tournamentId, matchId), update);
       await applyKnockoutPropagation({
@@ -285,6 +293,65 @@ export default function MatchDetailPage() {
     } catch (e) {
       console.error(e);
       alert({ title: 'Error', description: 'Failed to re-open match.', variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetMatchResult = async () => {
+    const knockoutNote = isKnockoutRound(match.round)
+      ? ' Knockout bracket slots filled from this match will be cleared too.'
+      : '';
+    if (!confirm(`Reset this match? All scores, winner, and result data will be cleared. The match will return to scheduled status.${knockoutNote}`)) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const topLevel = allMatches.filter(m => !isRubberMatch(m));
+      const clearUpdates = match.status === 'completed'
+        ? getKnockoutPropagationClearUpdates(match, topLevel)
+        : [];
+
+      await updateDoc(tournamentMatchRef(tournamentId, matchId), {
+        status: 'scheduled',
+        winner: deleteField(),
+        player1Score: deleteField(),
+        player2Score: deleteField(),
+        sets: [],
+        actualStartTime: deleteField(),
+        actualEndTime: deleteField(),
+        updatedAt: new Date(),
+      });
+
+      await Promise.all(
+        clearUpdates.map(patch =>
+          updateDoc(tournamentMatchRef(tournamentId, patch.matchId), {
+            ...(patch.player1Id != null && { player1Id: patch.player1Id }),
+            ...(patch.player1Name != null && { player1Name: patch.player1Name }),
+            ...(patch.player2Id != null && { player2Id: patch.player2Id }),
+            ...(patch.player2Name != null && { player2Name: patch.player2Name }),
+            updatedAt: new Date(),
+          }),
+        ),
+      );
+
+      const liveScoreRef = tournamentLiveScoreRef(tournamentId, matchId);
+      const liveScoreSnap = await getDoc(liveScoreRef);
+      if (liveScoreSnap.exists()) {
+        await deleteDoc(liveScoreRef);
+      }
+
+      invalidate(tournamentId);
+      setScoreFormOpen(false);
+      setSetsP1('');
+      setSetsP2('');
+      setSetScorePairs(emptySetScoreRows());
+      setManualWinner(null);
+      alert({ title: 'Match reset', description: 'Scores cleared. Match is scheduled again.', variant: 'success' });
+    } catch (e) {
+      console.error(e);
+      alert({ title: 'Error', description: 'Failed to reset match.', variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -530,7 +597,12 @@ export default function MatchDetailPage() {
                     size="sm"
                     variant={scoreFormOpen ? 'default' : match.status === 'completed' ? 'outline' : 'default'}
                     className="gap-1.5"
-                    onClick={() => { setScoreFormOpen(v => !v); setEditOpen(false); setWinnerPickOpen(false); }}
+                    onClick={() => {
+                      if (scoreFormOpen) setScoreFormOpen(false);
+                      else openScoreForm();
+                      setEditOpen(false);
+                      setWinnerPickOpen(false);
+                    }}
                   >
                     {match.status === 'completed' ? <Edit3 className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
                     {match.status === 'completed' ? 'Edit Result' : 'Enter Result'}
@@ -580,7 +652,7 @@ export default function MatchDetailPage() {
                   </Button>
                 )}
                 {/* Edit details */}
-                {isFullAdmin && (
+                {canScore && (
                   <Button
                     size="sm" variant="outline" className="gap-1.5"
                     onClick={() => { openEditForm(); }}
@@ -629,7 +701,7 @@ export default function MatchDetailPage() {
           </Card>
 
           {/* ── EDIT DETAILS FORM ──────────────────────────────────────────── */}
-          {isFullAdmin && editOpen && (
+          {canScore && editOpen && (
             <Card className="border-blue-200">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -795,10 +867,22 @@ export default function MatchDetailPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   <Button size="sm" onClick={saveIndividualResult} disabled={saving || !effectiveWinner}>
                     {saving ? 'Saving…' : match.status === 'completed' ? 'Update Result' : 'Save Result'}
                   </Button>
+                  {hasResultData && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      onClick={resetMatchResult}
+                      disabled={saving}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                      Reset Match
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setScoreFormOpen(false)}>Cancel</Button>
                 </div>
               </CardContent>

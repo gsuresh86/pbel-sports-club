@@ -63,7 +63,7 @@ const ROLE_CONFIG: Record<
     label: 'Referee',
     labelPlural: 'Referees',
     emptyIcon: UserCog,
-    createDescription: 'Referees can sign in and score matches only.',
+    createDescription: 'Referees can sign in, score matches, and edit match details.',
     removeTitle: 'Remove Referee',
     removeDescription: (name) =>
       `Remove ${name} from this tournament? Their account stays active for any other tournaments they are assigned to.`,

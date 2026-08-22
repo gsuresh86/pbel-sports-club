@@ -140,7 +140,7 @@ export function DateTimePickerInput({
           {required && ' *'}
         </Label>
       )}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -149,13 +149,13 @@ export function DateTimePickerInput({
               variant="outline"
               disabled={disabled}
               className={cn(
-                'h-9 flex-1 justify-start px-3 font-normal',
+                'h-9 w-full min-w-0 justify-start px-3 font-normal sm:flex-1',
                 !datePart && 'text-muted-foreground',
                 triggerClassName
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0 opacity-60" />
-              {selected ? format(selected, 'PPP') : placeholder}
+              <span className="truncate">{selected ? format(selected, 'PPP') : placeholder}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="z-[100] w-auto p-0" align="start">
@@ -183,7 +183,7 @@ export function DateTimePickerInput({
           onChange={(e) =>
             datePart && onChange(`${datePart}T${e.target.value || '00:00'}`)
           }
-          className="h-9 w-[110px] shrink-0"
+          className="h-9 w-full sm:w-[110px] sm:shrink-0"
         />
       </div>
     </div>
