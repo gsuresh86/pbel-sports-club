@@ -39,6 +39,8 @@ export interface BracketSlotMember {
   name: string;
   slotLabel: string;
   isResolved: boolean;
+  /** Actual participant name when the source match is completed. */
+  resolvedName?: string;
 }
 
 export interface KnockoutParticipant {
@@ -447,7 +449,63 @@ export function resolveKnockoutBracketSide(
   return participant?.name ?? null;
 }
 
-/** Bracket slot options for SF/F/TP — winners (or losers for TP) from the prior round. */
+/** Winner/loser slot options from all matches in a named round (e.g. a custom round label). */
+export function formatRoundWinnerSlotLabel(
+  roundName: string,
+  matchNumber: string | number,
+  mode: 'winners' | 'losers' = 'winners',
+): string {
+  const labelPrefix = mode === 'losers' ? 'Loser' : 'Winner';
+  const mn = String(matchNumber).trim();
+  const roundShort = roundName.replace(/^MS\s+/i, '').trim() || roundName;
+  if (mn.toLowerCase().includes(roundShort.toLowerCase())) {
+    return `${labelPrefix} of ${mn}`;
+  }
+  const matchPart = /^M/i.test(mn) ? mn : `M${mn}`;
+  return `${labelPrefix} of ${roundShort} ${matchPart}`;
+}
+
+function roundWinnerSlotId(
+  roundName: string,
+  matchNumber: string | number,
+  mode: 'winners' | 'losers',
+): string {
+  const labelPrefix = mode === 'losers' ? 'loser' : 'winner';
+  const roundKey = roundName.toLowerCase().replace(/\s+/g, '-');
+  return `tbd-${labelPrefix}-${roundKey}-${matchNumber}`;
+}
+
+export function getRoundWinnerSlotMembers(
+  roundName: string,
+  category: CategoryType,
+  matches: Match[],
+  mode: 'winners' | 'losers' = 'winners',
+): BracketSlotMember[] {
+  const roundMatches = matches
+    .filter(m => {
+      if (isRubberMatch(m) || m.round !== roundName) return false;
+      if (m.category === category) return true;
+      if (m.category) return false;
+      const inRound = matches.filter(x => x.round === roundName && !isRubberMatch(x));
+      const categorized = inRound.filter(x => x.category);
+      if (categorized.length === 0) return true;
+      return categorized.every(x => x.category === category);
+    })
+    .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+
+  return roundMatches.map(m => {
+    const participant = mode === 'losers' ? getMatchLoser(m) : getMatchWinner(m);
+    const slotLabel = formatRoundWinnerSlotLabel(roundName, m.matchNumber, mode);
+    return {
+      id: roundWinnerSlotId(roundName, m.matchNumber, mode),
+      name: slotLabel,
+      slotLabel,
+      isResolved: !!participant,
+      resolvedName: participant?.name,
+    };
+  });
+}
+
 export function getKnockoutSlotMembers(
   targetRound: KnockoutRound,
   category: CategoryType,
@@ -467,21 +525,26 @@ export function getKnockoutSlotMembers(
   return prevMatches.map(m => {
     const participant = isLoserRound ? getMatchLoser(m) : getMatchWinner(m);
     const slotLabel = `${labelPrefix} of ${m.matchNumber}`;
-    if (participant) {
-      return { id: participant.id, name: participant.name, slotLabel, isResolved: true };
-    }
     return {
       id: `tbd-${labelPrefix.toLowerCase()}-${m.matchNumber}`,
       name: slotLabel,
       slotLabel,
-      isResolved: false,
+      isResolved: !!participant,
+      resolvedName: participant?.name,
     };
   });
 }
 
 export function bracketSlotDisplayLabel(slot: BracketSlotMember): string {
-  if (slot.slotLabel && slot.isResolved) return `${slot.slotLabel} — ${slot.name}`;
+  if (slot.slotLabel && slot.isResolved && slot.resolvedName) {
+    return `${slot.slotLabel} — ${slot.resolvedName}`;
+  }
   return slot.slotLabel || slot.name;
+}
+
+/** Placeholder id/name to store on a match so downstream propagation can resolve it. */
+export function getBracketSlotStorageSide(slot: BracketSlotMember): { id: string; name: string } {
+  return { id: slot.id, name: slot.slotLabel || slot.name };
 }
 
 export function getRoundParticipants(

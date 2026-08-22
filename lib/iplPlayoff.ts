@@ -225,14 +225,13 @@ export function getIplPlayoffSlotMembers(
     ];
     return slots.map(({ match, label, isLoser }) => {
       const participant = isLoser ? getMatchLoser(match) : getMatchWinner(match);
-      if (participant) {
-        return { id: participant.id, name: participant.name, slotLabel: label, isResolved: true };
-      }
+      const idSuffix = label.toLowerCase().replace(/\s+/g, '-');
       return {
-        id: `tbd-${label.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `tbd-${idSuffix}`,
         name: label,
         slotLabel: label,
-        isResolved: false,
+        isResolved: !!participant,
+        resolvedName: participant?.name,
       };
     });
   }
@@ -247,14 +246,13 @@ export function getIplPlayoffSlotMembers(
     ];
     return slots.map(({ match, label, isLoser }) => {
       const participant = isLoser ? getMatchLoser(match) : getMatchWinner(match);
-      if (participant) {
-        return { id: participant.id, name: participant.name, slotLabel: label, isResolved: true };
-      }
+      const idSuffix = label.toLowerCase().replace(/\s+/g, '-');
       return {
-        id: `tbd-${label.toLowerCase().replace(/\s+/g, '-')}`,
+        id: `tbd-${idSuffix}`,
         name: label,
         slotLabel: label,
-        isResolved: false,
+        isResolved: !!participant,
+        resolvedName: participant?.name,
       };
     });
   }

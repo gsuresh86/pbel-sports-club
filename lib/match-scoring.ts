@@ -9,10 +9,35 @@ export type MatchFormat =
   | 'best-of-3'
   | 'best-of-3-11pt'
   | 'best-of-3-15pt'
+  | 'best-of-5-11pt'
   | 'single-set-30';
+
+export const MATCH_FORMAT_SELECT_OPTIONS: { value: MatchFormat; label: string }[] = [
+  { value: 'single-set-11', label: 'Single set (11pt)' },
+  { value: 'single-set', label: 'Single set (21pt)' },
+  { value: 'best-of-3', label: 'Best of 3 (21pt)' },
+  { value: 'best-of-3-11pt', label: 'Best of 3 (11pt)' },
+  { value: 'best-of-3-15pt', label: 'Best of 3 (15pt)' },
+  { value: 'best-of-5-11pt', label: 'Best of 5 (11pt)' },
+  { value: 'single-set-30', label: '30pt Single set' },
+];
 
 export function isBestOfThree(format: MatchFormat): boolean {
   return format === 'best-of-3' || format === 'best-of-3-11pt' || format === 'best-of-3-15pt';
+}
+
+export function isBestOfFive(format: MatchFormat): boolean {
+  return format === 'best-of-5-11pt';
+}
+
+export function isMultiSetMatch(format: MatchFormat): boolean {
+  return isBestOfThree(format) || isBestOfFive(format);
+}
+
+export function getMaxSetsInMatch(format: MatchFormat): 1 | 3 | 5 {
+  if (isBestOfFive(format)) return 5;
+  if (isBestOfThree(format)) return 3;
+  return 1;
 }
 
 export function resolveMatchFormat(
@@ -26,6 +51,7 @@ export function resolveMatchFormat(
     fmt === 'best-of-3' ||
     fmt === 'best-of-3-11pt' ||
     fmt === 'best-of-3-15pt' ||
+    fmt === 'best-of-5-11pt' ||
     fmt === 'single-set-30'
   ) {
     return fmt;
@@ -34,11 +60,13 @@ export function resolveMatchFormat(
 }
 
 export function getSetsToWin(format: MatchFormat): number {
-  return format === 'single-set-11' || format === 'single-set' || format === 'single-set-30' ? 1 : 2;
+  if (format === 'single-set-11' || format === 'single-set' || format === 'single-set-30') return 1;
+  if (format === 'best-of-5-11pt') return 3;
+  return 2;
 }
 
 export function getMinSetScore(format: MatchFormat): number {
-  if (format === 'single-set-11' || format === 'best-of-3-11pt') return 11;
+  if (format === 'single-set-11' || format === 'best-of-3-11pt' || format === 'best-of-5-11pt') return 11;
   if (format === 'single-set-30') return 30;
   if (format === 'best-of-3-15pt') return 15;
   return 21;
@@ -46,7 +74,7 @@ export function getMinSetScore(format: MatchFormat): number {
 
 export function getMaxPointsPerSet(format: MatchFormat): number {
   // 11pt: deuce at 10-10, win by 2, hard cap (outright win) at 15
-  if (format === 'single-set-11' || format === 'best-of-3-11pt') return 15;
+  if (format === 'single-set-11' || format === 'best-of-3-11pt' || format === 'best-of-5-11pt') return 15;
   // 15pt: deuce at 14-14, win by 2, hard cap (outright win) at 20
   if (format === 'best-of-3-15pt') return 20;
   // 21pt / 30pt: deuce at 20-20, win by 2, hard cap (outright win) at 30
@@ -93,6 +121,7 @@ export function getFormatLabel(format: MatchFormat): string {
   if (format === 'single-set') return 'Single set (21pt)';
   if (format === 'best-of-3-11pt') return 'Best of 3 (11pt)';
   if (format === 'best-of-3-15pt') return 'Best of 3 (15pt)';
+  if (format === 'best-of-5-11pt') return 'Best of 5 (11pt)';
   return 'Best of 3 (21pt)';
 }
 
@@ -112,7 +141,7 @@ export function getMatchCardDisplayScores(
   }
 
   const format = resolveMatchFormat(match, options.tournament);
-  const showPointScore = options.isIndividualMatch && !isBestOfThree(format);
+  const showPointScore = options.isIndividualMatch && !isMultiSetMatch(format);
 
   if (match.status === 'completed' && showPointScore && match.sets?.length) {
     const set = match.sets[0];

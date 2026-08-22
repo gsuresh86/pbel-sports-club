@@ -3,7 +3,7 @@
 import { useState, useEffect, type ComponentType } from 'react';
 import { addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { tournamentMatchesRef } from '@/lib/firestore-paths';
+import { tournamentMatchesRef, tournamentMatchRef } from '@/lib/firestore-paths';
 import {
   useTournamentPools,
   useTournamentTeams,
@@ -11,7 +11,8 @@ import {
   useTournamentMatches,
   useInvalidateTournament,
 } from '@/hooks/use-tournament-queries';
-import { Tournament, CategoryType, Pool } from '@/types';
+import { Tournament, CategoryType, Pool, Match } from '@/types';
+import { MATCH_FORMAT_SELECT_OPTIONS, type MatchFormat } from '@/lib/match-scoring';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,10 +42,18 @@ import {
   getAvailableKnockoutRounds,
   shouldOfferPreliminaryKnockoutRound,
   type KnockoutRound,
+  type BracketSlotMember,
   previewKnockoutRound,
   getCategoryQualifyCount,
-  getMatchWinner,
-  getMatchLoser,
+  getKnockoutSlotMembers,
+  getRoundWinnerSlotMembers,
+  getQualifiedByPool,
+  filterKnockoutMatchesForCategory,
+  isKnockoutRound,
+  bracketSlotDisplayLabel,
+  getBracketSlotStorageSide,
+  isKnockoutBracketPlaceholder,
+  getKnockoutPropagationUpdates,
 } from '@/lib/knockoutBracket';
 import {
   IPL_PLAYOFF_ROUNDS,
@@ -52,9 +61,8 @@ import {
   type IplPlayoffRound,
   previewIplPlayoffRound,
   getPoolTopFour,
-  findIplRoundMatch,
+  getIplPlayoffSlotMembers,
   filterIplRoundMatches,
-  iplBracketSlotLabel,
 } from '@/lib/iplPlayoff';
 import { isRubberMatch } from '@/lib/teamMatchRubbers';
 
@@ -84,12 +92,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'open-team': 'Open Team',
 };
 
-interface SlotMember {
-  id: string;
-  name: string;
-  slotLabel: string;
-  isResolved: boolean;
-}
+type SlotMember = BracketSlotMember;
 
 function MemberSelectField({
   label,
@@ -275,13 +278,71 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const [form, setForm] = useState({
     startDateTime: tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '',
     intervalMinutes: '30',
-    matchFormat: ((tournament as any).matchFormat || 'best-of-3') as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: ((tournament as any).matchFormat || 'best-of-3') as MatchFormat,
   });
   const [generating, setGenerating] = useState(false);
   const [manualPoolId, setManualPoolId] = useState('');
   const [manualPlayer1Id, setManualPlayer1Id] = useState('');
   const [manualPlayer2Id, setManualPlayer2Id] = useState('');
   const [manualMatchNo, setManualMatchNo] = useState('');
+  const [manualKnockoutRound, setManualKnockoutRound] = useState<KnockoutRound>('QF');
+  const [manualMatchRound, setManualMatchRound] = useState('');
+
+  const getCategoryMatches = () => {
+    if (!selectedCategory) return [];
+    const catPools = getCategoryPools(selectedCategory);
+    const poolNameToCategory = new Map(catPools.map(p => [p.name, selectedCategory]));
+    return matches.filter(m => {
+      if (isRubberMatch(m)) return false;
+      const cat = m.category ?? poolNameToCategory.get(m.round);
+      return cat === selectedCategory;
+    });
+  };
+
+  const getCategoryMatchRounds = (): { round: string; matchCount: number }[] => {
+    if (!selectedCategory) return [];
+    const roundCounts = new Map<string, number>();
+    for (const m of getCategoryMatches()) {
+      roundCounts.set(m.round, (roundCounts.get(m.round) ?? 0) + 1);
+    }
+    return Array.from(roundCounts.entries())
+      .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+      .map(([round, matchCount]) => ({ round, matchCount }));
+  };
+
+  const getMatchRoundSelectOptions = (): { value: string; label: string }[] => {
+    const fromMatches = getCategoryMatchRounds().map(({ round, matchCount }) => ({
+      value: round,
+      label: matchCount > 0 ? `${round} (${matchCount} match${matchCount !== 1 ? 'es' : ''})` : round,
+    }));
+    const prevRound = KNOCKOUT_PREV_ROUND[getManualKnockoutRound()];
+    if (prevRound && !fromMatches.some(o => o.value === prevRound)) {
+      return [{ value: prevRound, label: `${KNOCKOUT_ROUND_LABELS[prevRound]} (${prevRound})` }, ...fromMatches];
+    }
+    return fromMatches.length > 0 ? fromMatches : (
+      prevRound
+        ? [{ value: prevRound, label: `${KNOCKOUT_ROUND_LABELS[prevRound]} (${prevRound})` }]
+        : []
+    );
+  };
+
+  const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
+    QF: 'KO',
+    SF: 'QF',
+    F: 'SF',
+    TP: 'SF',
+  };
+
+  const getActiveMatchRound = () => {
+    if (manualMatchRound) return manualMatchRound;
+    const prevRound = KNOCKOUT_PREV_ROUND[getManualKnockoutRound()];
+    return prevRound ?? manualKnockoutRound;
+  };
+
+  const getManualKnockoutRound = (): KnockoutRound => {
+    if (matchFormat !== 'knockout') return knockoutRound;
+    return manualKnockoutRound;
+  };
 
   const isTeamCat = (cat: CategoryType) => TEAM_CATEGORIES.includes(cat);
 
@@ -309,91 +370,44 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const isBracketFormat = (fmt: AutoFormat): fmt is BracketFormat =>
     fmt === 'knockout' || fmt === 'ipl-playoff';
 
+  const getQualifiedMembersForKnockout = (): SlotMember[] => {
+    if (!selectedCategory) return [];
+    const catPools = getCategoryPools(selectedCategory);
+    const qualifiedData = getQualifiedByPool(catPools, matches, {
+      isTeamCat: isTeamCat(selectedCategory),
+      teams,
+      registrations,
+      categoryQualifyCounts: tournament.categoryQualifyCounts,
+    });
+    return qualifiedData.flatMap(({ pool, qualified }) =>
+      qualified.map(p => ({
+        id: p.id,
+        name: p.name,
+        slotLabel: `#${p.poolRank} ${pool.name}`,
+        isResolved: true,
+      })),
+    );
+  };
+
   const getPreviousRoundSlots = (): SlotMember[] | null => {
     if (!selectedCategory) return null;
-    const prevRoundMap: Partial<Record<KnockoutRound, KnockoutRound>> = {
-      QF: 'KO',
-      SF: 'QF',
-      F: 'SF',
-      TP: 'SF',
-    };
-    const prevRound = prevRoundMap[knockoutRound];
-    if (!prevRound) return null;
-
-    const prevMatches = matches
-      .filter(m => m.round === prevRound && m.category === selectedCategory && !isRubberMatch(m))
-      .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
-
-    if (prevMatches.length === 0) return null;
-
-    const isLoserRound = knockoutRound === 'TP';
-    const labelPrefix = isLoserRound ? 'Loser' : 'Winner';
-
-    return prevMatches.map(m => {
-      const participant = isLoserRound ? getMatchLoser(m) : getMatchWinner(m);
-      const slotLabel = `${labelPrefix} of ${m.matchNumber}`;
-      if (participant) {
-        return { id: participant.id, name: participant.name, slotLabel, isResolved: true };
-      }
-      return {
-        id: `tbd-${labelPrefix.toLowerCase()}-${m.matchNumber}`,
-        name: slotLabel,
-        slotLabel,
-        isResolved: false,
-      };
-    });
+    return getKnockoutSlotMembers(getManualKnockoutRound(), selectedCategory, matches);
   };
 
   const getIplPreviousRoundSlots = (): SlotMember[] | null => {
-    if (!selectedCategory) return null;
+    if (!selectedCategory || matchFormat !== 'ipl-playoff') return null;
+    if (iplPlayoffRound === 'Qualifier1' || iplPlayoffRound === 'Eliminator') return null;
+    return getIplPlayoffSlotMembers(iplPlayoffRound, selectedCategory, matches);
+  };
 
-    if (iplPlayoffRound === 'Qualifier2') {
-      const catMatches = matches.filter(m => m.category === selectedCategory && !isRubberMatch(m));
-      const q1 = findIplRoundMatch(catMatches, 'Qualifier1');
-      const elim = findIplRoundMatch(catMatches, 'Eliminator');
-      if (!q1 || !elim) return null;
-      const slots = [
-        { match: q1, label: iplBracketSlotLabel('loser', 'Qualifier1'), isLoser: true },
-        { match: elim, label: iplBracketSlotLabel('winner', 'Eliminator'), isLoser: false },
-      ];
-      return slots.map(({ match, label, isLoser }) => {
-        const participant = isLoser ? getMatchLoser(match) : getMatchWinner(match);
-        if (participant) {
-          return { id: participant.id, name: participant.name, slotLabel: label, isResolved: true };
-        }
-        return {
-          id: `tbd-${label.toLowerCase().replace(/\s+/g, '-')}`,
-          name: label,
-          slotLabel: label,
-          isResolved: false,
-        };
-      });
+  const getCategoryParticipants = () => {
+    if (!selectedCategory) return [];
+    if (isTeamCat(selectedCategory)) {
+      return teams.filter(t => t.category === selectedCategory);
     }
-
-    if (iplPlayoffRound === 'F') {
-      const catMatches = matches.filter(m => m.category === selectedCategory && !isRubberMatch(m));
-      const q1 = findIplRoundMatch(catMatches, 'Qualifier1');
-      const q2 = findIplRoundMatch(catMatches, 'Qualifier2');
-      if (!q1 || !q2) return null;
-      const slots = [
-        { match: q1, label: iplBracketSlotLabel('winner', 'Qualifier1'), isLoser: false },
-        { match: q2, label: iplBracketSlotLabel('winner', 'Qualifier2'), isLoser: false },
-      ];
-      return slots.map(({ match, label, isLoser }) => {
-        const participant = isLoser ? getMatchLoser(match) : getMatchWinner(match);
-        if (participant) {
-          return { id: participant.id, name: participant.name, slotLabel: label, isResolved: true };
-        }
-        return {
-          id: `tbd-${label.toLowerCase().replace(/\s+/g, '-')}`,
-          name: label,
-          slotLabel: label,
-          isResolved: false,
-        };
-      });
-    }
-
-    return null;
+    return registrations.filter(
+      r => r.selectedCategory === selectedCategory && r.registrationStatus === 'approved',
+    );
   };
 
   const getManualMembers = () => {
@@ -416,15 +430,17 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       }));
     }
     if (matchFormat === 'knockout') {
-      const slots = getPreviousRoundSlots();
+      const knockoutType = getManualKnockoutRound();
+      const selectedRound = getActiveMatchRound();
+      const slotMode = knockoutType === 'TP' ? 'losers' : 'winners';
+      const roundSlots = getRoundWinnerSlotMembers(selectedRound, selectedCategory, matches, slotMode);
+      if (roundSlots.length > 0) return roundSlots;
+
+      if (knockoutType === 'KO') return getQualifiedMembersForKnockout();
+
+      const slots = getKnockoutSlotMembers(knockoutType, selectedCategory, matches);
       if (slots !== null) return slots;
-      // QF: use pool-qualified members
-      const catPools = getCategoryPools(selectedCategory);
-      const memberIds = new Set(catPools.flatMap(p => p.teams));
-      if (isTeamCat(selectedCategory)) {
-        return teams.filter(t => t.category === selectedCategory && memberIds.has(t.id));
-      }
-      return registrations.filter(r => r.selectedCategory === selectedCategory && memberIds.has(r.id));
+      return getQualifiedMembersForKnockout();
     }
     const pool = getManualPool();
     return pool ? getPoolMembers(pool) : [];
@@ -447,28 +463,28 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     member: { id: string; name: string } & Partial<SlotMember>,
     forKnockoutPoolHint = false,
   ) => {
-    const poolName = !member.slotLabel ? pools.find(p => p.teams.includes(member.id))?.name : undefined;
     if (member.slotLabel) {
-      return member.isResolved ? `${member.slotLabel} — ${member.name}` : member.slotLabel;
+      return bracketSlotDisplayLabel(member as BracketSlotMember);
     }
+    const poolName = pools.find(p => p.teams.includes(member.id))?.name;
     return member.name + (poolName && forKnockoutPoolHint ? ` · ${poolName}` : '');
   };
 
-  // Auto-fill previous round winners/losers when they become available
+  // Auto-fill bracket slot placeholders for prior-round winners/losers
   useEffect(() => {
     if (setupMethod !== 'manual' || !isBracketFormat(matchFormat)) return;
     const slots = matchFormat === 'ipl-playoff' ? getIplPreviousRoundSlots() : getPreviousRoundSlots();
     if (!slots) return;
     const slot1 = slots[0];
     const slot2 = slots[1];
-    if (slot1?.isResolved) {
+    if (slot1) {
       setManualPlayer1Id(prev => (!prev || prev.startsWith('tbd-')) ? slot1.id : prev);
     }
-    if (slot2?.isResolved) {
+    if (slot2) {
       setManualPlayer2Id(prev => (!prev || prev.startsWith('tbd-')) ? slot2.id : prev);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [knockoutRound, iplPlayoffRound, selectedCategory, setupMethod, matchFormat, matches]);
+  }, [knockoutRound, manualKnockoutRound, manualMatchRound, iplPlayoffRound, selectedCategory, setupMethod, matchFormat, matches]);
 
   useEffect(() => {
     if (matchFormat !== 'knockout' || !selectedCategory) return;
@@ -480,6 +496,18 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, matchFormat, pools, teams, registrations]);
 
+  useEffect(() => {
+    if (matchFormat !== 'knockout' || !selectedCategory) return;
+    const rounds = getCategoryMatchRounds();
+    if (rounds.some(r => r.round === manualMatchRound)) return;
+    const prevRound = KNOCKOUT_PREV_ROUND[manualKnockoutRound];
+    const preferred = prevRound
+      ? (rounds.find(r => r.round === prevRound)?.round ?? prevRound)
+      : rounds[0]?.round;
+    if (preferred) setManualMatchRound(preferred);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, matchFormat, matches, manualKnockoutRound]);
+
   const getManualPreview = () => {
     const members = getManualMembers();
     const p1 = members.find(m => m.id === manualPlayer1Id);
@@ -488,11 +516,12 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     if (!p1 || !p2) return null;
     if (matchFormat === 'pool' && !pool) return null;
     const round = matchFormat === 'knockout'
-      ? knockoutRound
+      ? getManualKnockoutRound()
       : matchFormat === 'ipl-playoff'
         ? iplPlayoffRound
         : pool!.name;
-    return { pool, p1, p2, round, isBracket: isBracketFormat(matchFormat) };
+    const isBracket = matchFormat === 'knockout' || matchFormat === 'ipl-playoff';
+    return { pool, p1, p2, round, isBracket };
   };
 
   const getPoolPreview = () => {
@@ -664,30 +693,47 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     return totalCreated;
   };
 
+  const toStoredMatchSide = (member: { id: string; name: string; slotLabel?: string }) => {
+    if (member.slotLabel) {
+      return getBracketSlotStorageSide(member as BracketSlotMember);
+    }
+    if (isKnockoutBracketPlaceholder(member.id, member.name)) {
+      return { id: member.id, name: member.name };
+    }
+    return { id: member.id, name: member.name };
+  };
+
   const handleGenerateManual = async () => {
     const preview = getManualPreview();
     if (!preview || !selectedCategory) return 0;
     const { p1, p2, round, isBracket } = preview;
+    const side1 = toStoredMatchSide(p1);
+    const side2 = toStoredMatchSide(p2);
+    const knockoutType = matchFormat === 'knockout' ? getManualKnockoutRound() : null;
     const existingInRound = matches.filter(m =>
       m.round === round && (isBracket ? m.category === selectedCategory : true),
     );
     const existingCount = existingInRound.length;
-    const isSingleBracketMatch = round === 'F' || round === 'TP'
-      || (matchFormat === 'ipl-playoff' && (IPL_PLAYOFF_ROUNDS as readonly string[]).includes(round));
+    const isSingleBracketMatch = knockoutType
+      ? knockoutType === 'F' || knockoutType === 'TP'
+      : round === 'F' || round === 'TP'
+        || (matchFormat === 'ipl-playoff' && (IPL_PLAYOFF_ROUNDS as readonly string[]).includes(round));
     const autoMatchNumber = isBracket
-      ? (isSingleBracketMatch ? round : `${round}${existingCount + 1}`)
+      ? (isSingleBracketMatch
+        ? (knockoutType ?? round)
+        : `${knockoutType ?? round}${existingCount + 1}`)
       : existingCount + 1;
     const matchNumber = manualMatchNo.trim() !== '' ? manualMatchNo.trim() : autoMatchNumber;
 
-    await addDoc(tournamentMatchesRef(tournament.id), {
+    const docRef = await addDoc(tournamentMatchesRef(tournament.id), {
       tournamentId: tournament.id,
       ...(isBracket ? { category: selectedCategory } : {}),
       round,
       matchNumber,
-      player1Id: p1.id,
-      player1Name: p1.name,
-      player2Id: p2.id,
-      player2Name: p2.name,
+      player1Id: side1.id,
+      player1Name: side1.name,
+      player2Id: side2.id,
+      player2Name: side2.name,
       scheduledTime: fromISTLocal(form.startDateTime),
       venue: tournament.venue || 'TBD',
       status: 'scheduled',
@@ -696,6 +742,43 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       updatedAt: new Date(),
       createdBy: user.id,
     });
+
+    if (matchFormat === 'knockout') {
+      const newMatch: Match = {
+        id: docRef.id,
+        tournamentId: tournament.id,
+        category: selectedCategory,
+        round,
+        matchNumber,
+        player1Id: side1.id,
+        player1Name: side1.name,
+        player2Id: side2.id,
+        player2Name: side2.name,
+        scheduledTime: fromISTLocal(form.startDateTime),
+        venue: tournament.venue || 'TBD',
+        status: 'scheduled',
+        sets: [],
+        matchFormat: form.matchFormat,
+        updatedAt: new Date(),
+        createdBy: user.id,
+      };
+      const allWithNew = [...matches, newMatch];
+      for (const completed of matches) {
+        if (completed.status !== 'completed' || completed.category !== selectedCategory) continue;
+        if (!isKnockoutRound(completed.round)) continue;
+        const updates = getKnockoutPropagationUpdates(completed, allWithNew);
+        const patch = updates.find(u => u.matchId === docRef.id);
+        if (!patch) continue;
+        await updateDoc(tournamentMatchRef(tournament.id, docRef.id), {
+          ...(patch.player1Id != null && { player1Id: patch.player1Id }),
+          ...(patch.player1Name != null && { player1Name: patch.player1Name }),
+          ...(patch.player2Id != null && { player2Id: patch.player2Id }),
+          ...(patch.player2Name != null && { player2Name: patch.player2Name }),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
     return 1;
   };
 
@@ -728,7 +811,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         const preview = getManualPreview();
         notify({
           title: 'Match created',
-          description: preview ? `${preview.p1.name} vs ${preview.p2.name} added.` : 'Match added.',
+          description: preview
+            ? `${getMemberDisplayLabel(preview.p1)} vs ${getMemberDisplayLabel(preview.p2)} added.`
+            : 'Match added.',
           variant: 'success',
         });
         resetManualForm();
@@ -938,12 +1023,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         >
           <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-            <SelectItem value="single-set">Single set (21pt)</SelectItem>
-            <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-            <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-            <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-            <SelectItem value="single-set-30">30pt Single set</SelectItem>
+            {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -1125,6 +1207,8 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                 selected={matchFormat === 'knockout'}
                 onClick={() => {
                   setMatchFormat('knockout');
+                  setManualKnockoutRound(knockoutRound);
+                  setManualMatchRound(KNOCKOUT_PREV_ROUND[knockoutRound] ?? knockoutRound);
                   resetManualForm();
                 }}
                 icon={Trophy}
@@ -1325,20 +1409,58 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
           {setupMethod === 'manual' && (
             <div className="space-y-4 rounded-xl border border-green-200 bg-green-50/30 p-4">
               {matchFormat === 'knockout' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-700">Knockout round</Label>
-                  <Select value={knockoutRound} onValueChange={v => setKnockoutRound(v as KnockoutRound)}>
-                    <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {getKnockoutRoundOptions().map(r => (
-                        <SelectItem key={r} value={r}>{KNOCKOUT_ROUND_LABELS[r]} ({r})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-gray-700">Knockout type</Label>
+                    <Select
+                      value={manualKnockoutRound}
+                      onValueChange={v => {
+                        const knockoutType = v as KnockoutRound;
+                        setManualKnockoutRound(knockoutType);
+                        setKnockoutRound(knockoutType);
+                        const rounds = getCategoryMatchRounds();
+                        const prevRound = KNOCKOUT_PREV_ROUND[knockoutType];
+                        const sourceRound = prevRound
+                          ? (rounds.find(r => r.round === prevRound)?.round ?? prevRound)
+                          : (rounds[0]?.round ?? knockoutType);
+                        setManualMatchRound(sourceRound);
+                        resetManualForm();
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {getKnockoutRoundOptions().map(r => (
+                          <SelectItem key={r} value={r}>
+                            {KNOCKOUT_ROUND_LABELS[r]} ({r})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-gray-700">Round</Label>
+                    <Select
+                      value={getActiveMatchRound()}
+                      onValueChange={v => {
+                        setManualMatchRound(v);
+                        resetManualForm();
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm bg-white"><SelectValue placeholder="Select round…" /></SelectTrigger>
+                      <SelectContent>
+                        {getMatchRoundSelectOptions().map(opt => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">
+                      Pick the source round — player options show its winners, or estimated winners if not yet played.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {matchFormat === 'knockout' && getKnockoutRoundOptions().includes('KO') && knockoutRound !== 'KO' && (
+              {matchFormat === 'knockout' && getKnockoutRoundOptions().includes('KO') && manualKnockoutRound !== 'KO' && (
                 <p className="text-xs text-gray-500 rounded-lg bg-white border border-gray-100 p-3">
                   More than 8 players qualify — use the Knockout round first, then Quarter Finals from winners.
                 </p>
@@ -1388,7 +1510,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {matchFormat === 'pool' && (
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label className="text-xs font-medium text-gray-700">Pool</Label>
+                    <Label className="text-xs font-medium text-gray-700">Round (pool)</Label>
                     <Select
                       value={manualPoolId}
                       onValueChange={v => {
@@ -1432,35 +1554,42 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
               </div>
 
               {matchFormat === 'knockout' && (() => {
-                const slots = getPreviousRoundSlots();
-                const prevRoundLabel = knockoutRound === 'QF'
-                  ? 'KO'
-                  : knockoutRound === 'SF'
+                const knockoutCode = manualKnockoutRound;
+                const sourceRound = getActiveMatchRound();
+                const members = getManualMembers();
+                const slotMembers = members.filter((m): m is SlotMember => 'slotLabel' in m && !!m.slotLabel);
+                const hasKoForQf = knockoutCode === 'QF'
+                  && selectedCategory
+                  && filterKnockoutMatchesForCategory(matches, 'KO', selectedCategory).length > 0;
+                const prevRoundLabel = knockoutCode === 'QF'
+                  ? (hasKoForQf ? 'KO' : null)
+                  : knockoutCode === 'SF'
                     ? 'QF'
-                    : knockoutRound === 'TP'
+                    : knockoutCode === 'TP'
                       ? 'SF'
-                      : knockoutRound === 'F'
+                      : knockoutCode === 'F'
                         ? 'SF'
                         : null;
-                if (knockoutRound === 'KO') {
+                if (knockoutCode === 'KO' && slotMembers.length === 0) {
                   return (
                     <p className="text-xs text-gray-600">
-                      Pick any two qualified {memberLabel}s for this preliminary knockout match.
+                      Pick from pool-qualified {memberLabel}s (top N from each pool&apos;s standings), or select a round with existing matches above.
                     </p>
                   );
                 }
-                if (!prevRoundLabel) {
-                  return <p className="text-xs text-gray-600">Pick any two qualified {memberLabel}s from across pools for this knockout match.</p>;
+                if (slotMembers.length === 0) {
+                  return (
+                    <p className="text-xs text-amber-600">
+                      No matches in &quot;{sourceRound}&quot;. Generate {prevRoundLabel ?? sourceRound} first, or pick {memberLabel}s manually.
+                    </p>
+                  );
                 }
-                if (!slots) {
-                  return <p className="text-xs text-amber-600">No {prevRoundLabel} matches found. Generate {prevRoundLabel} first.</p>;
-                }
-                const resolvedCount = slots.filter(s => s.isResolved).length;
+                const resolvedCount = slotMembers.filter(s => s.isResolved).length;
                 return (
                   <p className="text-xs text-gray-600">
-                    {resolvedCount === slots.length
-                      ? `${knockoutRound === 'TP' ? 'Losers' : 'Winners'} from ${prevRoundLabel} auto-filled.`
-                      : `${resolvedCount}/${slots.length} ${prevRoundLabel} match${slots.length !== 1 ? 'es' : ''} completed — remaining slots are TBD.`}
+                    {resolvedCount === slotMembers.length
+                      ? `${knockoutCode === 'TP' ? 'Losers' : 'Winners'} from ${sourceRound} — ${resolvedCount} available to pick.`
+                      : `${resolvedCount}/${slotMembers.length} results in ${sourceRound} — remaining show as estimated winners (e.g. Winner of QF1).`}
                   </p>
                 );
               })()}
@@ -1506,12 +1635,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   >
                     <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                      <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                      <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                      <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                      <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                      <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                      {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1538,24 +1664,16 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
 
               {getManualPreview() && (() => {
                 const preview = getManualPreview()!;
-                const p1Slot = (preview.p1 as Partial<SlotMember>).slotLabel;
-                const p2Slot = (preview.p2 as Partial<SlotMember>).slotLabel;
                 return (
                   <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
                     <div>
-                      <span className="font-semibold">{preview.p1.name}</span>
-                      {p1Slot && preview.p1.name !== p1Slot && (
-                        <span className="text-xs text-blue-500"> ({p1Slot})</span>
-                      )}
+                      <span className="font-semibold">{getMemberDisplayLabel(preview.p1)}</span>
                       {' vs '}
-                      <span className="font-semibold">{preview.p2.name}</span>
-                      {p2Slot && preview.p2.name !== p2Slot && (
-                        <span className="text-xs text-blue-500"> ({p2Slot})</span>
-                      )}
+                      <span className="font-semibold">{getMemberDisplayLabel(preview.p2)}</span>
                     </div>
                     <span className="text-xs text-blue-700 block mt-0.5">
                       {matchFormat === 'knockout'
-                        ? `${KNOCKOUT_ROUND_LABELS[knockoutRound]} (${knockoutRound})`
+                        ? `${KNOCKOUT_ROUND_LABELS[manualKnockoutRound]} (${manualKnockoutRound}) · from ${getActiveMatchRound()}`
                         : matchFormat === 'ipl-playoff'
                           ? `${IPL_PLAYOFF_ROUND_LABELS[iplPlayoffRound]} (${iplPlayoffRound})`
                           : preview.pool?.name}

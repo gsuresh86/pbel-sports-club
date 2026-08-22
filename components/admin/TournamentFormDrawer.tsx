@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tournament, SportType, TournamentType, CategoryType, PaymentAccount, TournamentContact } from '@/types';
+import { MATCH_FORMAT_SELECT_OPTIONS, type MatchFormat } from '@/lib/match-scoring';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
@@ -55,7 +56,7 @@ type TournamentFormData = {
   banner: string;
   showRegistrationTitle: boolean;
   isPublic: boolean;
-  matchFormat: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30';
+  matchFormat: MatchFormat;
   showTowerAndFlat: boolean;
   showEmergencyContact: boolean;
   showIsResident: boolean;
@@ -666,17 +667,16 @@ export function TournamentFormDrawer({
                 {!editingTournament && (
                   <div className="space-y-2">
                     <Label htmlFor="matchFormat">Match Format</Label>
-                    <Select value={formData.matchFormat} onValueChange={(value: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setFormData({ ...formData, matchFormat: value })}>
+                    <Select value={formData.matchFormat} onValueChange={(value: MatchFormat) => setFormData({ ...formData, matchFormat: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                        <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                        <SelectItem value="best-of-3">Best of 3 (first to 2 sets)</SelectItem>
-                        <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                        <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                        <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                        {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.value === 'best-of-3' ? 'Best of 3 (first to 2 sets)' : opt.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Team, Pool, Registration, Tournament, CategoryType, Match } from '@/types';
+import { MATCH_FORMAT_SELECT_OPTIONS, type MatchFormat } from '@/lib/match-scoring';
 import { categoriesMatch } from '@/lib/categoryLabels';
 import { Target, Users, Shuffle, ArrowRight, ArrowLeft, Edit, Plus, X, Swords, Trophy, Award } from 'lucide-react';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog'; // ConfirmDialogComponent still rendered
@@ -86,7 +87,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   // Generate matches dialog (round-robin, category or per-pool)
   const [genDialogOpen, setGenDialogOpen] = useState(false);
   const [genDialogPool, setGenDialogPool] = useState<Pool | null>(null); // null = all pools in category
-  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30', matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30' });
+  const [genForm, setGenForm] = useState({ startDateTime: '', intervalMinutes: '30', matchFormat: 'best-of-3' as MatchFormat });
   const [generating, setGenerating] = useState(false);
 
   const assignTeamToPool = async (teamId: string, poolId: string) => {
@@ -439,7 +440,7 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
   const openGenerateDialog = (pool: Pool | null) => {
     setGenDialogPool(pool);
     const defaultStart = tournament.startDate ? toISTLocal(new Date(tournament.startDate)) : '';
-    const defaultFormat = ((tournament as any).matchFormat as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') || 'best-of-3';
+    const defaultFormat = ((tournament as any).matchFormat as MatchFormat) || 'best-of-3';
     setGenForm({ startDateTime: defaultStart, intervalMinutes: '30', matchFormat: defaultFormat });
     setGenDialogOpen(true);
   };
@@ -1318,15 +1319,12 @@ export default function PoolAssignment({ tournament, user }: PoolAssignmentProps
             </div>
             <div className="space-y-1">
               <Label>Match Format</Label>
-              <Select value={genForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setGenForm(f => ({ ...f, matchFormat: v }))}>
+              <Select value={genForm.matchFormat} onValueChange={(v: MatchFormat) => setGenForm(f => ({ ...f, matchFormat: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                  <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                  <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                  <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                  <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                  <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                  {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

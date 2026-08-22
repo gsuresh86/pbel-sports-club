@@ -25,7 +25,7 @@ import {
   scorePairsToMatchSets,
   type SetScorePair,
 } from '@/components/scoring/OptionalSetScoreFields';
-import { getFormatLabel, isBestOfThree } from '@/lib/match-scoring';
+import { getFormatLabel, getMaxSetsInMatch, getSetsToWin, MATCH_FORMAT_SELECT_OPTIONS, resolveMatchFormat, type MatchFormat } from '@/lib/match-scoring';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -142,7 +142,7 @@ export default function MatchDetailPage() {
   // Edit match details form
   const [editForm, setEditForm] = useState({
     scheduledTime: '', venue: '', court: '', referee: '', notes: '',
-    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as MatchFormat,
     status: 'scheduled' as Match['status'],
   });
 
@@ -194,11 +194,15 @@ export default function MatchDetailPage() {
     );
   };
 
+  const resolvedMatchFormat = resolveMatchFormat(match, tournament);
+  const maxSetsInMatch = getMaxSetsInMatch(resolvedMatchFormat);
+  const setsToWin = getSetsToWin(resolvedMatchFormat);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
   const openScoreForm = () => {
     setSetsP1(match.player1Score != null ? String(match.player1Score) : '');
     setSetsP2(match.player2Score != null ? String(match.player2Score) : '');
-    setSetScorePairs(matchSetsToScorePairs(match.sets ?? []));
+    setSetScorePairs(matchSetsToScorePairs(match.sets ?? [], maxSetsInMatch));
     setManualWinner(match.winner ?? null);
     setScoreFormOpen(true);
     setWinnerPickOpen(false);
@@ -364,7 +368,7 @@ export default function MatchDetailPage() {
       court: match.court ?? '',
       referee: match.referee ?? '',
       notes: match.notes ?? '',
-      matchFormat: (match.matchFormat as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') ?? 'best-of-3',
+      matchFormat: (match.matchFormat as MatchFormat) ?? 'best-of-3',
       status: match.status,
     });
     setEditOpen(true);
@@ -748,15 +752,12 @@ export default function MatchDetailPage() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Match Format</Label>
-                    <Select value={editForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setEditForm(f => ({ ...f, matchFormat: v }))}>
+                    <Select value={editForm.matchFormat} onValueChange={(v: MatchFormat) => setEditForm(f => ({ ...f, matchFormat: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                        <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                        <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                        <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                        <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                        <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                        {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -795,7 +796,7 @@ export default function MatchDetailPage() {
                     <Label className="text-xs truncate block">{side1}</Label>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-500">Sets:</span>
-                      <Input type="number" min={0} max={3} value={setsP1}
+                      <Input type="number" min={0} max={setsToWin} value={setsP1}
                         onChange={e => { setSetsP1(e.target.value); setManualWinner(null); }}
                         className="h-8 w-16 text-center" />
                     </div>
@@ -804,7 +805,7 @@ export default function MatchDetailPage() {
                     <Label className="text-xs truncate block">{side2}</Label>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs text-gray-500">Sets:</span>
-                      <Input type="number" min={0} max={3} value={setsP2}
+                      <Input type="number" min={0} max={setsToWin} value={setsP2}
                         onChange={e => { setSetsP2(e.target.value); setManualWinner(null); }}
                         className="h-8 w-16 text-center" />
                     </div>
@@ -814,7 +815,7 @@ export default function MatchDetailPage() {
                 {/* Set scores (optional) */}
                 <OptionalSetScoreFields
                   rows={setScorePairs}
-                  setCount={isBestOfThree(match.matchFormat ?? 'best-of-3') ? 3 : 1}
+                  setCount={maxSetsInMatch}
                   player1Label={side1}
                   player2Label={side2}
                   onChange={(index, field, value) => {

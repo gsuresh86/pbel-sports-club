@@ -42,7 +42,7 @@ import {
   countRubbersWon,
 } from '@/lib/teamMatchRubbers';
 import { isTeamCategory } from '@/lib/poolStandings';
-import { getFormatLabel, resolveMatchFormat, type MatchFormat } from '@/lib/match-scoring';
+import { getFormatLabel, MATCH_FORMAT_SELECT_OPTIONS, resolveMatchFormat, type MatchFormat } from '@/lib/match-scoring';
 import {
   getKnockoutSlotMembers,
   bracketSlotDisplayLabel,
@@ -69,6 +69,7 @@ const MATCH_FORMAT_ORDER: MatchFormat[] = [
   'single-set-30',
   'best-of-3-11pt',
   'best-of-3-15pt',
+  'best-of-5-11pt',
   'best-of-3',
 ];
 
@@ -124,7 +125,7 @@ type EditSideOption = { id: string; name: string; displayLabel: string };
 function slotsToEditOptions(slots: BracketSlotMember[]): EditSideOption[] {
   return slots.map(s => ({
     id: s.id,
-    name: s.isResolved ? s.name : (s.slotLabel || s.name),
+    name: s.slotLabel || s.name,
     displayLabel: bracketSlotDisplayLabel(s),
   }));
 }
@@ -483,7 +484,7 @@ export default function MatchesPage() {
     referee: '',
     status: 'scheduled' as Match['status'],
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as MatchFormat,
   });
   const [savingMatch, setSavingMatch] = useState(false);
   const [genDrawerOpen, setGenDrawerOpen] = useState(false);
@@ -1171,15 +1172,12 @@ export default function MatchesPage() {
             </div>
             <div className="space-y-1 min-w-0">
               <Label>Match Format</Label>
-              <Select value={editMatchForm.matchFormat} onValueChange={(v: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
+              <Select value={editMatchForm.matchFormat} onValueChange={(v: MatchFormat) => setEditMatchForm((f) => ({ ...f, matchFormat: v }))}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                  <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                  <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                  <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                  <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                  <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                  {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

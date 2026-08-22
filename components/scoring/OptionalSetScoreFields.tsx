@@ -10,8 +10,8 @@ export function emptySetScoreRows(count = 3): SetScorePair[] {
   return Array.from({ length: count }, () => ({ p1: '', p2: '' }));
 }
 
-export function matchSetsToScorePairs(sets: MatchSet[]): SetScorePair[] {
-  return [0, 1, 2].map((i) => ({
+export function matchSetsToScorePairs(sets: MatchSet[], maxSets = 3): SetScorePair[] {
+  return Array.from({ length: maxSets }, (_, i) => ({
     p1: sets[i] != null ? String(sets[i].player1Score) : '',
     p2: sets[i] != null ? String(sets[i].player2Score) : '',
   }));
@@ -40,7 +40,7 @@ export function OptionalSetScoreFields({
   inputClassName,
 }: {
   rows: SetScorePair[];
-  setCount: 1 | 3;
+  setCount: 1 | 3 | 5;
   player1Label: string;
   player2Label: string;
   onChange: (index: number, field: 'p1' | 'p2', value: string) => void;

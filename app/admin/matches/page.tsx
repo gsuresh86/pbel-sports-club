@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Match, Registration, MatchSet } from '@/types';
+import { MATCH_FORMAT_SELECT_OPTIONS, type MatchFormat } from '@/lib/match-scoring';
 import { Plus, Edit, Trash2, Play, Pause, Trophy, Calendar, Clock, Users, Target } from 'lucide-react';
 import Link from 'next/link';
 
@@ -48,7 +49,7 @@ export default function ManageMatchesPage() {
     referee: '',
     status: 'scheduled' as 'not-scheduled' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'postponed',
     notes: '',
-    matchFormat: 'best-of-3' as 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30',
+    matchFormat: 'best-of-3' as MatchFormat,
   });
 
   useEffect(() => {
@@ -531,17 +532,14 @@ export default function ManageMatchesPage() {
                   </div>
                   <div>
                     <Label htmlFor="matchFormat">Match format</Label>
-                    <Select value={formData.matchFormat} onValueChange={(value: 'single-set-11' | 'single-set' | 'best-of-3' | 'best-of-3-11pt' | 'best-of-3-15pt' | 'single-set-30') => setFormData({ ...formData, matchFormat: value })}>
+                    <Select value={formData.matchFormat} onValueChange={(value: MatchFormat) => setFormData({ ...formData, matchFormat: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single-set-11">Single set (11pt)</SelectItem>
-                        <SelectItem value="single-set">Single set (21pt)</SelectItem>
-                        <SelectItem value="best-of-3">Best of 3 (21pt)</SelectItem>
-                        <SelectItem value="best-of-3-11pt">Best of 3 (11pt)</SelectItem>
-                        <SelectItem value="best-of-3-15pt">Best of 3 (15pt)</SelectItem>
-                        <SelectItem value="single-set-30">30pt Single set</SelectItem>
+                        {MATCH_FORMAT_SELECT_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

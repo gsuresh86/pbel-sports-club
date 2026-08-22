@@ -35,7 +35,9 @@ import {
   canCloseSet,
   getSetWinnerName,
   getFormatLabel,
-  isBestOfThree,
+  getMaxSetsInMatch,
+  isBestOfFive,
+  isMultiSetMatch,
   type MatchFormat,
 } from '@/lib/match-scoring';
 import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check, ArrowLeft, ArrowLeftRight } from 'lucide-react';
@@ -206,7 +208,7 @@ export default function LiveScoringPage() {
           setCurrentSet(sets.length || 1);
           setDirectSetsP1(String(matchData.player1Score ?? 0));
           setDirectSetsP2(String(matchData.player2Score ?? 0));
-          setDirectSetScores(matchSetsToScorePairs(sets));
+          setDirectSetScores(matchSetsToScorePairs(sets, getMaxSetsInMatch(resolveMatchFormat(matchData, loadedTournament))));
         }
       } else {
         alert('Match not found');
@@ -645,7 +647,7 @@ export default function LiveScoringPage() {
   };
 
   const formatLabel = getFormatLabel(matchFormat);
-  const optionalSetCount = isBestOfThree(matchFormat) ? 3 : 1;
+  const optionalSetCount = getMaxSetsInMatch(matchFormat);
 
   const updateDirectSetScore = (index: number, field: 'p1' | 'p2', value: string) => {
     setDirectSetScores((prev) =>
@@ -806,7 +808,6 @@ export default function LiveScoringPage() {
               updating={updating}
               onIncrement={(p) => updateScore(p, true)}
               onDecrement={(p) => updateScore(p, false)}
-              onSetScore={setScoreTo}
               onSwapSides={toggleSwapSides}
               className="mb-4"
             />
@@ -870,8 +871,10 @@ export default function LiveScoringPage() {
                     Set score directly
                   </CardTitle>
                   <CardDescription>
-                    {isBestOfThree(matchFormat)
-                      ? 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add each set score below.'
+                    {isMultiSetMatch(matchFormat)
+                      ? isBestOfFive(matchFormat)
+                        ? 'Best of 5: enter sets won (e.g. 3-0, 3-1, or 3-2). Optionally add each set score below.'
+                        : 'Best of 3: enter sets won (e.g. 2-0 or 2-1). Optionally add each set score below.'
                       : `Single set: enter 1-0 or 0-1. Optionally add the set score below.`}
                   </CardDescription>
                 </CardHeader>
@@ -884,7 +887,7 @@ export default function LiveScoringPage() {
                           id="directSetsP1"
                           type="number"
                           min={0}
-                          max={3}
+                          max={setsToWin}
                           value={directSetsP1}
                           onChange={(e) => setDirectSetsP1(e.target.value)}
                           className="mt-1"
@@ -896,7 +899,7 @@ export default function LiveScoringPage() {
                           id="directSetsP2"
                           type="number"
                           min={0}
-                          max={3}
+                          max={setsToWin}
                           value={directSetsP2}
                           onChange={(e) => setDirectSetsP2(e.target.value)}
                           className="mt-1"
@@ -928,7 +931,11 @@ export default function LiveScoringPage() {
                   </CardTitle>
                   <CardDescription>
                     Set or change the winner, or update sets won below. Same format rules apply (
-                    {isBestOfThree(matchFormat) ? 'best of 3: 2-0 or 2-1' : 'single set: 1-0 or 0-1'}
+                    {isMultiSetMatch(matchFormat)
+                      ? isBestOfFive(matchFormat)
+                        ? 'best of 5: 3-0, 3-1, or 3-2'
+                        : 'best of 3: 2-0 or 2-1'
+                      : 'single set: 1-0 or 0-1'}
                     ).
                   </CardDescription>
                 </CardHeader>
@@ -975,7 +982,7 @@ export default function LiveScoringPage() {
                           id="editDirectSetsP1"
                           type="number"
                           min={0}
-                          max={3}
+                          max={setsToWin}
                           value={directSetsP1}
                           onChange={(e) => setDirectSetsP1(e.target.value)}
                           className="mt-1"
@@ -987,7 +994,7 @@ export default function LiveScoringPage() {
                           id="editDirectSetsP2"
                           type="number"
                           min={0}
-                          max={3}
+                          max={setsToWin}
                           value={directSetsP2}
                           onChange={(e) => setDirectSetsP2(e.target.value)}
                           className="mt-1"
