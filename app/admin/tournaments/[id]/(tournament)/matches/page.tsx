@@ -47,6 +47,7 @@ import {
   getKnockoutSlotMembers,
   bracketSlotDisplayLabel,
   isKnockoutRound,
+  getMatchKnockoutType,
   getKnockoutPropagationUpdates,
   resolveKnockoutBracketSide,
   type BracketSlotMember,
@@ -217,8 +218,9 @@ export default function MatchesPage() {
 
   const getEditSideOptions = (match: Match): EditSideOption[] => {
     const category = getMatchCategory(match);
-    if (isKnockoutRound(match.round) && match.round !== 'KO' && category) {
-      const slots = getKnockoutSlotMembers(match.round, category as CategoryType, topLevelMatches);
+    const knockoutType = getMatchKnockoutType(match);
+    if (knockoutType && knockoutType !== 'KO' && knockoutType !== 'PQ' && category) {
+      const slots = getKnockoutSlotMembers(knockoutType, category as CategoryType, topLevelMatches);
       if (slots?.length) return slotsToEditOptions(slots);
     }
     if (isIplPlayoffRound(match.round)) {

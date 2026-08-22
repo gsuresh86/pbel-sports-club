@@ -254,7 +254,10 @@ export interface Match {
   tournamentId: string;
   /** Category for knockout matches (pool play uses pool name as round) */
   category?: CategoryType;
+  /** Display round name (e.g. "MD QF", "MS R3"). For knockout matches, use knockoutType for bracket structure. */
   round: string;
+  /** Structural knockout stage — separate from display round name. */
+  knockoutType?: 'KO' | 'PQ' | 'QF' | 'SF' | 'F' | 'TP';
   matchNumber: number | string;
   player1Id: string;
   player1Name: string;

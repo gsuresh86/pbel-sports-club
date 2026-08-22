@@ -4,16 +4,42 @@ import { isRubberMatch } from '@/lib/teamMatchRubbers';
 
 export type NameLookupEntry = { id: string; name: string };
 
-export const KNOCKOUT_ROUNDS = ['KO', 'QF', 'SF', 'F', 'TP'] as const;
+export const KNOCKOUT_ROUNDS = ['KO', 'PQ', 'QF', 'SF', 'F', 'TP'] as const;
 export type KnockoutRound = (typeof KNOCKOUT_ROUNDS)[number];
 
 export const KNOCKOUT_ROUND_LABELS: Record<KnockoutRound, string> = {
   KO: 'Knockout',
+  PQ: 'Pre-Quarter',
   QF: 'Quarter Final',
   SF: 'Semi Final',
   F: 'Final',
   TP: 'Third Place',
 };
+
+/** Infer structural knockout type from a legacy display round name. */
+export function inferKnockoutTypeFromRoundLabel(round: string): KnockoutRound | null {
+  const trimmed = round.trim();
+  if (isKnockoutRound(trimmed)) return trimmed;
+  const upper = trimmed.toUpperCase();
+  if (/\bTP\b|THIRD\s*PLACE/i.test(trimmed)) return 'TP';
+  if (/\bSF\b|SEMI[\s-]*FINAL/i.test(trimmed)) return 'SF';
+  if (/\bQF\b|QUARTER[\s-]*FINAL/i.test(trimmed)) return 'QF';
+  if (/\bPQ\b|PRE[\s-]*QUART/i.test(trimmed)) return 'PQ';
+  if (/\bKO\b|KNOCK[\s-]*OUT|PRELIM/i.test(trimmed)) return 'KO';
+  if (upper === 'F' || (/\bFINAL\b/i.test(trimmed) && !/SEMI|QUARTER/i.test(trimmed))) return 'F';
+  return null;
+}
+
+/** Structural bracket stage — uses knockoutType when set, else legacy round code / inference. */
+export function getMatchKnockoutType(match: Match): KnockoutRound | null {
+  if (match.knockoutType && isKnockoutRound(match.knockoutType)) return match.knockoutType;
+  if (isKnockoutRound(match.round)) return match.round;
+  return inferKnockoutTypeFromRoundLabel(match.round);
+}
+
+export function isKnockoutStageType(type: KnockoutRound | null | undefined): type is KnockoutRound {
+  return type != null && isKnockoutRound(type);
+}
 
 /** Show the preliminary Knockout round when any pool or total field exceeds 8. */
 export function shouldOfferPreliminaryKnockoutRound(
@@ -34,16 +60,42 @@ export function isKnockoutRound(round: string): round is KnockoutRound {
   return (KNOCKOUT_ROUNDS as readonly string[]).includes(round);
 }
 
-/** True for bracket/knockout matches (standard codes, or category set with non-pool round). */
+/** True for bracket/knockout matches (typed stages, legacy codes, or category + non-pool round). */
 export function isKnockoutStageMatch(
   match: Match,
   poolNames: ReadonlySet<string>,
 ): boolean {
   if (isRubberMatch(match)) return false;
-  if (isKnockoutRound(match.round)) return true;
+  if (getMatchKnockoutType(match)) return true;
   if (match.category && !poolNames.has(match.round)) return true;
   return false;
 }
+
+/** All bracket/knockout matches for a category, including uncategorized slots in the same round. */
+export function getCategoryBracketMatches(
+  matches: Match[],
+  category: CategoryType,
+  poolNames: ReadonlySet<string>,
+  inferCategory?: (match: Match) => string | undefined,
+): Match[] {
+  return matches.filter(m => {
+    if (isRubberMatch(m)) return false;
+    if (m.category === category) return true;
+    if (m.category) return false;
+    if (inferCategory?.(m) === category) return true;
+    const knockoutType = getMatchKnockoutType(m);
+    if (knockoutType) {
+      return filterKnockoutMatchesForCategory(matches, knockoutType, category).some(x => x.id === m.id);
+    }
+    if (isKnockoutStageMatch(m, poolNames)) {
+      const inRound = matches.filter(x => x.round === m.round && !isRubberMatch(x));
+      return inRound.some(x => x.category === category);
+    }
+    return false;
+  });
+}
+
+export const STANDARD_KNOCKOUT_ROUNDS = ['KO', 'QF', 'SF', 'F', 'TP'] as const;
 
 export interface BracketSlotMember {
   id: string;
@@ -320,14 +372,14 @@ function isLoserBracketSlot(playerId: string, playerName: string): boolean {
 
 export function filterKnockoutMatchesForCategory(
   matches: Match[],
-  round: string,
+  round: KnockoutRound,
   category: CategoryType,
 ): Match[] {
   return matches.filter(m => {
-    if (m.round !== round || isRubberMatch(m)) return false;
+    if (getMatchKnockoutType(m) !== round || isRubberMatch(m)) return false;
     if (m.category === category) return true;
     if (m.category) return false;
-    const inRound = matches.filter(x => x.round === round && !isRubberMatch(x));
+    const inRound = matches.filter(x => getMatchKnockoutType(x) === round && !isRubberMatch(x));
     const categorized = inRound.filter(x => x.category);
     if (categorized.length === 0) return true;
     return categorized.every(x => x.category === category);
@@ -347,7 +399,7 @@ export function getKnockoutPropagationUpdates(
   completedMatch: Match,
   allMatches: Match[],
 ): KnockoutPropagationUpdate[] {
-  if (completedMatch.status !== 'completed' || !isKnockoutRound(completedMatch.round)) return [];
+  if (completedMatch.status !== 'completed' || !getMatchKnockoutType(completedMatch)) return [];
 
   const winner = getMatchWinner(completedMatch);
   const loser = getMatchLoser(completedMatch);
@@ -357,7 +409,7 @@ export function getKnockoutPropagationUpdates(
   const updates: KnockoutPropagationUpdate[] = [];
 
   for (const m of allMatches) {
-    if (!isKnockoutRound(m.round) || m.id === completedMatch.id || isRubberMatch(m)) continue;
+    if (!getMatchKnockoutType(m) || m.id === completedMatch.id || isRubberMatch(m)) continue;
     if (category && m.category && m.category !== category) continue;
 
     const patch: KnockoutPropagationUpdate = { matchId: m.id };
@@ -387,7 +439,7 @@ export function getKnockoutPropagationClearUpdates(
   resetMatch: Match,
   allMatches: Match[],
 ): KnockoutPropagationUpdate[] {
-  if (!isKnockoutRound(resetMatch.round)) return [];
+  if (!getMatchKnockoutType(resetMatch)) return [];
 
   const winner = getMatchWinner(resetMatch);
   const loser = getMatchLoser(resetMatch);
@@ -398,7 +450,7 @@ export function getKnockoutPropagationClearUpdates(
   const updates: KnockoutPropagationUpdate[] = [];
 
   for (const m of allMatches) {
-    if (!isKnockoutRound(m.round) || m.id === resetMatch.id || isRubberMatch(m)) continue;
+    if (!getMatchKnockoutType(m) || m.id === resetMatch.id || isRubberMatch(m)) continue;
     if (category && m.category && m.category !== category) continue;
 
     const patch: KnockoutPropagationUpdate = { matchId: m.id };
@@ -427,12 +479,17 @@ export function getKnockoutPropagationClearUpdates(
   return updates;
 }
 
-const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
-  QF: 'KO',
-  SF: 'QF',
-  F: 'SF',
-  TP: 'SF',
+const KNOCKOUT_PREV_ROUNDS: Partial<Record<KnockoutRound, KnockoutRound[]>> = {
+  PQ: ['KO'],
+  QF: ['PQ', 'KO'],
+  SF: ['QF'],
+  F: ['SF'],
+  TP: ['SF'],
 };
+
+export function getPreviousKnockoutTypes(targetRound: KnockoutRound): KnockoutRound[] {
+  return KNOCKOUT_PREV_ROUNDS[targetRound] ?? [];
+}
 
 /** Resolve a placeholder side (e.g. "Winner of QF1") to the actual participant name. */
 export function resolveKnockoutBracketSide(
@@ -441,16 +498,19 @@ export function resolveKnockoutBracketSide(
   match: Match,
   allMatches: Match[],
 ): string | null {
-  if (!isKnockoutRound(match.round) || match.round === 'KO') return null;
+  const matchType = getMatchKnockoutType(match);
+  if (!matchType || matchType === 'KO' || matchType === 'PQ') return null;
   if (!isKnockoutBracketPlaceholder(playerId, playerName)) return null;
 
-  const prevRound = KNOCKOUT_PREV_ROUND[match.round];
-  if (!prevRound || !match.category) return null;
+  const prevRounds = getPreviousKnockoutTypes(matchType);
+  if (prevRounds.length === 0 || !match.category) return null;
 
   const srcNo = extractBracketSrcMatchNo(playerName) || extractBracketSrcMatchNo(playerId);
   if (!srcNo) return null;
 
-  const sourceMatches = filterKnockoutMatchesForCategory(allMatches, prevRound, match.category);
+  const sourceMatches = prevRounds.flatMap(prev =>
+    filterKnockoutMatchesForCategory(allMatches, prev, match.category!),
+  );
   const srcMatch = findBracketSourceMatch(sourceMatches, srcNo);
   if (srcMatch?.status !== 'completed') return null;
 
@@ -472,8 +532,11 @@ export function formatRoundWinnerSlotLabel(
   if (mn.toLowerCase().includes(roundShort.toLowerCase())) {
     return `${labelPrefix} of ${mn}`;
   }
-  const matchPart = /^M/i.test(mn) ? mn : `M${mn}`;
-  return `${labelPrefix} of ${roundShort} ${matchPart}`;
+  const matchPart = /^M\d+$/i.test(mn) ? mn : mn;
+  if (/^M\d+$/i.test(mn)) {
+    return `${labelPrefix} of ${roundShort} ${mn}`;
+  }
+  return `${labelPrefix} of ${roundShort} ${mn}`;
 }
 
 function roundWinnerSlotId(
@@ -517,16 +580,67 @@ export function getRoundWinnerSlotMembers(
   });
 }
 
+/** Completed-match winners from one or more named knockout rounds (deduped). */
+export function getResolvedWinnersFromRounds(
+  matches: Match[],
+  roundNames: string[],
+  category: CategoryType,
+  poolNames: ReadonlySet<string>,
+): KnockoutParticipant[] {
+  if (roundNames.length === 0) return [];
+  const roundSet = new Set(roundNames);
+  const seen = new Set<string>();
+  const winners: KnockoutParticipant[] = [];
+
+  for (const m of getCategoryBracketMatches(matches, category, poolNames)) {
+    if (!roundSet.has(m.round) || m.status !== 'completed') continue;
+    const winner = getMatchWinner(m);
+    if (!winner || seen.has(winner.id)) continue;
+    seen.add(winner.id);
+    winners.push(winner);
+  }
+
+  return winners;
+}
+
+export function getKnockoutSourceRounds(
+  matches: Match[],
+  category: CategoryType,
+  poolNames: ReadonlySet<string>,
+): { round: string; matchCount: number; resolvedWinners: number }[] {
+  const roundCounts = new Map<string, { matches: number; resolved: number }>();
+
+  for (const m of getCategoryBracketMatches(matches, category, poolNames)) {
+    if (poolNames.has(m.round)) continue;
+    const entry = roundCounts.get(m.round) ?? { matches: 0, resolved: 0 };
+    entry.matches += 1;
+    if (m.status === 'completed' && getMatchWinner(m)) entry.resolved += 1;
+    roundCounts.set(m.round, entry);
+  }
+
+  return Array.from(roundCounts.entries())
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([round, { matches: matchCount, resolved }]) => ({
+      round,
+      matchCount,
+      resolvedWinners: resolved,
+    }));
+}
+
 export function getKnockoutSlotMembers(
   targetRound: KnockoutRound,
   category: CategoryType,
   matches: Match[],
 ): BracketSlotMember[] | null {
-  const prevRound = KNOCKOUT_PREV_ROUND[targetRound];
-  if (!prevRound) return null;
+  const prevRounds = getPreviousKnockoutTypes(targetRound);
+  if (prevRounds.length === 0) return null;
 
-  const prevMatches = filterKnockoutMatchesForCategory(matches, prevRound, category)
-    .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+  let prevMatches: Match[] = [];
+  for (const prevRound of prevRounds) {
+    prevMatches = filterKnockoutMatchesForCategory(matches, prevRound, category)
+      .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+    if (prevMatches.length > 0) break;
+  }
 
   if (prevMatches.length === 0) return null;
 
@@ -610,7 +724,7 @@ export function previewKnockoutRound(
     if (allQualified.length <= 8) {
       warnings.push('Knockout round is intended when more than 8 players qualify.');
     }
-    const existingKO = matches.filter(m => m.round === 'KO' && m.category === category);
+    const existingKO = filterKnockoutMatchesForCategory(matches, 'KO', category);
     if (existingKO.length > 0) {
       warnings.push(`${existingKO.length} Knockout match(es) already exist for this category.`);
     }
@@ -625,7 +739,47 @@ export function previewKnockoutRound(
     };
   }
 
+  if (round === 'PQ') {
+    const koMatches = filterKnockoutMatchesForCategory(matches, 'KO', category);
+    if (koMatches.length === 0) {
+      warnings.push('No Knockout matches found for this category. Generate KO first.');
+      return { pairings: [], warnings, qualifiedCount: 0 };
+    }
+    const incomplete = koMatches.filter(m => m.status !== 'completed');
+    if (incomplete.length > 0) {
+      warnings.push(`${incomplete.length} Knockout match(es) are not completed yet.`);
+    }
+    const participants = getRoundParticipants(matches, 'KO', category, 'winners');
+    const existingPQ = filterKnockoutMatchesForCategory(matches, 'PQ', category);
+    if (existingPQ.length > 0) {
+      warnings.push(`${existingPQ.length} Pre-Quarter match(es) already exist for this category.`);
+    }
+    const pairings = buildNextRoundPairings(participants);
+    if (participants.length < 2) {
+      warnings.push('Not enough winners from Knockout to build Pre-Quarter.');
+    }
+    return { pairings, warnings, qualifiedCount: participants.length };
+  }
+
   if (round === 'QF') {
+    const pqMatches = filterKnockoutMatchesForCategory(matches, 'PQ', category);
+    if (pqMatches.length > 0) {
+      const incomplete = pqMatches.filter(m => m.status !== 'completed');
+      if (incomplete.length > 0) {
+        warnings.push(`${incomplete.length} Pre-Quarter match(es) are not completed yet.`);
+      }
+      const participants = getRoundParticipants(matches, 'PQ', category, 'winners');
+      const existingQF = filterKnockoutMatchesForCategory(matches, 'QF', category);
+      if (existingQF.length > 0) {
+        warnings.push(`${existingQF.length} QF match(es) already exist for this category.`);
+      }
+      const pairings = buildNextRoundPairings(participants);
+      if (participants.length < 2) {
+        warnings.push('Not enough winners from Pre-Quarter to build Quarter Finals.');
+      }
+      return { pairings, warnings, qualifiedCount: participants.length };
+    }
+
     const koMatches = filterKnockoutMatchesForCategory(matches, 'KO', category);
     if (koMatches.length > 0) {
       const incomplete = koMatches.filter(m => m.status !== 'completed');
@@ -633,7 +787,7 @@ export function previewKnockoutRound(
         warnings.push(`${incomplete.length} Knockout match(es) are not completed yet.`);
       }
       const participants = getRoundParticipants(matches, 'KO', category, 'winners');
-      const existingQF = matches.filter(m => m.round === 'QF' && m.category === category);
+      const existingQF = filterKnockoutMatchesForCategory(matches, 'QF', category);
       if (existingQF.length > 0) {
         warnings.push(`${existingQF.length} QF match(es) already exist for this category.`);
       }
@@ -653,7 +807,7 @@ export function previewKnockoutRound(
         `Some pools have fewer than ${qualifyCount} qualified: ${shortPools.map(d => d.pool.name).join(', ')}. Standings may be incomplete.`,
       );
     }
-    const existingQF = matches.filter(m => m.round === 'QF' && m.category === category);
+    const existingQF = filterKnockoutMatchesForCategory(matches, 'QF', category);
     if (existingQF.length > 0) {
       warnings.push(`${existingQF.length} QF match(es) already exist for this category.`);
     }
@@ -668,16 +822,19 @@ export function previewKnockoutRound(
     };
   }
 
-  const prevRound: Record<KnockoutRound, KnockoutRound | null> = {
-    KO: null,
-    QF: 'KO',
-    SF: 'QF',
-    F: 'SF',
-    TP: 'SF',
-  };
-  const source = prevRound[round];
+  const prevRounds = getPreviousKnockoutTypes(round);
+  let source: KnockoutRound | null = null;
+  for (const prev of prevRounds) {
+    const prevMatches = filterKnockoutMatchesForCategory(matches, prev, category);
+    if (prevMatches.length > 0) {
+      source = prev;
+      break;
+    }
+  }
   if (!source) {
-    return { pairings: [], warnings: ['Invalid round.'], qualifiedCount: 0 };
+    const expected = prevRounds.map(r => KNOCKOUT_ROUND_LABELS[r]).join(' or ');
+    warnings.push(`No ${expected || 'prior'} matches found for this category.`);
+    return { pairings: [], warnings, qualifiedCount: 0 };
   }
 
   const sourceMatches = filterKnockoutMatchesForCategory(matches, source, category);

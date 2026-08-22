@@ -47,6 +47,7 @@ import {
   getKnockoutPropagationClearUpdates,
   getKnockoutPropagationUpdates,
   isKnockoutRound,
+  getMatchKnockoutType,
   resolveKnockoutBracketSide,
 } from '@/lib/knockoutBracket';
 import {
@@ -303,7 +304,7 @@ export default function MatchDetailPage() {
   };
 
   const resetMatchResult = async () => {
-    const knockoutNote = isKnockoutRound(match.round)
+    const knockoutNote = getMatchKnockoutType(match)
       ? ' Knockout bracket slots filled from this match will be cleared too.'
       : '';
     if (!confirm(`Reset this match? All scores, winner, and result data will be cleared. The match will return to scheduled status.${knockoutNote}`)) {

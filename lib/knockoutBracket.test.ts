@@ -12,6 +12,9 @@ import {
   orderQfIndicesForSfBracket,
   shouldOfferPreliminaryKnockoutRound,
   getAvailableKnockoutRounds,
+  getMatchKnockoutType,
+  inferKnockoutTypeFromRoundLabel,
+  formatRoundWinnerSlotLabel,
 } from './knockoutBracket';
 import type { Match, Pool } from '@/types';
 
@@ -268,4 +271,31 @@ test('orderQfIndicesForSfBracket pairs QF by SF config including resolved winner
     order.map(i => qfMatches[i].matchNumber),
     ['BU13-Q-M1', 'BU13-Q-M4', 'BU13-Q-M2', 'BU13-Q-M3'],
   );
+});
+
+test('inferKnockoutTypeFromRoundLabel maps custom display names', () => {
+  assert.equal(inferKnockoutTypeFromRoundLabel('MD QF'), 'QF');
+  assert.equal(inferKnockoutTypeFromRoundLabel('SEMI FINAL'), 'SF');
+  assert.equal(inferKnockoutTypeFromRoundLabel('Pre-Quarter'), 'PQ');
+});
+
+test('filterKnockoutMatchesForCategory groups by knockoutType with custom round labels', () => {
+  const matches: Match[] = [
+    {
+      id: 'qf1', tournamentId: 't1', round: 'MD QF', knockoutType: 'QF', category: 'mens-doubles',
+      matchNumber: 'MD QF1', player1Id: 'a', player1Name: 'A', player2Id: 'b', player2Name: 'B',
+      status: 'scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+    },
+    {
+      id: 'qf2', tournamentId: 't1', round: 'MD QF', category: 'mens-doubles',
+      matchNumber: 'MD QF2', player1Id: 'c', player1Name: 'C', player2Id: 'd', player2Name: 'D',
+      status: 'scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+    },
+  ];
+  assert.equal(filterKnockoutMatchesForCategory(matches, 'QF', 'mens-doubles').length, 2);
+});
+
+test('formatRoundWinnerSlotLabel avoids duplicate round prefix', () => {
+  assert.equal(formatRoundWinnerSlotLabel('MD QF', 'MD QF1', 'winners'), 'Winner of MD QF1');
+  assert.equal(formatRoundWinnerSlotLabel('MD QF', '1', 'winners'), 'Winner of MD QF 1');
 });

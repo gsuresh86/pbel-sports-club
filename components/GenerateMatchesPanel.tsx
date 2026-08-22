@@ -37,6 +37,7 @@ import {
   Medal,
   Search,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   KNOCKOUT_ROUND_LABELS,
   getAvailableKnockoutRounds,
@@ -47,9 +48,13 @@ import {
   getCategoryQualifyCount,
   getKnockoutSlotMembers,
   getRoundWinnerSlotMembers,
+  getResolvedWinnersFromRounds,
+  getKnockoutSourceRounds,
   getQualifiedByPool,
   filterKnockoutMatchesForCategory,
   isKnockoutRound,
+  getMatchKnockoutType,
+  getPreviousKnockoutTypes,
   bracketSlotDisplayLabel,
   getBracketSlotStorageSide,
   isKnockoutBracketPlaceholder,
@@ -199,7 +204,7 @@ function matchCount(n: number) {
 }
 
 type SetupMethod = 'auto' | 'manual';
-type AutoFormat = 'pool' | 'knockout' | 'ipl-playoff';
+type AutoFormat = 'pool' | 'knockout' | 'ipl-playoff' | 'direct';
 type GenerationMode = AutoFormat | 'manual';
 type BracketFormat = 'knockout' | 'ipl-playoff';
 
@@ -287,6 +292,55 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const [manualMatchNo, setManualMatchNo] = useState('');
   const [manualKnockoutRound, setManualKnockoutRound] = useState<KnockoutRound>('QF');
   const [manualMatchRound, setManualMatchRound] = useState('');
+  const [manualRoundLabel, setManualRoundLabel] = useState('');
+  const [poolParticipantSource, setPoolParticipantSource] = useState<'roster' | 'knockout-winners'>('roster');
+  const [poolSourceRounds, setPoolSourceRounds] = useState<string[]>([]);
+  const [manualPoolSourceRound, setManualPoolSourceRound] = useState('');
+  const [manualDirectRound, setManualDirectRound] = useState('');
+
+  const getCategoryPoolNames = () => {
+    if (!selectedCategory) return new Set<string>();
+    return new Set(getCategoryPools(selectedCategory).map(p => p.name));
+  };
+
+  const getKnockoutSourceRoundOptions = () => {
+    if (!selectedCategory) return [];
+    return getKnockoutSourceRounds(matches, selectedCategory, getCategoryPoolNames());
+  };
+
+  const togglePoolSourceRound = (round: string, checked: boolean) => {
+    setPoolSourceRounds(prev => {
+      if (checked) return prev.includes(round) ? prev : [...prev, round];
+      return prev.filter(r => r !== round);
+    });
+  };
+
+  const getKnockoutWinnerParticipants = () => {
+    if (!selectedCategory || poolSourceRounds.length === 0) return [];
+    return getResolvedWinnersFromRounds(matches, poolSourceRounds, selectedCategory, getCategoryPoolNames());
+  };
+
+  const getPoolRoundWinnerSlots = (roundName: string): SlotMember[] => {
+    if (!selectedCategory || !roundName) return [];
+    return getRoundWinnerSlotMembers(roundName, selectedCategory, matches, 'winners');
+  };
+
+  const getCombinedPoolSourceSlots = (): SlotMember[] => {
+    if (!selectedCategory) return [];
+    const rounds = setupMethod === 'manual'
+      ? (manualPoolSourceRound ? [manualPoolSourceRound] : [])
+      : poolSourceRounds;
+    const seen = new Set<string>();
+    const slots: SlotMember[] = [];
+    for (const round of rounds) {
+      for (const slot of getPoolRoundWinnerSlots(round)) {
+        if (seen.has(slot.id)) continue;
+        seen.add(slot.id);
+        slots.push(slot);
+      }
+    }
+    return slots;
+  };
 
   const getCategoryMatches = () => {
     if (!selectedCategory) return [];
@@ -310,33 +364,48 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       .map(([round, matchCount]) => ({ round, matchCount }));
   };
 
+  const getSourceDisplayRoundsForKnockoutType = (knockoutType: KnockoutRound): string[] => {
+    if (!selectedCategory) return [];
+    const prevTypes = getPreviousKnockoutTypes(knockoutType);
+    const rounds = new Set<string>();
+    for (const prevType of prevTypes) {
+      for (const m of filterKnockoutMatchesForCategory(matches, prevType, selectedCategory)) {
+        rounds.add(m.round);
+      }
+    }
+    return [...rounds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  };
+
   const getMatchRoundSelectOptions = (): { value: string; label: string }[] => {
     const fromMatches = getCategoryMatchRounds().map(({ round, matchCount }) => ({
       value: round,
       label: matchCount > 0 ? `${round} (${matchCount} match${matchCount !== 1 ? 'es' : ''})` : round,
     }));
-    const prevRound = KNOCKOUT_PREV_ROUND[getManualKnockoutRound()];
-    if (prevRound && !fromMatches.some(o => o.value === prevRound)) {
-      return [{ value: prevRound, label: `${KNOCKOUT_ROUND_LABELS[prevRound]} (${prevRound})` }, ...fromMatches];
+    const prevTypes = getPreviousKnockoutTypes(getManualKnockoutRound());
+    const prevType = prevTypes[0];
+    if (prevType && !fromMatches.some(o => o.value === prevType)) {
+      const sourceRounds = getSourceDisplayRoundsForKnockoutType(getManualKnockoutRound());
+      if (sourceRounds.length > 0) {
+        return [
+          ...sourceRounds.map(r => ({ value: r, label: r })),
+          ...fromMatches.filter(o => !sourceRounds.includes(o.value)),
+        ];
+      }
+      return [{ value: prevType, label: `${KNOCKOUT_ROUND_LABELS[prevType]} (${prevType})` }, ...fromMatches];
     }
     return fromMatches.length > 0 ? fromMatches : (
-      prevRound
-        ? [{ value: prevRound, label: `${KNOCKOUT_ROUND_LABELS[prevRound]} (${prevRound})` }]
+      prevType
+        ? [{ value: prevType, label: `${KNOCKOUT_ROUND_LABELS[prevType]} (${prevType})` }]
         : []
     );
   };
 
-  const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
-    QF: 'KO',
-    SF: 'QF',
-    F: 'SF',
-    TP: 'SF',
-  };
-
   const getActiveMatchRound = () => {
     if (manualMatchRound) return manualMatchRound;
-    const prevRound = KNOCKOUT_PREV_ROUND[getManualKnockoutRound()];
-    return prevRound ?? manualKnockoutRound;
+    const sourceRounds = getSourceDisplayRoundsForKnockoutType(getManualKnockoutRound());
+    if (sourceRounds.length > 0) return sourceRounds[0];
+    const prevTypes = getPreviousKnockoutTypes(getManualKnockoutRound());
+    return prevTypes[0] ?? getManualKnockoutRound();
   };
 
   const getManualKnockoutRound = (): KnockoutRound => {
@@ -412,6 +481,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
 
   const getManualMembers = () => {
     if (!selectedCategory) return [];
+    if (matchFormat === 'direct') {
+      return getCategoryParticipants();
+    }
     if (matchFormat === 'ipl-playoff') {
       const slots = getIplPreviousRoundSlots();
       if (slots !== null) return slots;
@@ -441,6 +513,17 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       const slots = getKnockoutSlotMembers(knockoutType, selectedCategory, matches);
       if (slots !== null) return slots;
       return getQualifiedMembersForKnockout();
+    }
+    if (matchFormat === 'pool' && poolParticipantSource === 'knockout-winners') {
+      const slots = getCombinedPoolSourceSlots();
+      if (slots.length > 0) return slots;
+      const winners = getKnockoutWinnerParticipants();
+      return winners.map(w => ({
+        id: w.id,
+        name: w.name,
+        slotLabel: w.name,
+        isResolved: true,
+      }));
     }
     const pool = getManualPool();
     return pool ? getPoolMembers(pool) : [];
@@ -487,6 +570,12 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   }, [knockoutRound, manualKnockoutRound, manualMatchRound, iplPlayoffRound, selectedCategory, setupMethod, matchFormat, matches]);
 
   useEffect(() => {
+    if (setupMethod === 'auto' && matchFormat === 'direct') {
+      setMatchFormat('pool');
+    }
+  }, [setupMethod, matchFormat]);
+
+  useEffect(() => {
     if (matchFormat !== 'knockout' || !selectedCategory) return;
     const options = getKnockoutRoundOptions();
     if (!options.includes(knockoutRound)) {
@@ -500,10 +589,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     if (matchFormat !== 'knockout' || !selectedCategory) return;
     const rounds = getCategoryMatchRounds();
     if (rounds.some(r => r.round === manualMatchRound)) return;
-    const prevRound = KNOCKOUT_PREV_ROUND[manualKnockoutRound];
-    const preferred = prevRound
-      ? (rounds.find(r => r.round === prevRound)?.round ?? prevRound)
-      : rounds[0]?.round;
+    const sourceRounds = getSourceDisplayRoundsForKnockoutType(manualKnockoutRound);
+    const preferred = sourceRounds[0]
+      ?? getPreviousKnockoutTypes(manualKnockoutRound)[0]
+      ?? rounds[0]?.round;
     if (preferred) setManualMatchRound(preferred);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, matchFormat, matches, manualKnockoutRound]);
@@ -514,18 +603,41 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     const p2 = members.find(m => m.id === manualPlayer2Id);
     const pool = getManualPool();
     if (!p1 || !p2) return null;
-    if (matchFormat === 'pool' && !pool) return null;
+    if (matchFormat === 'pool' && poolParticipantSource === 'roster' && !pool) return null;
+    if (matchFormat === 'pool' && poolParticipantSource === 'knockout-winners' && !pool && !manualPoolSourceRound) return null;
+    if (matchFormat === 'direct' && !manualDirectRound.trim()) return null;
+    const knockoutType = matchFormat === 'knockout' ? getManualKnockoutRound() : null;
     const round = matchFormat === 'knockout'
-      ? getManualKnockoutRound()
+      ? (manualRoundLabel.trim() || KNOCKOUT_ROUND_LABELS[knockoutType!])
       : matchFormat === 'ipl-playoff'
         ? iplPlayoffRound
-        : pool!.name;
+        : matchFormat === 'direct'
+          ? manualDirectRound.trim()
+          : matchFormat === 'pool' && poolParticipantSource === 'knockout-winners'
+            ? (pool?.name ?? manualPoolSourceRound)
+            : pool!.name;
     const isBracket = matchFormat === 'knockout' || matchFormat === 'ipl-playoff';
-    return { pool, p1, p2, round, isBracket };
+    return { pool, p1, p2, round, knockoutType, isBracket };
   };
 
   const getPoolPreview = () => {
     if (!selectedCategory) return { total: 0, byPool: [] as { name: string; members: number; matches: number }[] };
+
+    if (poolParticipantSource === 'knockout-winners') {
+      const winners = getKnockoutWinnerParticipants();
+      const label = poolSourceRounds.length > 0
+        ? `Winners: ${poolSourceRounds.join(', ')}`
+        : 'Knockout winners';
+      return {
+        total: matchCount(winners.length),
+        byPool: [{
+          name: label,
+          members: winners.length,
+          matches: matchCount(winners.length),
+        }],
+      };
+    }
+
     const catPools = getCategoryPools(selectedCategory);
     const target = selectedPoolId === 'all' ? catPools : catPools.filter(p => p.id === selectedPoolId);
     const byPool = target.map(p => {
@@ -573,12 +685,51 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   };
 
   const handleGeneratePool = async () => {
-    const catPools = getCategoryPools(selectedCategory!);
-    const target = selectedPoolId === 'all' ? catPools : catPools.filter(p => p.id === selectedPoolId);
     const startTime = fromISTLocal(form.startDateTime);
     const intervalMs = Math.max(0, parseInt(form.intervalMinutes) || 0) * 60 * 1000;
     let matchIndex = 0;
     let totalCreated = 0;
+
+    if (poolParticipantSource === 'knockout-winners') {
+      const winners = getKnockoutWinnerParticipants();
+      if (winners.length < 2 || !selectedCategory) return 0;
+
+      const catPools = getCategoryPools(selectedCategory);
+      const targetPool = selectedPoolId === 'all'
+        ? null
+        : catPools.find(p => p.id === selectedPoolId) ?? null;
+      const roundLabel = targetPool?.name ?? `RR ${poolSourceRounds.join(' + ')}`;
+      let matchNumber = 1;
+
+      for (let i = 0; i < winners.length; i++) {
+        for (let j = i + 1; j < winners.length; j++) {
+          await addDoc(tournamentMatchesRef(tournament.id), {
+            tournamentId: tournament.id,
+            category: selectedCategory,
+            round: roundLabel,
+            matchNumber,
+            player1Id: winners[i].id,
+            player1Name: winners[i].name,
+            player2Id: winners[j].id,
+            player2Name: winners[j].name,
+            scheduledTime: new Date(startTime.getTime() + matchIndex * intervalMs),
+            venue: tournament.venue || 'TBD',
+            status: 'not-scheduled',
+            sets: [],
+            matchFormat: form.matchFormat,
+            updatedAt: new Date(),
+            createdBy: user.id,
+          });
+          matchNumber++;
+          matchIndex++;
+          totalCreated++;
+        }
+      }
+      return totalCreated;
+    }
+
+    const catPools = getCategoryPools(selectedCategory!);
+    const target = selectedPoolId === 'all' ? catPools : catPools.filter(p => p.id === selectedPoolId);
 
     for (const pool of target) {
       const items = getPoolMembers(pool);
@@ -621,9 +772,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
 
     const startTime = fromISTLocal(form.startDateTime);
     const intervalMs = Math.max(0, parseInt(form.intervalMinutes) || 0) * 60 * 1000;
-    const existingInRound = matches.filter(
-      m => m.round === knockoutRound && m.category === selectedCategory,
-    );
+    const existingInRound = filterKnockoutMatchesForCategory(matches, knockoutRound, selectedCategory);
     const existingCount = existingInRound.length;
     const isSingleMatch = knockoutRound === 'F' || knockoutRound === 'TP';
     let totalCreated = 0;
@@ -636,7 +785,8 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       await addDoc(tournamentMatchesRef(tournament.id), {
         tournamentId: tournament.id,
         category: selectedCategory,
-        round: knockoutRound,
+        knockoutType: knockoutRound,
+        round: KNOCKOUT_ROUND_LABELS[knockoutRound],
         matchNumber,
         player1Id: pairing.player1.id,
         player1Name: pairing.player1.name,
@@ -706,13 +856,15 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
   const handleGenerateManual = async () => {
     const preview = getManualPreview();
     if (!preview || !selectedCategory) return 0;
-    const { p1, p2, round, isBracket } = preview;
+    const { p1, p2, round, knockoutType, isBracket } = preview;
     const side1 = toStoredMatchSide(p1);
     const side2 = toStoredMatchSide(p2);
-    const knockoutType = matchFormat === 'knockout' ? getManualKnockoutRound() : null;
-    const existingInRound = matches.filter(m =>
-      m.round === round && (isBracket ? m.category === selectedCategory : true),
-    );
+    const existingInRound = matches.filter(m => {
+      if (isBracket && knockoutType) {
+        return getMatchKnockoutType(m) === knockoutType && m.category === selectedCategory;
+      }
+      return m.round === round && (isBracket ? m.category === selectedCategory : true);
+    });
     const existingCount = existingInRound.length;
     const isSingleBracketMatch = knockoutType
       ? knockoutType === 'F' || knockoutType === 'TP'
@@ -727,7 +879,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
 
     const docRef = await addDoc(tournamentMatchesRef(tournament.id), {
       tournamentId: tournament.id,
-      ...(isBracket ? { category: selectedCategory } : {}),
+      ...(isBracket || matchFormat === 'direct' || (matchFormat === 'pool' && poolParticipantSource === 'knockout-winners')
+        ? { category: selectedCategory }
+        : {}),
+      ...(knockoutType ? { knockoutType } : {}),
       round,
       matchNumber,
       player1Id: side1.id,
@@ -748,6 +903,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         id: docRef.id,
         tournamentId: tournament.id,
         category: selectedCategory,
+        ...(knockoutType ? { knockoutType } : {}),
         round,
         matchNumber,
         player1Id: side1.id,
@@ -765,7 +921,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
       const allWithNew = [...matches, newMatch];
       for (const completed of matches) {
         if (completed.status !== 'completed' || completed.category !== selectedCategory) continue;
-        if (!isKnockoutRound(completed.round)) continue;
+        if (!getMatchKnockoutType(completed)) continue;
         const updates = getKnockoutPropagationUpdates(completed, allWithNew);
         const patch = updates.find(u => u.matchId === docRef.id);
         if (!patch) continue;
@@ -850,7 +1006,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     && !!form.startDateTime
     && autoPreviewTotal > 0
     && (matchFormat === 'pool'
-      ? getCategoryPools(selectedCategory!).some(p => getPoolMembers(p).length >= 2)
+      ? poolParticipantSource === 'knockout-winners'
+        ? poolSourceRounds.length > 0 && getKnockoutWinnerParticipants().length >= 2
+        : getCategoryPools(selectedCategory!).some(p => getPoolMembers(p).length >= 2)
       : true);
 
   const canCreateManual = setupMethod === 'manual'
@@ -858,7 +1016,10 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     && !!manualPlayer2Id
     && manualPlayer1Id !== manualPlayer2Id
     && !!form.startDateTime
-    && (isBracketFormat(matchFormat) || !!manualPoolId);
+    && (matchFormat === 'direct'
+      || isBracketFormat(matchFormat)
+      || (matchFormat === 'pool' && poolParticipantSource === 'roster' && !!manualPoolId)
+      || (matchFormat === 'pool' && poolParticipantSource === 'knockout-winners' && (!!manualPoolId || !!manualPoolSourceRound)));
 
   const memberLabel = selectedCategory && isTeamCat(selectedCategory) ? 'team' : 'player';
   const memberLabelCap = memberLabel === 'team' ? 'Team' : 'Player';
@@ -882,7 +1043,11 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
         autoPreviewTotal === 0 ? (
           <div className="flex items-center gap-2 text-amber-700 text-sm">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>No matches can be created — pools need at least 2 participants each.</span>
+            <span>
+              {poolParticipantSource === 'knockout-winners'
+                ? 'Select source rounds with at least 2 completed winners to generate round-robin matches.'
+                : 'No matches can be created — pools need at least 2 participants each.'}
+            </span>
           </div>
         ) : (
           <>
@@ -1208,7 +1373,11 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                 onClick={() => {
                   setMatchFormat('knockout');
                   setManualKnockoutRound(knockoutRound);
-                  setManualMatchRound(KNOCKOUT_PREV_ROUND[knockoutRound] ?? knockoutRound);
+                  const prevTypes = getPreviousKnockoutTypes(knockoutRound);
+                  const sourceRounds = selectedCategory
+                    ? prevTypes.flatMap(t => filterKnockoutMatchesForCategory(matches, t, selectedCategory).map(m => m.round))
+                    : [];
+                  setManualMatchRound(sourceRounds[0] ?? prevTypes[0] ?? knockoutRound);
                   resetManualForm();
                 }}
                 icon={Trophy}
@@ -1225,12 +1394,92 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                 title="IPL Playoff"
                 description="Q1, Eliminator, Q2, Final"
               />
+              {setupMethod === 'manual' && (
+                <SegmentedOption
+                  selected={matchFormat === 'direct'}
+                  onClick={() => {
+                    setMatchFormat('direct');
+                    resetManualForm();
+                  }}
+                  icon={Users}
+                  title="Direct"
+                  description="Pick any two players — no pool or bracket"
+                />
+              )}
             </div>
           </div>
 
           {/* Auto — Pool play options */}
           {setupMethod === 'auto' && matchFormat === 'pool' && (
             <div className="space-y-4">
+              <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                <Label className="text-xs font-medium text-gray-700">Participants from</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPoolParticipantSource('roster')}
+                    className={cn(
+                      'rounded-lg border-2 px-3 py-2 text-left text-sm transition-all bg-white',
+                      poolParticipantSource === 'roster' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300',
+                    )}
+                  >
+                    <div className="font-medium">Pool roster</div>
+                    <div className="text-xs text-gray-500">Round-robin within assigned pools</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPoolParticipantSource('knockout-winners')}
+                    className={cn(
+                      'rounded-lg border-2 px-3 py-2 text-left text-sm transition-all bg-white',
+                      poolParticipantSource === 'knockout-winners' ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300',
+                    )}
+                  >
+                    <div className="font-medium">Knockout winners</div>
+                    <div className="text-xs text-gray-500">Round-robin among winners from prior rounds</div>
+                  </button>
+                </div>
+              </div>
+
+              {poolParticipantSource === 'knockout-winners' ? (
+                <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                  <Label className="text-xs font-medium text-gray-700">Source rounds</Label>
+                  <p className="text-xs text-gray-500">Select one or more knockout rounds. Only completed matches with a winner are included.</p>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                    {getKnockoutSourceRoundOptions().length === 0 ? (
+                      <p className="text-xs text-amber-600">No knockout rounds found for this category yet.</p>
+                    ) : getKnockoutSourceRoundOptions().map(({ round, matchCount, resolvedWinners }) => (
+                      <label
+                        key={round}
+                        className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer hover:border-blue-300"
+                      >
+                        <Checkbox
+                          checked={poolSourceRounds.includes(round)}
+                          onCheckedChange={checked => togglePoolSourceRound(round, checked === true)}
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium">{round}</div>
+                          <div className="text-xs text-gray-500">
+                            {resolvedWinners}/{matchCount} winner{matchCount !== 1 ? 's' : ''} ready
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    <Label className="text-xs font-medium text-gray-700">Save matches under pool (optional)</Label>
+                    <Select value={selectedPoolId === 'all' ? 'all' : selectedPoolId} onValueChange={v => setSelectedPoolId(v === 'all' ? 'all' : v)}>
+                      <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Auto label (RR + round names)</SelectItem>
+                        {getCategoryPools(selectedCategory).map(pool => (
+                          <SelectItem key={pool.id} value={pool.id}>{pool.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
                 <Label className="text-xs font-medium text-gray-700">Pools to include</Label>
                 <div className="flex flex-col gap-2">
@@ -1292,6 +1541,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                 })}
                 </div>
               </div>
+              )}
               {renderAutoPreview()}
               {renderAutoSchedule()}
             </div>
@@ -1418,11 +1668,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                         const knockoutType = v as KnockoutRound;
                         setManualKnockoutRound(knockoutType);
                         setKnockoutRound(knockoutType);
-                        const rounds = getCategoryMatchRounds();
-                        const prevRound = KNOCKOUT_PREV_ROUND[knockoutType];
-                        const sourceRound = prevRound
-                          ? (rounds.find(r => r.round === prevRound)?.round ?? prevRound)
-                          : (rounds[0]?.round ?? knockoutType);
+                        const sourceRounds = getSourceDisplayRoundsForKnockoutType(knockoutType);
+                        const prevTypes = getPreviousKnockoutTypes(knockoutType);
+                        const sourceRound = sourceRounds[0] ?? prevTypes[0] ?? knockoutType;
                         setManualMatchRound(sourceRound);
                         resetManualForm();
                       }}
@@ -1438,7 +1686,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-gray-700">Round</Label>
+                    <Label className="text-xs font-medium text-gray-700">Source round</Label>
                     <Select
                       value={getActiveMatchRound()}
                       onValueChange={v => {
@@ -1455,6 +1703,19 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                     </Select>
                     <p className="text-xs text-gray-500">
                       Pick the source round — player options show its winners, or estimated winners if not yet played.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label className="text-xs font-medium text-gray-700">Round label (display)</Label>
+                    <Input
+                      type="text"
+                      placeholder={`e.g. MD QF — defaults to ${KNOCKOUT_ROUND_LABELS[manualKnockoutRound]}`}
+                      value={manualRoundLabel}
+                      onChange={e => setManualRoundLabel(e.target.value)}
+                      className="h-9 text-sm bg-white"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Shown on bracket cards. Match type ({manualKnockoutRound}) controls bracket position.
                     </p>
                   </div>
                 </div>
@@ -1508,26 +1769,84 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {matchFormat === 'pool' && (
+                {matchFormat === 'direct' && (
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label className="text-xs font-medium text-gray-700">Round (pool)</Label>
-                    <Select
-                      value={manualPoolId}
-                      onValueChange={v => {
-                        setManualPoolId(v);
-                        resetManualForm();
-                      }}
-                    >
-                      <SelectTrigger className="h-9 text-sm bg-white"><SelectValue placeholder="Select pool" /></SelectTrigger>
-                      <SelectContent>
-                        {getCategoryPools(selectedCategory).map(pool => (
-                          <SelectItem key={pool.id} value={pool.id}>
-                            {pool.name} ({getPoolMembers(pool).length} {memberLabel}s)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs font-medium text-gray-700">Round name</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g. Friendly, MS R3, Exhibition…"
+                      value={manualDirectRound}
+                      onChange={e => setManualDirectRound(e.target.value)}
+                      className="h-9 text-sm bg-white"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Choose any two {memberLabel}s from this category ({getCategoryParticipants().length} available).
+                    </p>
                   </div>
+                )}
+
+                {matchFormat === 'pool' && (
+                  <>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-xs font-medium text-gray-700">Participants from</Label>
+                      <Select
+                        value={poolParticipantSource}
+                        onValueChange={v => {
+                          setPoolParticipantSource(v as 'roster' | 'knockout-winners');
+                          resetManualForm();
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="roster">Pool roster</SelectItem>
+                          <SelectItem value="knockout-winners">Knockout round winners</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {poolParticipantSource === 'knockout-winners' && (
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs font-medium text-gray-700">Source round</Label>
+                        <Select
+                          value={manualPoolSourceRound || undefined}
+                          onValueChange={v => {
+                            setManualPoolSourceRound(v);
+                            resetManualForm();
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-sm bg-white"><SelectValue placeholder="Select round…" /></SelectTrigger>
+                          <SelectContent>
+                            {getKnockoutSourceRoundOptions().map(({ round, matchCount, resolvedWinners }) => (
+                              <SelectItem key={round} value={round}>
+                                {round} ({resolvedWinners}/{matchCount} winners)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500">
+                          Pick winners or estimated winners (e.g. Winner of R2 M1) from this round.
+                        </p>
+                      </div>
+                    )}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label className="text-xs font-medium text-gray-700">Round label (pool)</Label>
+                      <Select
+                        value={manualPoolId}
+                        onValueChange={v => {
+                          setManualPoolId(v);
+                          resetManualForm();
+                        }}
+                      >
+                        <SelectTrigger className="h-9 text-sm bg-white"><SelectValue placeholder="Select pool for round name…" /></SelectTrigger>
+                        <SelectContent>
+                          {getCategoryPools(selectedCategory).map(pool => (
+                            <SelectItem key={pool.id} value={pool.id}>
+                              {pool.name} ({getPoolMembers(pool).length} {memberLabel}s)
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 )}
 
                 <MemberSelectField
@@ -1535,9 +1854,17 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   value={manualPlayer1Id}
                   onChange={setManualPlayer1Id}
                   members={getManualMembers().filter(m => m.id !== manualPlayer2Id)}
-                  disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
+                  disabled={
+                    matchFormat === 'direct'
+                      ? getManualMembers().length === 0
+                      : matchFormat === 'pool'
+                        ? poolParticipantSource === 'roster'
+                          ? !manualPoolId
+                          : getManualMembers().length === 0
+                        : getManualMembers().length === 0
+                  }
                   memberLabel={memberLabel}
-                  includePoolName={matchFormat === 'knockout'}
+                  includePoolName={matchFormat === 'knockout' || matchFormat === 'direct'}
                   getDisplayLabel={getMemberDisplayLabel}
                 />
 
@@ -1546,12 +1873,38 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   value={manualPlayer2Id}
                   onChange={setManualPlayer2Id}
                   members={getManualMembers().filter(m => m.id !== manualPlayer1Id)}
-                  disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
+                  disabled={
+                    matchFormat === 'direct'
+                      ? getManualMembers().length === 0
+                      : matchFormat === 'pool'
+                        ? poolParticipantSource === 'roster'
+                          ? !manualPoolId
+                          : getManualMembers().length === 0
+                        : getManualMembers().length === 0
+                  }
                   memberLabel={memberLabel}
-                  includePoolName={matchFormat === 'knockout'}
+                  includePoolName={matchFormat === 'knockout' || matchFormat === 'direct'}
                   getDisplayLabel={getMemberDisplayLabel}
                 />
               </div>
+
+              {matchFormat === 'pool' && poolParticipantSource === 'knockout-winners' && (() => {
+                const rounds = setupMethod === 'manual'
+                  ? (manualPoolSourceRound ? [manualPoolSourceRound] : [])
+                  : poolSourceRounds;
+                const slots = getCombinedPoolSourceSlots();
+                const resolved = slots.filter(s => s.isResolved).length;
+                if (rounds.length === 0) {
+                  return <p className="text-xs text-amber-600">Select at least one source round above.</p>;
+                }
+                return (
+                  <p className="text-xs text-gray-600">
+                    {resolved === slots.length && slots.length > 0
+                      ? `${resolved} winner${resolved !== 1 ? 's' : ''} from ${rounds.join(', ')} available for round-robin.`
+                      : `${resolved}/${slots.length} results ready — remaining slots show as estimated winners.`}
+                  </p>
+                );
+              })()}
 
               {matchFormat === 'knockout' && (() => {
                 const knockoutCode = manualKnockoutRound;
@@ -1676,7 +2029,9 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                         ? `${KNOCKOUT_ROUND_LABELS[manualKnockoutRound]} (${manualKnockoutRound}) · from ${getActiveMatchRound()}`
                         : matchFormat === 'ipl-playoff'
                           ? `${IPL_PLAYOFF_ROUND_LABELS[iplPlayoffRound]} (${iplPlayoffRound})`
-                          : preview.pool?.name}
+                          : matchFormat === 'direct'
+                            ? preview.round
+                            : preview.pool?.name}
                     </span>
                   </div>
                 );
@@ -1707,6 +2062,8 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   <Trophy className="h-4 w-4" />
                 ) : matchFormat === 'ipl-playoff' ? (
                   <Medal className="h-4 w-4" />
+                ) : matchFormat === 'direct' ? (
+                  <Users className="h-4 w-4" />
                 ) : (
                   <Swords className="h-4 w-4" />
                 )}

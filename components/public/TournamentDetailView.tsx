@@ -14,6 +14,9 @@ import {
   KNOCKOUT_ROUND_LABELS,
   isKnockoutRound,
   isKnockoutStageMatch,
+  getMatchKnockoutType,
+  getCategoryBracketMatches,
+  filterKnockoutMatchesForCategory,
   getMatchWinner,
   getMatchLoser,
   extractBracketSrcMatchNo,
@@ -1167,7 +1170,8 @@ interface BSlot {
   scoreStr?: string;
 }
 
-function bracketRoundLabel(round: string): string {
+function bracketRoundLabel(round: string, match?: Match): string {
+  if (match && getMatchKnockoutType(match) && match.round) return match.round;
   if (isKnockoutRound(round)) return KNOCKOUT_ROUND_LABELS[round];
   const ipl = normalizeIplPlayoffRound(round);
   if (ipl) return IPL_PLAYOFF_ROUND_LABELS[ipl];
@@ -1495,7 +1499,7 @@ function IplPlayoffBracketView({
       p1LogoUrl: p1.logoUrl,
       p2LogoUrl: p2.logoUrl,
       matchLabel: label,
-      roundStr: bracketRoundLabel(m.round),
+      roundStr: bracketRoundLabel(m.round, m),
       matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       ...bracketScheduleFields(m),
       status: m.status,
@@ -1621,6 +1625,7 @@ function KnockoutBracketView({
   const catPools = pools.filter(p => p.category === category);
   const bracketOpts = { teams, registrations: participants, categoryQualifyCounts: tournament.categoryQualifyCounts };
   const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
+  const poolNames = new Set(pools.map(p => p.name));
 
   const getMatchCategory = (m: Match): string | undefined => {
     if (m.category) return m.category;
@@ -1637,8 +1642,9 @@ function KnockoutBracketView({
     return undefined;
   };
 
-  const catMatches = allMatches.filter(m => getMatchCategory(m) === category && !isRubberMatch(m));
+  const catMatches = getCategoryBracketMatches(allMatches, category, poolNames, getMatchCategory);
   const usesIplPlayoff = catMatches.some(m => isIplPlayoffSpecificRound(m.round));
+  const poolRoundNames = new Set(catPools.map(p => p.name));
 
   if (usesIplPlayoff) {
     return (
@@ -1651,18 +1657,24 @@ function KnockoutBracketView({
     );
   }
 
-  const byRound = (r: string) =>
-    catMatches.filter(m => m.round === r)
-      .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
+  const sortMatches = (list: Match[]) =>
+    [...list].sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
 
-  const koMatches = byRound('KO');
-  const qfMatches = byRound('QF');
-  const sfMatches = byRound('SF');
-  const fMatches = byRound('F');
-  const tpMatches = byRound('TP');
+  const koMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'KO', category));
+  const pqMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'PQ', category));
+  const qfMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'QF', category));
+  const sfMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'SF', category));
+  const fMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'F', category));
+  const tpMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'TP', category));
 
-  // Only predict SF/F/TP from prior-round results — QF is never predicted from pool standings
-  const sfExpected = sfMatches.length === 0
+  const hasCustomKnockoutRounds = catMatches.some(m =>
+    !getMatchKnockoutType(m)
+    && !isIplPlayoffSpecificRound(m.round)
+    && !poolRoundNames.has(m.round),
+  );
+
+  // Only predict SF from pool when no actual QF/custom knockout rounds exist yet
+  const sfExpected = sfMatches.length === 0 && qfMatches.length === 0 && !hasCustomKnockoutRounds
     ? previewKnockoutRound('SF', category, catPools, allMatches, bracketOpts).pairings
     : [];
 
@@ -1699,7 +1711,7 @@ function KnockoutBracketView({
       p1LogoUrl: p1.logoUrl,
       p2LogoUrl: p2.logoUrl,
       matchLabel: label,
-      roundStr: bracketRoundLabel(m.round),
+      roundStr: bracketRoundLabel(m.round, m),
       matchNumber: m.matchNumber != null ? String(m.matchNumber) : undefined,
       ...bracketScheduleFields(m),
       status: m.status,
@@ -1709,6 +1721,7 @@ function KnockoutBracketView({
 
   // QF column — only show admin-generated actual matches, never predict from pool standings
   const koSlots: BSlot[] = koMatches.map((m, i) => matchToSlot(m, `KO ${i + 1}`));
+  const pqSlots: BSlot[] = pqMatches.map((m, i) => matchToSlot(m, `PQ ${i + 1}`));
   const qfSlotsRaw: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
 
   // Reorder QF so that the two QF matches feeding the same SF are always adjacent.
@@ -1788,27 +1801,25 @@ function KnockoutBracketView({
 
   const columns: { label: string; slots: BSlot[] }[] = [];
   if (koSlots.length > 0) columns.push({ label: KNOCKOUT_ROUND_LABELS.KO, slots: koSlots });
+  if (pqSlots.length > 0) columns.push({ label: KNOCKOUT_ROUND_LABELS.PQ, slots: pqSlots });
   if (qfSlots.length > 0) columns.push({ label: 'Quarter Final', slots: qfSlots });
   if (sfSlots.length > 0) columns.push({ label: 'Semi Final', slots: sfSlots });
   if (fSlots.length > 0) columns.push({ label: 'Final', slots: fSlots });
 
-  if (columns.length === 0) {
-    const poolRoundNames = new Set(catPools.map(p => p.name));
-    const customRoundNames = [...new Set(
-      catMatches
-        .filter(m => !isKnockoutRound(m.round) && !isIplPlayoffSpecificRound(m.round))
-        .filter(m => !poolRoundNames.has(m.round))
-        .map(m => m.round),
-    )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const customRoundNames = [...new Set(
+    catMatches
+      .filter(m => !getMatchKnockoutType(m) && !isIplPlayoffSpecificRound(m.round))
+      .filter(m => !poolRoundNames.has(m.round))
+      .map(m => m.round),
+  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-    for (const roundName of customRoundNames) {
-      const roundMatches = byRound(roundName);
-      if (roundMatches.length === 0) continue;
-      columns.push({
-        label: bracketRoundLabel(roundName),
-        slots: roundMatches.map((m, i) => matchToSlot(m, `${roundName} ${i + 1}`, roundMatches)),
-      });
-    }
+  for (const roundName of customRoundNames) {
+    const roundMatches = sortMatches(catMatches.filter(m => m.round === roundName));
+    if (roundMatches.length === 0) continue;
+    columns.push({
+      label: bracketRoundLabel(roundName),
+      slots: roundMatches.map((m, i) => matchToSlot(m, `${roundName} ${i + 1}`, roundMatches)),
+    });
   }
 
   if (columns.length === 0) {
