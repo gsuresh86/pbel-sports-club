@@ -4,15 +4,31 @@ import { isRubberMatch } from '@/lib/teamMatchRubbers';
 
 export type NameLookupEntry = { id: string; name: string };
 
-export const KNOCKOUT_ROUNDS = ['QF', 'SF', 'F', 'TP'] as const;
+export const KNOCKOUT_ROUNDS = ['KO', 'QF', 'SF', 'F', 'TP'] as const;
 export type KnockoutRound = (typeof KNOCKOUT_ROUNDS)[number];
 
 export const KNOCKOUT_ROUND_LABELS: Record<KnockoutRound, string> = {
+  KO: 'Knockout',
   QF: 'Quarter Final',
   SF: 'Semi Final',
   F: 'Final',
   TP: 'Third Place',
 };
+
+/** Show the preliminary Knockout round when any pool or total field exceeds 8. */
+export function shouldOfferPreliminaryKnockoutRound(
+  pools: Pool[],
+  memberCount: (pool: Pool) => number,
+): boolean {
+  if (pools.length === 0) return false;
+  const maxPoolSize = Math.max(...pools.map(memberCount));
+  const totalMembers = pools.reduce((sum, pool) => sum + memberCount(pool), 0);
+  return maxPoolSize > 8 || totalMembers > 8;
+}
+
+export function getAvailableKnockoutRounds(offerKo: boolean): KnockoutRound[] {
+  return offerKo ? [...KNOCKOUT_ROUNDS] : KNOCKOUT_ROUNDS.filter(r => r !== 'KO');
+}
 
 export function isKnockoutRound(round: string): round is KnockoutRound {
   return (KNOCKOUT_ROUNDS as readonly string[]).includes(round);
@@ -399,6 +415,7 @@ export function getKnockoutPropagationClearUpdates(
 }
 
 const KNOCKOUT_PREV_ROUND: Partial<Record<KnockoutRound, KnockoutRound>> = {
+  QF: 'KO',
   SF: 'QF',
   F: 'SF',
   TP: 'SF',
@@ -411,7 +428,7 @@ export function resolveKnockoutBracketSide(
   match: Match,
   allMatches: Match[],
 ): string | null {
-  if (!isKnockoutRound(match.round) || match.round === 'QF') return null;
+  if (!isKnockoutRound(match.round) || match.round === 'KO') return null;
   if (!isKnockoutBracketPlaceholder(playerId, playerName)) return null;
 
   const prevRound = KNOCKOUT_PREV_ROUND[match.round];
@@ -505,19 +522,57 @@ export function previewKnockoutRound(
   const warnings: string[] = [];
   const catPools = pools.filter(p => p.category === category);
   const isTeamCat = isTeamCategory(category);
+  const qualifiedData = getQualifiedByPool(catPools, matches, {
+    isTeamCat,
+    teams: options.teams,
+    registrations: options.registrations,
+    categoryQualifyCounts: options.categoryQualifyCounts,
+  });
+  const qualifyCount = getCategoryQualifyCount(category, options.categoryQualifyCounts);
+  const byPool = qualifiedData.map(d => d.qualified);
+  const allQualified = byPool.flat();
+
+  if (round === 'KO') {
+    if (allQualified.length <= 8) {
+      warnings.push('Knockout round is intended when more than 8 players qualify.');
+    }
+    const existingKO = matches.filter(m => m.round === 'KO' && m.category === category);
+    if (existingKO.length > 0) {
+      warnings.push(`${existingKO.length} Knockout match(es) already exist for this category.`);
+    }
+    const pairings = buildSeededBracketPairings(allQualified);
+    if (pairings.length === 0) {
+      warnings.push('No pairings could be built. Complete pool matches and verify qualification settings.');
+    }
+    return {
+      pairings,
+      warnings,
+      qualifiedCount: allQualified.length,
+    };
+  }
 
   if (round === 'QF') {
-    if (catPools.length < 2) {
-      warnings.push('At least 2 pools are required for cross-pool knockout.');
+    const koMatches = filterKnockoutMatchesForCategory(matches, 'KO', category);
+    if (koMatches.length > 0) {
+      const incomplete = koMatches.filter(m => m.status !== 'completed');
+      if (incomplete.length > 0) {
+        warnings.push(`${incomplete.length} Knockout match(es) are not completed yet.`);
+      }
+      const participants = getRoundParticipants(matches, 'KO', category, 'winners');
+      const existingQF = matches.filter(m => m.round === 'QF' && m.category === category);
+      if (existingQF.length > 0) {
+        warnings.push(`${existingQF.length} QF match(es) already exist for this category.`);
+      }
+      const pairings = buildNextRoundPairings(participants);
+      if (participants.length < 2) {
+        warnings.push('Not enough winners from Knockout to build Quarter Finals.');
+      }
+      return { pairings, warnings, qualifiedCount: participants.length };
     }
-    const qualifiedData = getQualifiedByPool(catPools, matches, {
-      isTeamCat,
-      teams: options.teams,
-      registrations: options.registrations,
-      categoryQualifyCounts: options.categoryQualifyCounts,
-    });
-    const qualifyCount = getCategoryQualifyCount(category, options.categoryQualifyCounts);
-    const byPool = qualifiedData.map(d => d.qualified);
+
+    if (catPools.length < 2) {
+      warnings.push('At least 2 pools are required for cross-pool quarter finals.');
+    }
     const shortPools = qualifiedData.filter(d => d.qualified.length < qualifyCount);
     if (shortPools.length > 0) {
       warnings.push(
@@ -535,12 +590,13 @@ export function previewKnockoutRound(
     return {
       pairings,
       warnings,
-      qualifiedCount: byPool.reduce((s, q) => s + q.length, 0),
+      qualifiedCount: allQualified.length,
     };
   }
 
   const prevRound: Record<KnockoutRound, KnockoutRound | null> = {
-    QF: null,
+    KO: null,
+    QF: 'KO',
     SF: 'QF',
     F: 'SF',
     TP: 'SF',

@@ -10,6 +10,8 @@ import {
   bracketMatchNumbersMatch,
   getKnockoutPropagationUpdates,
   orderQfIndicesForSfBracket,
+  shouldOfferPreliminaryKnockoutRound,
+  getAvailableKnockoutRounds,
 } from './knockoutBracket';
 import type { Match, Pool } from '@/types';
 
@@ -64,6 +66,25 @@ test('buildQFPairings uses cross-pool when qualify count is 2', () => {
   assert.deepEqual(
     pairings.map(p => [p.player1.id, p.player2.id]),
     [['A1', 'B2'], ['B1', 'A2']],
+  );
+});
+
+test('getAvailableKnockoutRounds includes KO only when preliminary round is offered', () => {
+  assert.deepEqual(getAvailableKnockoutRounds(false), ['QF', 'SF', 'F', 'TP']);
+  assert.deepEqual(getAvailableKnockoutRounds(true), ['KO', 'QF', 'SF', 'F', 'TP']);
+});
+
+test('shouldOfferPreliminaryKnockoutRound when pool or total exceeds 8', () => {
+  const pools: Pool[] = [
+    { id: 'p1', tournamentId: 't1', name: 'A', category: 'mens-single', teams: Array.from({ length: 9 }, (_, i) => `p${i}`), maxTeams: 12, status: 'active', createdAt: new Date(), createdBy: 'u1' },
+  ];
+  assert.equal(shouldOfferPreliminaryKnockoutRound(pools, p => p.teams.length), true);
+  assert.equal(
+    shouldOfferPreliminaryKnockoutRound(
+      [{ ...pools[0], teams: ['a', 'b', 'c'] }],
+      p => p.teams.length,
+    ),
+    false,
   );
 });
 

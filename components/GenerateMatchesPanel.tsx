@@ -16,12 +16,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DateTimePickerInput } from '@/components/ui/date-picker-input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
   Check,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Users,
   Layers,
   Swords,
@@ -32,10 +34,12 @@ import {
   Wand2,
   Hand,
   Medal,
+  Search,
 } from 'lucide-react';
 import {
-  KNOCKOUT_ROUNDS,
   KNOCKOUT_ROUND_LABELS,
+  getAvailableKnockoutRounds,
+  shouldOfferPreliminaryKnockoutRound,
   type KnockoutRound,
   previewKnockoutRound,
   getCategoryQualifyCount,
@@ -85,6 +89,102 @@ interface SlotMember {
   name: string;
   slotLabel: string;
   isResolved: boolean;
+}
+
+function MemberSelectField({
+  label,
+  value,
+  onChange,
+  members,
+  disabled,
+  memberLabel,
+  includePoolName,
+  getDisplayLabel,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  members: Array<{ id: string; name: string } & Partial<SlotMember>>;
+  disabled?: boolean;
+  memberLabel: string;
+  includePoolName?: boolean;
+  getDisplayLabel: (member: { id: string; name: string } & Partial<SlotMember>, includePool?: boolean) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = members.find(m => m.id === value);
+  const query = search.trim().toLowerCase();
+  const filteredMembers = query
+    ? members.filter(member => getDisplayLabel(member, includePoolName).toLowerCase().includes(query))
+    : members;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-gray-700">{label}</Label>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setSearch('');
+        }}
+      >
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            className="h-9 w-full justify-between bg-white px-3 text-sm font-normal"
+          >
+            <span className="truncate text-left">
+              {selected ? getDisplayLabel(selected, includePoolName) : `Select ${memberLabel}`}
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="z-[100] w-[var(--radix-popover-trigger-width)] p-0"
+          align="start"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="border-b border-gray-100 p-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search ${memberLabel}…`}
+                className="h-8 pl-8 text-xs"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto p-1">
+            {filteredMembers.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-500">No matches found.</p>
+            ) : (
+              filteredMembers.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={cn(
+                    'flex w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground',
+                    value === m.id && 'bg-accent text-accent-foreground',
+                  )}
+                  onClick={() => {
+                    onChange(m.id);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                >
+                  {getDisplayLabel(m, includePoolName)}
+                </button>
+              ))
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 function label(cat: string) {
@@ -211,7 +311,12 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
 
   const getPreviousRoundSlots = (): SlotMember[] | null => {
     if (!selectedCategory) return null;
-    const prevRoundMap: Partial<Record<KnockoutRound, KnockoutRound>> = { SF: 'QF', F: 'SF', TP: 'SF' };
+    const prevRoundMap: Partial<Record<KnockoutRound, KnockoutRound>> = {
+      QF: 'KO',
+      SF: 'QF',
+      F: 'SF',
+      TP: 'SF',
+    };
     const prevRound = prevRoundMap[knockoutRound];
     if (!prevRound) return null;
 
@@ -331,6 +436,24 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     setManualMatchNo('');
   };
 
+  const getKnockoutRoundOptions = (): KnockoutRound[] => {
+    if (!selectedCategory) return getAvailableKnockoutRounds(false);
+    const catPools = getCategoryPools(selectedCategory);
+    const offerKo = shouldOfferPreliminaryKnockoutRound(catPools, pool => getPoolMembers(pool).length);
+    return getAvailableKnockoutRounds(offerKo);
+  };
+
+  const getMemberDisplayLabel = (
+    member: { id: string; name: string } & Partial<SlotMember>,
+    forKnockoutPoolHint = false,
+  ) => {
+    const poolName = !member.slotLabel ? pools.find(p => p.teams.includes(member.id))?.name : undefined;
+    if (member.slotLabel) {
+      return member.isResolved ? `${member.slotLabel} — ${member.name}` : member.slotLabel;
+    }
+    return member.name + (poolName && forKnockoutPoolHint ? ` · ${poolName}` : '');
+  };
+
   // Auto-fill previous round winners/losers when they become available
   useEffect(() => {
     if (setupMethod !== 'manual' || !isBracketFormat(matchFormat)) return;
@@ -346,6 +469,16 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [knockoutRound, iplPlayoffRound, selectedCategory, setupMethod, matchFormat, matches]);
+
+  useEffect(() => {
+    if (matchFormat !== 'knockout' || !selectedCategory) return;
+    const options = getKnockoutRoundOptions();
+    if (!options.includes(knockoutRound)) {
+      setKnockoutRound(options[0] ?? 'QF');
+      resetManualForm();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, matchFormat, pools, teams, registrations]);
 
   const getManualPreview = () => {
     const members = getManualMembers();
@@ -1088,7 +1221,7 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                 <Select value={knockoutRound} onValueChange={v => setKnockoutRound(v as KnockoutRound)}>
                   <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {KNOCKOUT_ROUNDS.map(r => (
+                    {getKnockoutRoundOptions().map(r => (
                       <SelectItem key={r} value={r}>{KNOCKOUT_ROUND_LABELS[r]} ({r})</SelectItem>
                     ))}
                   </SelectContent>
@@ -1113,6 +1246,11 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   Top N from each pool&apos;s standings qualify. Override per pool in Pool Assignment.
                 </p>
               </div>
+              {knockoutRound === 'KO' && (
+                <p className="text-xs text-gray-500 rounded-lg bg-white border border-gray-100 p-3">
+                  Preliminary knockout for fields larger than 8. Top seeds are paired (1 vs last, 2 vs second-last, etc.).
+                </p>
+              )}
               {knockoutRound === 'QF' && (
                 <p className="text-xs text-gray-500 rounded-lg bg-white border border-gray-100 p-3">
                   Cross-pool pairing: Pool A #1 vs Pool B #2, Pool B #1 vs Pool C #2, and so on.
@@ -1192,12 +1330,18 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   <Select value={knockoutRound} onValueChange={v => setKnockoutRound(v as KnockoutRound)}>
                     <SelectTrigger className="h-9 text-sm bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {KNOCKOUT_ROUNDS.map(r => (
+                      {getKnockoutRoundOptions().map(r => (
                         <SelectItem key={r} value={r}>{KNOCKOUT_ROUND_LABELS[r]} ({r})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+              )}
+
+              {matchFormat === 'knockout' && getKnockoutRoundOptions().includes('KO') && knockoutRound !== 'KO' && (
+                <p className="text-xs text-gray-500 rounded-lg bg-white border border-gray-100 p-3">
+                  More than 8 players qualify — use the Knockout round first, then Quarter Finals from winners.
+                </p>
               )}
 
               {matchFormat === 'ipl-playoff' && (
@@ -1264,64 +1408,47 @@ export default function GenerateMatchesPanel({ tournament, user, onNotify, onGen
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-700">{memberLabelCap} 1</Label>
-                  <Select
-                    value={manualPlayer1Id}
-                    onValueChange={setManualPlayer1Id}
-                    disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
-                  >
-                    <SelectTrigger className="h-9 text-sm bg-white">
-                      <SelectValue placeholder={`Select ${memberLabel}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getManualMembers()
-                        .filter(m => m.id !== manualPlayer2Id)
-                        .map(m => {
-                          const slot = m as Partial<SlotMember>;
-                          const poolName = !slot.slotLabel ? pools.find(p => p.teams.includes(m.id))?.name : undefined;
-                          const displayLabel = slot.slotLabel
-                            ? (slot.isResolved ? `${slot.slotLabel} — ${m.name}` : slot.slotLabel)
-                            : (m.name + (poolName && matchFormat === 'knockout' ? ` · ${poolName}` : ''));
-                          return (
-                            <SelectItem key={m.id} value={m.id}>{displayLabel}</SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <MemberSelectField
+                  label={`${memberLabelCap} 1`}
+                  value={manualPlayer1Id}
+                  onChange={setManualPlayer1Id}
+                  members={getManualMembers().filter(m => m.id !== manualPlayer2Id)}
+                  disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
+                  memberLabel={memberLabel}
+                  includePoolName={matchFormat === 'knockout'}
+                  getDisplayLabel={getMemberDisplayLabel}
+                />
 
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-700">{memberLabelCap} 2</Label>
-                  <Select
-                    value={manualPlayer2Id}
-                    onValueChange={setManualPlayer2Id}
-                    disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
-                  >
-                    <SelectTrigger className="h-9 text-sm bg-white">
-                      <SelectValue placeholder={`Select ${memberLabel}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getManualMembers()
-                        .filter(m => m.id !== manualPlayer1Id)
-                        .map(m => {
-                          const slot = m as Partial<SlotMember>;
-                          const poolName = !slot.slotLabel ? pools.find(p => p.teams.includes(m.id))?.name : undefined;
-                          const displayLabel = slot.slotLabel
-                            ? (slot.isResolved ? `${slot.slotLabel} — ${m.name}` : slot.slotLabel)
-                            : (m.name + (poolName && matchFormat === 'knockout' ? ` · ${poolName}` : ''));
-                          return (
-                            <SelectItem key={m.id} value={m.id}>{displayLabel}</SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <MemberSelectField
+                  label={`${memberLabelCap} 2`}
+                  value={manualPlayer2Id}
+                  onChange={setManualPlayer2Id}
+                  members={getManualMembers().filter(m => m.id !== manualPlayer1Id)}
+                  disabled={matchFormat === 'pool' ? !manualPoolId : getManualMembers().length === 0}
+                  memberLabel={memberLabel}
+                  includePoolName={matchFormat === 'knockout'}
+                  getDisplayLabel={getMemberDisplayLabel}
+                />
               </div>
 
               {matchFormat === 'knockout' && (() => {
                 const slots = getPreviousRoundSlots();
-                const prevRoundLabel = knockoutRound === 'SF' ? 'QF' : knockoutRound === 'TP' ? 'SF' : knockoutRound === 'F' ? 'SF' : null;
+                const prevRoundLabel = knockoutRound === 'QF'
+                  ? 'KO'
+                  : knockoutRound === 'SF'
+                    ? 'QF'
+                    : knockoutRound === 'TP'
+                      ? 'SF'
+                      : knockoutRound === 'F'
+                        ? 'SF'
+                        : null;
+                if (knockoutRound === 'KO') {
+                  return (
+                    <p className="text-xs text-gray-600">
+                      Pick any two qualified {memberLabel}s for this preliminary knockout match.
+                    </p>
+                  );
+                }
                 if (!prevRoundLabel) {
                   return <p className="text-xs text-gray-600">Pick any two qualified {memberLabel}s from across pools for this knockout match.</p>;
                 }

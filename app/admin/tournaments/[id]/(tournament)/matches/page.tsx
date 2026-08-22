@@ -216,7 +216,7 @@ export default function MatchesPage() {
 
   const getEditSideOptions = (match: Match): EditSideOption[] => {
     const category = getMatchCategory(match);
-    if (isKnockoutRound(match.round) && match.round !== 'QF' && category) {
+    if (isKnockoutRound(match.round) && match.round !== 'KO' && category) {
       const slots = getKnockoutSlotMembers(match.round, category as CategoryType, topLevelMatches);
       if (slots?.length) return slotsToEditOptions(slots);
     }
