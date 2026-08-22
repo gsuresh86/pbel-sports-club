@@ -13,6 +13,7 @@ import {
   previewKnockoutRound,
   KNOCKOUT_ROUND_LABELS,
   isKnockoutRound,
+  isKnockoutStageMatch,
   getMatchWinner,
   getMatchLoser,
   extractBracketSrcMatchNo,
@@ -166,8 +167,8 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
     list.sort((a, b) => (a.rubberNumber ?? 0) - (b.rubberNumber ?? 0));
   }
 
-  const KNOCKOUT_ROUND_SET = new Set(['QF', 'SF', 'F', 'TP']);
   const poolNameToCategory = new Map(pools.map(p => [p.name, p.category]));
+  const poolNames = new Set(pools.map(p => p.name));
 
   const getMatchCategory = (m: Match): string | undefined => {
     if (m.category) return m.category;
@@ -187,7 +188,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   const knockoutCats = [
     ...new Set(
       matches
-        .filter(m => KNOCKOUT_ROUND_SET.has(m.round) || isIplPlayoffSpecificRound(m.round))
+        .filter(m => isKnockoutStageMatch(m, poolNames) || isIplPlayoffSpecificRound(m.round))
         .map(getMatchCategory)
         .filter((c): c is string => !!c),
     ),
@@ -1654,6 +1655,7 @@ function KnockoutBracketView({
     catMatches.filter(m => m.round === r)
       .sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
 
+  const koMatches = byRound('KO');
   const qfMatches = byRound('QF');
   const sfMatches = byRound('SF');
   const fMatches = byRound('F');
@@ -1706,6 +1708,7 @@ function KnockoutBracketView({
   };
 
   // QF column — only show admin-generated actual matches, never predict from pool standings
+  const koSlots: BSlot[] = koMatches.map((m, i) => matchToSlot(m, `KO ${i + 1}`));
   const qfSlotsRaw: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
 
   // Reorder QF so that the two QF matches feeding the same SF are always adjacent.
@@ -1784,9 +1787,29 @@ function KnockoutBracketView({
       })();
 
   const columns: { label: string; slots: BSlot[] }[] = [];
+  if (koSlots.length > 0) columns.push({ label: KNOCKOUT_ROUND_LABELS.KO, slots: koSlots });
   if (qfSlots.length > 0) columns.push({ label: 'Quarter Final', slots: qfSlots });
   if (sfSlots.length > 0) columns.push({ label: 'Semi Final', slots: sfSlots });
   if (fSlots.length > 0) columns.push({ label: 'Final', slots: fSlots });
+
+  if (columns.length === 0) {
+    const poolRoundNames = new Set(catPools.map(p => p.name));
+    const customRoundNames = [...new Set(
+      catMatches
+        .filter(m => !isKnockoutRound(m.round) && !isIplPlayoffSpecificRound(m.round))
+        .filter(m => !poolRoundNames.has(m.round))
+        .map(m => m.round),
+    )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    for (const roundName of customRoundNames) {
+      const roundMatches = byRound(roundName);
+      if (roundMatches.length === 0) continue;
+      columns.push({
+        label: bracketRoundLabel(roundName),
+        slots: roundMatches.map((m, i) => matchToSlot(m, `${roundName} ${i + 1}`, roundMatches)),
+      });
+    }
+  }
 
   if (columns.length === 0) {
     return (

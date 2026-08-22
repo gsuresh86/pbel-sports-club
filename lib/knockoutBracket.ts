@@ -34,6 +34,17 @@ export function isKnockoutRound(round: string): round is KnockoutRound {
   return (KNOCKOUT_ROUNDS as readonly string[]).includes(round);
 }
 
+/** True for bracket/knockout matches (standard codes, or category set with non-pool round). */
+export function isKnockoutStageMatch(
+  match: Match,
+  poolNames: ReadonlySet<string>,
+): boolean {
+  if (isRubberMatch(match)) return false;
+  if (isKnockoutRound(match.round)) return true;
+  if (match.category && !poolNames.has(match.round)) return true;
+  return false;
+}
+
 export interface BracketSlotMember {
   id: string;
   name: string;
