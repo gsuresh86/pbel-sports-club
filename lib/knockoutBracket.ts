@@ -97,6 +97,100 @@ export function getCategoryBracketMatches(
 
 export const STANDARD_KNOCKOUT_ROUNDS = ['KO', 'QF', 'SF', 'F', 'TP'] as const;
 
+const KNOCKOUT_TYPE_SORT_ORDER: Record<KnockoutRound, number> = {
+  KO: 0,
+  PQ: 1,
+  QF: 2,
+  SF: 3,
+  F: 4,
+  TP: 99,
+};
+
+const ROUND_SEQ_UNKNOWN = 100;
+
+export interface KnockoutRoundColumn {
+  round: string;
+  knockoutType: KnockoutRound | null;
+  matches: Match[];
+}
+
+/** Parse R2 / Round 3 / etc. from a display round label for column ordering. */
+export function parseRoundSequenceLabel(round: string): number {
+  const rNum = round.match(/\bR(?:OUND)?\s*(\d+)\b/i);
+  if (rNum) return parseInt(rNum[1], 10);
+  if (/\bKO\b|KNOCK[\s-]*OUT/i.test(round)) return 10;
+  if (/\bPQ\b|PRE[\s-]*QUART/i.test(round)) return 15;
+  if (/\bQF\b|QUARTER[\s-]*FINAL/i.test(round)) return 20;
+  if (/\bSF\b|SEMI[\s-]*FINAL/i.test(round)) return 30;
+  if (/\bFINAL\b/i.test(round) && !/SEMI|QUARTER/i.test(round)) return 40;
+  return ROUND_SEQ_UNKNOWN;
+}
+
+/** Parse M1 / … M5 / trailing digits from a match number for ordering within a round. */
+export function parseMatchSequenceNumber(matchNumber: string | number): number {
+  const s = String(matchNumber).trim();
+  const mSuffix = s.match(/\bM\s*(\d+)\s*$/i);
+  if (mSuffix) return parseInt(mSuffix[1], 10);
+  const tail = s.match(/(\d+)\s*$/);
+  if (tail) return parseInt(tail[1], 10);
+  const n = Number(s);
+  return Number.isFinite(n) ? n : ROUND_SEQ_UNKNOWN;
+}
+
+export function compareBracketMatchesByNumber(a: Match, b: Match): number {
+  const diff = parseMatchSequenceNumber(a.matchNumber) - parseMatchSequenceNumber(b.matchNumber);
+  if (diff !== 0) return diff;
+  return String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true });
+}
+
+export function compareKnockoutRoundColumns(
+  a: Pick<KnockoutRoundColumn, 'round' | 'knockoutType'>,
+  b: Pick<KnockoutRoundColumn, 'round' | 'knockoutType'>,
+): number {
+  const roundSeqA = parseRoundSequenceLabel(a.round);
+  const roundSeqB = parseRoundSequenceLabel(b.round);
+  if (roundSeqA !== roundSeqB) {
+    if (roundSeqA < ROUND_SEQ_UNKNOWN || roundSeqB < ROUND_SEQ_UNKNOWN) {
+      return roundSeqA - roundSeqB;
+    }
+  }
+  const typeA = a.knockoutType ? KNOCKOUT_TYPE_SORT_ORDER[a.knockoutType] : 50;
+  const typeB = b.knockoutType ? KNOCKOUT_TYPE_SORT_ORDER[b.knockoutType] : 50;
+  if (typeA !== typeB) return typeA - typeB;
+  if (roundSeqA !== roundSeqB) return roundSeqA - roundSeqB;
+  return a.round.localeCompare(b.round, undefined, { numeric: true });
+}
+
+/** Group bracket matches into ordered round columns (excludes third-place). */
+export function groupKnockoutRoundColumns(
+  matches: Match[],
+  category: CategoryType,
+  poolNames: ReadonlySet<string>,
+  inferCategory?: (match: Match) => string | undefined,
+): KnockoutRoundColumn[] {
+  const bracketMatches = getCategoryBracketMatches(matches, category, poolNames, inferCategory)
+    .filter(m => !poolNames.has(m.round))
+    .filter(m => getMatchKnockoutType(m) !== 'TP');
+
+  const groups = new Map<string, Match[]>();
+  for (const m of bracketMatches) {
+    const list = groups.get(m.round) ?? [];
+    list.push(m);
+    groups.set(m.round, list);
+  }
+
+  return Array.from(groups.entries())
+    .map(([round, roundMatches]) => {
+      const knockoutType = roundMatches.map(getMatchKnockoutType).find(t => t != null && t !== 'TP') ?? null;
+      return {
+        round,
+        knockoutType,
+        matches: [...roundMatches].sort(compareBracketMatchesByNumber),
+      };
+    })
+    .sort(compareKnockoutRoundColumns);
+}
+
 export interface BracketSlotMember {
   id: string;
   name: string;

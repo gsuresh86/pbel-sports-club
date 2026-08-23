@@ -15,6 +15,11 @@ import {
   getMatchKnockoutType,
   inferKnockoutTypeFromRoundLabel,
   formatRoundWinnerSlotLabel,
+  groupKnockoutRoundColumns,
+  compareKnockoutRoundColumns,
+  compareBracketMatchesByNumber,
+  parseRoundSequenceLabel,
+  parseMatchSequenceNumber,
 } from './knockoutBracket';
 import type { Match, Pool } from '@/types';
 
@@ -298,4 +303,41 @@ test('filterKnockoutMatchesForCategory groups by knockoutType with custom round 
 test('formatRoundWinnerSlotLabel avoids duplicate round prefix', () => {
   assert.equal(formatRoundWinnerSlotLabel('MD QF', 'MD QF1', 'winners'), 'Winner of MD QF1');
   assert.equal(formatRoundWinnerSlotLabel('MD QF', '1', 'winners'), 'Winner of MD QF 1');
+});
+
+test('parseRoundSequenceLabel orders BU13 R2 before R3', () => {
+  assert.equal(parseRoundSequenceLabel('BU13 R2'), 2);
+  assert.equal(parseRoundSequenceLabel('BU13 R3'), 3);
+  assert.ok(parseRoundSequenceLabel('BU13 R2') < parseRoundSequenceLabel('BU13 R3'));
+});
+
+test('compareBracketMatchesByNumber sorts M suffixes', () => {
+  const mk = (mn: string): Match => ({
+    id: mn, tournamentId: 't1', round: 'BU13 R2', category: 'boys-under-13',
+    matchNumber: mn, player1Id: 'a', player1Name: 'A', player2Id: 'b', player2Name: 'B',
+    status: 'scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+  });
+  const sorted = [mk('BU13 R2 M5'), mk('BU13 R2 M1'), mk('BU13 R2 M3')].sort(compareBracketMatchesByNumber);
+  assert.deepEqual(sorted.map(m => m.matchNumber), ['BU13 R2 M1', 'BU13 R2 M3', 'BU13 R2 M5']);
+});
+
+test('groupKnockoutRoundColumns orders rounds and matches', () => {
+  const mk = (round: string, mn: string, knockoutType?: Match['knockoutType']): Match => ({
+    id: `${round}-${mn}`, tournamentId: 't1', round, category: 'boys-under-13',
+    ...(knockoutType ? { knockoutType } : {}),
+    matchNumber: mn, player1Id: 'a', player1Name: 'A', player2Id: 'b', player2Name: 'B',
+    status: 'scheduled', sets: [], scheduledTime: new Date(), venue: 'Court', updatedAt: new Date(), createdBy: 'u1',
+  });
+  const matches = [
+    mk('BU13 R3', 'BU13 R3 M2', 'QF'),
+    mk('BU13 R3', 'BU13 R3 M1', 'QF'),
+    mk('BU13 R2', 'BU13 R2 M5'),
+    mk('BU13 R2', 'BU13 R2 M1'),
+  ];
+  const groups = groupKnockoutRoundColumns(matches, 'boys-under-13', new Set());
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].round, 'BU13 R2');
+  assert.equal(groups[1].round, 'BU13 R3');
+  assert.deepEqual(groups[0].matches.map(m => m.matchNumber), ['BU13 R2 M1', 'BU13 R2 M5']);
+  assert.deepEqual(groups[1].matches.map(m => m.matchNumber), ['BU13 R3 M1', 'BU13 R3 M2']);
 });

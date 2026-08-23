@@ -16,13 +16,14 @@ import {
   isKnockoutStageMatch,
   getMatchKnockoutType,
   getCategoryBracketMatches,
+  groupKnockoutRoundColumns,
+  compareBracketMatchesByNumber,
   filterKnockoutMatchesForCategory,
   getMatchWinner,
   getMatchLoser,
   extractBracketSrcMatchNo,
   findBracketSourceMatch,
   bracketMatchNumbersMatch,
-  orderQfIndicesForSfBracket,
 } from '@/lib/knockoutBracket';
 import {
   isIplPlayoffRound,
@@ -1657,24 +1658,19 @@ function KnockoutBracketView({
     );
   }
 
-  const sortMatches = (list: Match[]) =>
-    [...list].sort((a, b) => String(a.matchNumber).localeCompare(String(b.matchNumber), undefined, { numeric: true }));
-
-  const koMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'KO', category));
-  const pqMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'PQ', category));
-  const qfMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'QF', category));
-  const sfMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'SF', category));
-  const fMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'F', category));
-  const tpMatches = sortMatches(filterKnockoutMatchesForCategory(allMatches, 'TP', category));
-
-  const hasCustomKnockoutRounds = catMatches.some(m =>
-    !getMatchKnockoutType(m)
-    && !isIplPlayoffSpecificRound(m.round)
-    && !poolRoundNames.has(m.round),
+  const roundGroups = groupKnockoutRoundColumns(
+    allMatches.filter(m => !isIplPlayoffSpecificRound(m.round)),
+    category,
+    poolNames,
+    getMatchCategory,
   );
 
-  // Only predict SF from pool when no actual QF/custom knockout rounds exist yet
-  const sfExpected = sfMatches.length === 0 && qfMatches.length === 0 && !hasCustomKnockoutRounds
+  const tpMatches = filterKnockoutMatchesForCategory(allMatches, 'TP', category)
+    .sort(compareBracketMatchesByNumber);
+
+  const sfExpected = !roundGroups.some(g => g.knockoutType === 'SF')
+    && !roundGroups.some(g => g.knockoutType === 'QF')
+    && roundGroups.length === 0
     ? previewKnockoutRound('SF', category, catPools, allMatches, bracketOpts).pairings
     : [];
 
@@ -1719,67 +1715,81 @@ function KnockoutBracketView({
     };
   };
 
-  // QF column — only show admin-generated actual matches, never predict from pool standings
-  const koSlots: BSlot[] = koMatches.map((m, i) => matchToSlot(m, `KO ${i + 1}`));
-  const pqSlots: BSlot[] = pqMatches.map((m, i) => matchToSlot(m, `PQ ${i + 1}`));
-  const qfSlotsRaw: BSlot[] = qfMatches.map((m, i) => matchToSlot(m, `QF ${i + 1}`));
-
-  // Reorder QF so that the two QF matches feeding the same SF are always adjacent.
-  let qfSlots = qfSlotsRaw;
-  let orderedQfMatches = qfMatches;
-
-  if (sfMatches.length > 0 && qfMatches.length >= 2) {
-    const newOrder = orderQfIndicesForSfBracket(qfMatches, sfMatches);
-    if (newOrder.some((v, i) => v !== i)) {
-      qfSlots = newOrder.map(i => qfSlotsRaw[i]);
-      orderedQfMatches = newOrder.map(i => qfMatches[i]);
-    }
+  // Build columns from ordered round groups (R2 before R3, M1 before M2, …)
+  const columns: { label: string; slots: BSlot[] }[] = [];
+  let priorMatches: Match[] = [];
+  for (const group of roundGroups) {
+    columns.push({
+      label: bracketRoundLabel(group.round, group.matches[0]),
+      slots: group.matches.map(m => matchToSlot(m, String(m.matchNumber), priorMatches)),
+    });
+    priorMatches = [...priorMatches, ...group.matches];
   }
 
-  // SF column
-  const sfSlots: BSlot[] = sfMatches.length > 0
-    ? sfMatches.map((m, i) => matchToSlot(m, `SF ${i + 1}`, orderedQfMatches))
-    : (() => {
-        if (qfSlots.length > 0) {
-          const n = Math.ceil(qfSlots.length / 2);
-          return Array.from({ length: n }, (_, j) => {
-            const qfA = orderedQfMatches[j * 2];
-            const qfB = orderedQfMatches[j * 2 + 1];
-            const w1 = getWinner(qfA, `W. ${qfA ? String(qfA.matchNumber) : `QF${j * 2 + 1}`}`);
-            const w2 = getWinner(qfB, `W. ${qfB ? String(qfB.matchNumber) : `QF${j * 2 + 2}`}`);
-            return {
-              p1Name: w1.name, p2Name: w2.name,
-              p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
-              matchLabel: `SF ${j + 1}`,
-              roundStr: KNOCKOUT_ROUND_LABELS.SF,
-              isExpected: w1.isTBD || w2.isTBD,
-            };
-          });
-        }
-        return sfExpected.map((p, i) => ({
-          p1Name: p.player1.name, p2Name: p.player2.name,
-          p1Pool: p.player1.poolName, p2Pool: p.player2.poolName,
-          matchLabel: `SF ${i + 1}`,
-          roundStr: KNOCKOUT_ROUND_LABELS.SF,
-          isExpected: true,
-        }));
-      })();
+  const sfMatches = roundGroups.filter(g => g.knockoutType === 'SF').flatMap(g => g.matches);
+  const qfMatches = roundGroups.filter(g => g.knockoutType === 'QF')
+    .flatMap(g => g.matches)
+    .sort(compareBracketMatchesByNumber);
 
-  // Final column
-  const fSlots: BSlot[] = fMatches.length > 0
-    ? fMatches.map(m => matchToSlot(m, 'Final', sfMatches))
-    : (() => {
-        if (sfSlots.length === 0) return [];
-        const w1 = getWinner(sfMatches[0], 'W. SF1');
-        const w2 = getWinner(sfMatches[1], 'W. SF2');
-        return [{
+  // Predicted SF when QF exists but no SF round yet
+  if (!roundGroups.some(g => g.knockoutType === 'SF') && qfMatches.length > 0) {
+    const n = Math.ceil(qfMatches.length / 2);
+    const sfSlots: BSlot[] = Array.from({ length: n }, (_, j) => {
+      const qfA = qfMatches[j * 2];
+      const qfB = qfMatches[j * 2 + 1];
+      const w1 = getWinner(qfA, `W. ${qfA ? String(qfA.matchNumber) : `QF${j * 2 + 1}`}`);
+      const w2 = getWinner(qfB, `W. ${qfB ? String(qfB.matchNumber) : `QF${j * 2 + 2}`}`);
+      return {
+        p1Name: w1.name, p2Name: w2.name,
+        p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
+        matchLabel: `SF ${j + 1}`,
+        roundStr: KNOCKOUT_ROUND_LABELS.SF,
+        isExpected: w1.isTBD || w2.isTBD,
+      };
+    });
+    if (sfSlots.length > 0) columns.push({ label: 'Semi Final', slots: sfSlots });
+  } else if (roundGroups.length === 0 && sfExpected.length > 0) {
+    columns.push({
+      label: 'Semi Final',
+      slots: sfExpected.map((p, i) => ({
+        p1Name: p.player1.name, p2Name: p.player2.name,
+        p1Pool: p.player1.poolName, p2Pool: p.player2.poolName,
+        matchLabel: `SF ${i + 1}`,
+        roundStr: KNOCKOUT_ROUND_LABELS.SF,
+        isExpected: true,
+      })),
+    });
+  }
+
+  // Predicted Final when SF exists but no Final round yet
+  const sfSlotsForFinal = columns.find(c => c.label === 'Semi Final' || c.label === KNOCKOUT_ROUND_LABELS.SF);
+  if (!roundGroups.some(g => g.knockoutType === 'F')) {
+    if (sfMatches.length >= 2) {
+      const w1 = getWinner(sfMatches[0], 'W. SF1');
+      const w2 = getWinner(sfMatches[1], 'W. SF2');
+      columns.push({
+        label: 'Final',
+        slots: [{
           p1Name: w1.name, p2Name: w2.name,
           p1IsTBD: w1.isTBD, p2IsTBD: w2.isTBD,
           matchLabel: 'Final',
           roundStr: KNOCKOUT_ROUND_LABELS.F,
           isExpected: w1.isTBD || w2.isTBD,
-        }];
-      })();
+        }],
+      });
+    } else if (sfSlotsForFinal && sfSlotsForFinal.slots.length >= 2) {
+      columns.push({
+        label: 'Final',
+        slots: [{
+          p1Name: `W. SF1`, p2Name: `W. SF2`,
+          p1IsTBD: true, p2IsTBD: true,
+          matchLabel: 'Final',
+          roundStr: KNOCKOUT_ROUND_LABELS.F,
+          isExpected: true,
+        }],
+      });
+    }
+  }
 
   // Third place
   const tpSlots: BSlot[] = tpMatches.length > 0
@@ -1798,29 +1808,6 @@ function KnockoutBracketView({
         }
         return [];
       })();
-
-  const columns: { label: string; slots: BSlot[] }[] = [];
-  if (koSlots.length > 0) columns.push({ label: KNOCKOUT_ROUND_LABELS.KO, slots: koSlots });
-  if (pqSlots.length > 0) columns.push({ label: KNOCKOUT_ROUND_LABELS.PQ, slots: pqSlots });
-  if (qfSlots.length > 0) columns.push({ label: 'Quarter Final', slots: qfSlots });
-  if (sfSlots.length > 0) columns.push({ label: 'Semi Final', slots: sfSlots });
-  if (fSlots.length > 0) columns.push({ label: 'Final', slots: fSlots });
-
-  const customRoundNames = [...new Set(
-    catMatches
-      .filter(m => !getMatchKnockoutType(m) && !isIplPlayoffSpecificRound(m.round))
-      .filter(m => !poolRoundNames.has(m.round))
-      .map(m => m.round),
-  )].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-  for (const roundName of customRoundNames) {
-    const roundMatches = sortMatches(catMatches.filter(m => m.round === roundName));
-    if (roundMatches.length === 0) continue;
-    columns.push({
-      label: bracketRoundLabel(roundName),
-      slots: roundMatches.map((m, i) => matchToSlot(m, `${roundName} ${i + 1}`, roundMatches)),
-    });
-  }
 
   if (columns.length === 0) {
     return (
@@ -1852,7 +1839,7 @@ function KnockoutBracketView({
             const nextLayout = layouts[colIdx + 1];
             const nextCount = counts[colIdx + 1];
             return (
-              <div key={col.label}>
+              <div key={`${col.label}-${colIdx}`}>
                 {col.slots.map((slot, slotIdx) => (
                   <div
                     key={slotIdx}
