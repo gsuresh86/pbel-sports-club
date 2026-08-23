@@ -614,6 +614,21 @@ export function resolveKnockoutBracketSide(
   return participant?.name ?? null;
 }
 
+/** Resolve both stored bracket placeholders for public/live match displays. */
+export function resolveKnockoutMatchDisplayNames(
+  match: Match,
+  allMatches: Match[],
+): Pick<Match, 'player1Name' | 'player2Name'> {
+  return {
+    player1Name:
+      resolveKnockoutBracketSide(match.player1Id, match.player1Name, match, allMatches)
+      ?? match.player1Name,
+    player2Name:
+      resolveKnockoutBracketSide(match.player2Id, match.player2Name, match, allMatches)
+      ?? match.player2Name,
+  };
+}
+
 /** Winner/loser slot options from all matches in a named round (e.g. a custom round label). */
 export function formatRoundWinnerSlotLabel(
   roundName: string,

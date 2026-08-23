@@ -14,6 +14,7 @@ import {
   getAvailableKnockoutRounds,
   getMatchKnockoutType,
   inferKnockoutTypeFromRoundLabel,
+  resolveKnockoutMatchDisplayNames,
   formatRoundWinnerSlotLabel,
   groupKnockoutRoundColumns,
   compareKnockoutRoundColumns,
@@ -237,6 +238,51 @@ test('getKnockoutPropagationUpdates fills SF slots when QF completes', () => {
   assert.equal(updates[0].matchId, 'sf1');
   assert.equal(updates[0].player1Id, 'a');
   assert.equal(updates[0].player1Name, 'Alice');
+});
+
+test('resolveKnockoutMatchDisplayNames replaces stale QF winner placeholders', () => {
+  const qf: Match = {
+    id: 'qf1',
+    tournamentId: 't1',
+    round: 'QF',
+    category: 'mens-single',
+    matchNumber: 'QF1',
+    player1Id: 'a',
+    player1Name: 'Alice',
+    player2Id: 'b',
+    player2Name: 'Bob',
+    player1Score: 2,
+    player2Score: 0,
+    winner: 'Alice',
+    status: 'completed',
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+  const sf: Match = {
+    id: 'sf1',
+    tournamentId: 't1',
+    round: 'SF',
+    category: 'mens-single',
+    matchNumber: 'SF1',
+    player1Id: 'tbd-winner-QF1',
+    player1Name: 'Winner of QF1',
+    player2Id: 'c',
+    player2Name: 'Carol',
+    status: 'live',
+    sets: [],
+    scheduledTime: new Date(),
+    venue: 'Court',
+    updatedAt: new Date(),
+    createdBy: 'u1',
+  };
+
+  assert.deepEqual(resolveKnockoutMatchDisplayNames(sf, [qf, sf]), {
+    player1Name: 'Alice',
+    player2Name: 'Carol',
+  });
 });
 
 test('orderQfIndicesForSfBracket pairs QF by SF config including resolved winners', () => {

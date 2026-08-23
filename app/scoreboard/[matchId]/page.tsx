@@ -23,6 +23,7 @@ import { resolveTournamentBannerUrl } from '@/lib/tournament-banner';
 import { fetchTournamentPublicPlayers, fetchTournamentTeams, toTournament } from '@/lib/tournament-api';
 import { countRubbersWon } from '@/lib/teamMatchRubbers';
 import { getMatchLiveDisplayNames, resolveMatchWinnerDisplayName } from '@/lib/utils';
+import { resolveKnockoutMatchDisplayNames } from '@/lib/knockoutBracket';
 import { Match, Tournament, LiveScore, PublicPlayer, Team } from '@/types';
 
 function ScoreboardLoading() {
@@ -53,6 +54,7 @@ function ScoreboardPageInner() {
   const [parentTeamMatch, setParentTeamMatch] = useState<Match | null>(null);
   const [teamRubbers, setTeamRubbers] = useState<Match[]>([]);
   const [rubberLiveScores, setRubberLiveScores] = useState<Map<string, LiveScore>>(new Map());
+  const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
 
   const effectiveTournamentId = useMemo(
     () =>
@@ -61,6 +63,12 @@ function ScoreboardPageInner() {
       liveScore?.tournamentId?.trim() ||
       null,
     [queryTournamentId, match?.tournamentId, liveScore?.tournamentId]
+  );
+  const resolvedMatch = useMemo(
+    () => match
+      ? { ...match, ...resolveKnockoutMatchDisplayNames(match, tournamentMatches) }
+      : null,
+    [match, tournamentMatches]
   );
 
   useEffect(() => {
@@ -206,16 +214,31 @@ function ScoreboardPageInner() {
   }, [effectiveTournamentId]);
 
   useEffect(() => {
-    if (match) {
+    if (!effectiveTournamentId) {
+      setTournamentMatches([]);
+      return;
+    }
+
+    const matchesUnsub = onSnapshot(
+      collection(db, 'tournaments', effectiveTournamentId, 'matches'),
+      (snap) => setTournamentMatches(
+        snap.docs.map(d => ({ id: d.id, ...d.data() }) as Match)
+      )
+    );
+    return () => matchesUnsub();
+  }, [effectiveTournamentId]);
+
+  useEffect(() => {
+    if (resolvedMatch) {
       const regById = new Map(registrations.map(r => [r.id, r]));
-      if (match.matchKind === 'team-tie') {
-        document.title = `${match.player1Name} vs ${match.player2Name} | Team Tie Scoreboard`;
+      if (resolvedMatch.matchKind === 'team-tie') {
+        document.title = `${resolvedMatch.player1Name} vs ${resolvedMatch.player2Name} | Team Tie Scoreboard`;
       } else {
-        const names = getMatchLiveDisplayNames(match, regById);
+        const names = getMatchLiveDisplayNames(resolvedMatch, regById);
         document.title = `${names.player1Name} vs ${names.player2Name} | Live Scoreboard`;
       }
     }
-  }, [match, registrations]);
+  }, [resolvedMatch, registrations]);
 
   // The team-tie match whose rubbers determine the tie score: the match itself
   // when it's the tie, or the parent when this match is a rubber.
@@ -305,7 +328,7 @@ function ScoreboardPageInner() {
 
   const teamMatchStats = useMemo(() => {
     if (!teamTieParentId) return null;
-    const tie = match?.matchKind === 'team-tie' ? match : parentTeamMatch;
+    const tie = resolvedMatch?.matchKind === 'team-tie' ? resolvedMatch : parentTeamMatch;
     if (!tie) return null;
     const wins = countRubbersWon(teamRubbers, rubberLiveScores);
     const teamsById = new Map(teams.map((t) => [t.id, t]));
@@ -319,10 +342,10 @@ function ScoreboardPageInner() {
       team1Wins: wins.team1,
       team2Wins: wins.team2,
     };
-  }, [teamTieParentId, match, parentTeamMatch, teamRubbers, rubberLiveScores, teams]);
+  }, [teamTieParentId, resolvedMatch, parentTeamMatch, teamRubbers, rubberLiveScores, teams]);
 
   const regById = useMemo(() => new Map(registrations.map(r => [r.id, r])), [registrations]);
-  const matchDisplayNames = match ? getMatchLiveDisplayNames(match, regById) : null;
+  const matchDisplayNames = resolvedMatch ? getMatchLiveDisplayNames(resolvedMatch, regById) : null;
 
   const waitingForTournamentId =
     !matchLoading && match !== null && !effectiveTournamentId && !liveScoreReady;
@@ -356,7 +379,7 @@ function ScoreboardPageInner() {
   const winnerRaw =
     liveScore?.winnerName ??
     (match.status === 'completed' ? match.winner : undefined);
-  const winnerDisplayName = resolveMatchWinnerDisplayName(match, winnerRaw, regById);
+  const winnerDisplayName = resolveMatchWinnerDisplayName(resolvedMatch ?? match, winnerRaw, regById);
 
   const bannerUrl = resolveTournamentBannerUrl(tournament);
   const player1DisplayName = matchDisplayNames?.player1Name ?? match.player1Name;

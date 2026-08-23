@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { tournamentLiveScoreRef, tournamentMatchRef } from '@/lib/firestore-paths';
+import { tournamentLiveScoreRef, tournamentMatchRef, tournamentMatchesRef } from '@/lib/firestore-paths';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { getDisplaySides } from '@/lib/match-scoring';
 import { scoreboardPath } from '@/lib/tournament-banner';
 import { ServeIcon } from '@/components/icons/ServeIcon';
+import { resolveKnockoutMatchDisplayNames } from '@/lib/knockoutBracket';
 
 export default function LiveMatchPage() {
   const params = useParams();
@@ -23,6 +24,7 @@ export default function LiveMatchPage() {
   const [match, setMatch] = useState<Match | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [liveScore, setLiveScore] = useState<LiveScore | null>(null);
+  const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -71,10 +73,14 @@ export default function LiveMatchPage() {
         } as LiveScore);
       }
     });
+    const matchesUnsub = onSnapshot(tournamentMatchesRef(tournamentId), (snap) => {
+      setTournamentMatches(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Match));
+    });
 
     return () => {
       matchUnsub();
       liveUnsub();
+      matchesUnsub();
     };
   }, [tournamentId, matchId]);
 
@@ -99,6 +105,15 @@ export default function LiveMatchPage() {
 
   const winner =
     liveScore?.winnerName ?? (match?.status === 'completed' ? match.winner : undefined);
+  const resolvedNames = match
+    ? resolveKnockoutMatchDisplayNames(match, tournamentMatches)
+    : null;
+  const player1Name = match && resolvedNames?.player1Name !== match.player1Name
+    ? resolvedNames!.player1Name
+    : liveScore?.player1Name ?? match?.player1Name ?? '';
+  const player2Name = match && resolvedNames?.player2Name !== match.player2Name
+    ? resolvedNames!.player2Name
+    : liveScore?.player2Name ?? match?.player2Name ?? '';
 
   if (loading) {
     return (
@@ -123,7 +138,7 @@ export default function LiveMatchPage() {
 
   const sides = liveScore
     ? getDisplaySides(
-        { player1Name: liveScore.player1Name, player2Name: liveScore.player2Name },
+        { player1Name, player2Name },
         {
           p1: liveScore.player1CurrentScore,
           p2: liveScore.player2CurrentScore,
@@ -277,7 +292,7 @@ export default function LiveMatchPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <span className="text-xl">{getSportIcon(tournament.sport)}</span>
-                {match.player1Name} vs {match.player2Name}
+                {player1Name} vs {player2Name}
               </CardTitle>
               <CardDescription>
                 <span className="flex flex-wrap items-center gap-3 text-sm">

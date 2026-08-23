@@ -24,6 +24,7 @@ import {
   extractBracketSrcMatchNo,
   findBracketSourceMatch,
   bracketMatchNumbersMatch,
+  resolveKnockoutMatchDisplayNames,
 } from '@/lib/knockoutBracket';
 import {
   isIplPlayoffRound,
@@ -155,7 +156,9 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   const fmtTime = (d: Date) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
   // Public fixtures show team ties and individual matches only — not rubber sub-matches
-  const displayMatches = matches.filter(m => !isRubberMatch(m));
+  const displayMatches = matches
+    .filter(m => !isRubberMatch(m))
+    .map(m => ({ ...m, ...resolveKnockoutMatchDisplayNames(m, matches) }));
   const fixtureMatches = displayMatches.filter(m => m.status === 'live' || m.status === 'scheduled');
   const resultMatches = displayMatches.filter(m => m.status === 'completed');
 

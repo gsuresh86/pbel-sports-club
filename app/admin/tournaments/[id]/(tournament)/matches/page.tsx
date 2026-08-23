@@ -53,6 +53,7 @@ import {
   type KnockoutRound,
   getKnockoutPropagationUpdates,
   resolveKnockoutBracketSide,
+  resolveKnockoutMatchDisplayNames,
   type BracketSlotMember,
 } from '@/lib/knockoutBracket';
 import {
@@ -495,7 +496,11 @@ export default function MatchesPage() {
       return;
     }
     try {
-      const displayNames = getMatchLiveDisplayNames(match, regById);
+      const resolvedMatch = {
+        ...match,
+        ...resolveKnockoutMatchDisplayNames(match, topLevelMatches),
+      };
+      const displayNames = getMatchLiveDisplayNames(resolvedMatch, regById);
       await updateDoc(tournamentMatchRef(tournamentId, match.id), { status: 'live', actualStartTime: new Date(), updatedAt: new Date() });
       await setDoc(tournamentLiveScoreRef(tournamentId, match.id), {
         matchId: match.id,
