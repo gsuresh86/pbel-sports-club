@@ -42,8 +42,17 @@ import {
 } from '@/lib/match-scoring';
 import { Play, Pause, Trophy, Target, RefreshCw, Edit3, ExternalLink, Copy, Check, ArrowLeft, ArrowLeftRight } from 'lucide-react';
 import { scoreboardPath } from '@/lib/tournament-banner';
-import { useTournamentRegistrations } from '@/hooks/use-tournament-queries';
+import {
+  useInvalidateTournament,
+  useTournamentMatches,
+  useTournamentRegistrations,
+} from '@/hooks/use-tournament-queries';
 import { cn, getMatchLiveDisplayNames, formatMatchSideLabel } from '@/lib/utils';
+import {
+  getKnockoutPropagationUpdates,
+  isKnockoutBracketPlaceholder,
+  resolveKnockoutMatchDisplayNames,
+} from '@/lib/knockoutBracket';
 import {
   canAccessTournamentConsole,
   canWriteMatches,
@@ -93,10 +102,42 @@ export default function LiveScoringPage() {
   const { data: registrations = [] } = useTournamentRegistrations(match?.tournamentId ?? '', {
     enabled: !!match?.tournamentId,
   });
+  const {
+    data: tournamentMatches = [],
+    isLoading: tournamentMatchesLoading,
+  } = useTournamentMatches(match?.tournamentId ?? '', {
+    enabled: !!match?.tournamentId,
+  });
+  const invalidateTournament = useInvalidateTournament();
   const regById = new Map(registrations.map(r => [r.id, r]));
-  const displayNames = match
-    ? getMatchLiveDisplayNames(match, regById)
+  const resolvedMatch = match
+    ? {
+        ...match,
+        ...resolveKnockoutMatchDisplayNames(match, tournamentMatches),
+      }
+    : null;
+  const rawDisplayNames = resolvedMatch
+    ? getMatchLiveDisplayNames(resolvedMatch, regById)
     : { player1Name: '', player2Name: '' };
+  const player1Resolved = !match
+    || !isKnockoutBracketPlaceholder(match.player1Id, match.player1Name)
+    || resolvedMatch?.player1Name !== match.player1Name;
+  const player2Resolved = !match
+    || !isKnockoutBracketPlaceholder(match.player2Id, match.player2Name)
+    || resolvedMatch?.player2Name !== match.player2Name;
+  const bracketSidesReady = player1Resolved && player2Resolved;
+  const displayNames = {
+    player1Name: player1Resolved ? rawDisplayNames.player1Name : 'TBD',
+    player2Name: player2Resolved ? rawDisplayNames.player2Name : 'TBD',
+  };
+  const winnerDisplayName = match && resolvedMatch && winner
+    ? (() => {
+        const side =
+          resolveWinnerSide(match, winner, regById)
+          ?? resolveWinnerSide(resolvedMatch, winner, regById);
+        return side ? formatMatchSideLabel(resolvedMatch, side, regById) : winner;
+      })()
+    : winner;
 
   const tournamentIdForAccess = match?.tournamentId ?? '';
   const canAccessScoring =
@@ -134,9 +175,12 @@ export default function LiveScoringPage() {
 
   useEffect(() => {
     if (match?.status === 'completed' && match.winner) {
-      setManualWinnerSide(resolveWinnerSide(match, match.winner, regById));
+      setManualWinnerSide(
+        resolveWinnerSide(match, match.winner, regById)
+        ?? (resolvedMatch ? resolveWinnerSide(resolvedMatch, match.winner, regById) : null),
+      );
     }
-  }, [match, registrations]);
+  }, [match, registrations, tournamentMatches]);
 
   const loadMatch = async () => {
     try {
@@ -255,6 +299,10 @@ export default function LiveScoringPage() {
   };
 
   const startMatch = async () => {
+    if (!bracketSidesReady) {
+      alert('This match is waiting for the previous match result.');
+      return;
+    }
     try {
       setUpdating(true);
       await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), {
@@ -272,7 +320,7 @@ export default function LiveScoringPage() {
         player2Sets: 0,
         player1CurrentScore: 0,
         player2CurrentScore: 0,
-        ...getMatchLiveDisplayNames(match!, regById),
+        ...getMatchLiveDisplayNames(resolvedMatch ?? match!, regById),
         isLive: true,
         sidesSwapped: false,
         lastPointWonBy: null,
@@ -305,7 +353,7 @@ export default function LiveScoringPage() {
     lastPointWonBy?: 'player1' | 'player2' | null;
   }) => {
     if (!match) return;
-    const names = getMatchLiveDisplayNames(match, regById);
+    const names = getMatchLiveDisplayNames(resolvedMatch ?? match, regById);
     await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
       matchId,
       tournamentId: match.tournamentId,
@@ -321,6 +369,21 @@ export default function LiveScoringPage() {
       lastUpdated: new Date(),
       updatedBy: user?.id,
     });
+  };
+
+  const applyKnockoutPropagation = async (completedMatch: Match) => {
+    const updates = getKnockoutPropagationUpdates(completedMatch, tournamentMatches);
+    await Promise.all(
+      updates.map(patch =>
+        updateDoc(tournamentMatchRef(completedMatch.tournamentId, patch.matchId), {
+          ...(patch.player1Id != null && { player1Id: patch.player1Id }),
+          ...(patch.player1Name != null && { player1Name: patch.player1Name }),
+          ...(patch.player2Id != null && { player2Id: patch.player2Id }),
+          ...(patch.player2Name != null && { player2Name: patch.player2Name }),
+          updatedAt: new Date(),
+        }),
+      ),
+    );
   };
 
   const applySetWin = async (p1Score: number, p2Score: number) => {
@@ -341,7 +404,11 @@ export default function LiveScoringPage() {
       updatedAt: new Date(),
     });
     if (newP1Sets >= setsToWin || newP2Sets >= setsToWin) {
-      await completeMatch(getSetWinnerName(p1Score, p2Score, match, regById), newP1Sets, newP2Sets);
+      await completeMatch(
+        getSetWinnerName(p1Score, p2Score, resolvedMatch ?? match, regById),
+        newP1Sets,
+        newP2Sets,
+      );
     } else {
       setPlayer1Score(0);
       setPlayer2Score(0);
@@ -474,6 +541,13 @@ export default function LiveScoringPage() {
         actualEndTime: completedAt,
         updatedAt: completedAt,
       });
+      await applyKnockoutPropagation({
+        ...(resolvedMatch ?? match!),
+        status: 'completed',
+        winner: matchWinner,
+        player1Score: p1,
+        player2Score: p2,
+      });
       setMatch((m) =>
         m
           ? { ...m, status: 'completed', winner: matchWinner, player1Score: p1, player2Score: p2 }
@@ -487,6 +561,7 @@ export default function LiveScoringPage() {
         lastUpdated: completedAt,
         updatedBy: user?.id,
       });
+      invalidateTournament(match!.tournamentId);
 
       alert(`Congratulations, ${matchWinner}! Match completed.`);
     } catch (error) {
@@ -517,6 +592,10 @@ export default function LiveScoringPage() {
 
   const submitDirectScore = async () => {
     if (!match) return;
+    if (!bracketSidesReady) {
+      alert('This match is waiting for the previous match result.');
+      return;
+    }
     // Honour tournament match format for scoring
     const directSetsToWin = getSetsToWin(matchFormat);
     const p1 = parseInt(directSetsP1, 10) || 0;
@@ -548,7 +627,7 @@ export default function LiveScoringPage() {
       }
       winnerSide = manualWinnerSide;
     }
-    const matchWinner = formatMatchSideLabel(match, winnerSide, regById);
+    const matchWinner = formatMatchSideLabel(resolvedMatch ?? match, winnerSide, regById);
     const sets = scorePairsToMatchSets(directSetScores);
     try {
       setUpdating(true);
@@ -565,6 +644,14 @@ export default function LiveScoringPage() {
       if (sets.length > 0) update.sets = sets;
       if (!match.actualStartTime) update.actualStartTime = new Date();
       await updateDoc(tournamentMatchRef(match!.tournamentId, matchId), update);
+      await applyKnockoutPropagation({
+        ...(resolvedMatch ?? match),
+        status: 'completed',
+        winner: matchWinner,
+        player1Score: p1,
+        player2Score: p2,
+        ...(sets.length > 0 && { sets }),
+      });
       try {
         await updateDoc(tournamentLiveScoreRef(match!.tournamentId, matchId), {
           isLive: false,
@@ -576,6 +663,7 @@ export default function LiveScoringPage() {
       } catch {
         // liveScores doc may not exist
       }
+      invalidateTournament(match.tournamentId);
       alert(
         match.status === 'completed'
           ? `Score updated. Congratulations, ${matchWinner}!`
@@ -592,13 +680,24 @@ export default function LiveScoringPage() {
 
   const saveWinnerOnly = async (side: 1 | 2) => {
     if (!match) return;
-    const matchWinner = formatMatchSideLabel(match, side, regById);
+    if (!bracketSidesReady) {
+      alert('This match is waiting for the previous match result.');
+      return;
+    }
+    const matchWinner = formatMatchSideLabel(resolvedMatch ?? match, side, regById);
     try {
       setUpdating(true);
       setWinner(matchWinner);
       setManualWinnerSide(side);
       const completedAt = new Date();
       await updateDoc(tournamentMatchRef(match.tournamentId, matchId), {
+        winner: matchWinner,
+        status: 'completed',
+        actualEndTime: match.actualEndTime ?? completedAt,
+        updatedAt: completedAt,
+      });
+      await applyKnockoutPropagation({
+        ...(resolvedMatch ?? match),
         winner: matchWinner,
         status: 'completed',
         actualEndTime: match.actualEndTime ?? completedAt,
@@ -616,6 +715,7 @@ export default function LiveScoringPage() {
       } catch {
         // liveScores doc may not exist
       }
+      invalidateTournament(match.tournamentId);
       alert(`Winner set to ${matchWinner}.`);
     } catch (error) {
       console.error('Error setting winner:', error);
@@ -660,7 +760,7 @@ export default function LiveScoringPage() {
     ? `/admin/tournaments/${match.tournamentId}/matches/${detailMatchId}`
     : '/admin/matches';
 
-  if (loading || authLoading) {
+  if (loading || authLoading || tournamentMatchesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -787,7 +887,7 @@ export default function LiveScoringPage() {
               player2Sets={player2Sets}
               currentSet={currentSet}
               isLive={match.status === 'live'}
-              winner={winner || undefined}
+              winner={winnerDisplayName || undefined}
               sidesSwapped={sidesSwapped}
               size="large"
             />
