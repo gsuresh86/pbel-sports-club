@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePickerInput, DateTimePickerInput } from '@/components/ui/date-picker-input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -59,10 +60,15 @@ import {
   isIplPlayoffRound,
   normalizeIplPlayoffRound,
 } from '@/lib/iplPlayoff';
+import {
+  categoriesMatch,
+  categoryAssignmentIds,
+  uniqueCategoryPlayers,
+} from '@/lib/categoryLabels';
 import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
-  CheckCircle, Edit, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
+  CheckCircle, ChevronDown, Edit, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -125,17 +131,107 @@ type SortKey = 'matchNumber' | 'round' | 'status' | 'scheduledTime';
 
 type EditSideOption = { id: string; name: string; displayLabel: string };
 
+function sortEditSideOptions(options: EditSideOption[]): EditSideOption[] {
+  return [...options].sort((a, b) =>
+    a.displayLabel.localeCompare(b.displayLabel, undefined, { sensitivity: 'base' }),
+  );
+}
+
 function slotsToEditOptions(slots: BracketSlotMember[]): EditSideOption[] {
-  return slots.map(s => ({
+  return sortEditSideOptions(slots.map(s => ({
     id: s.id,
     name: s.slotLabel || s.name,
     displayLabel: bracketSlotDisplayLabel(s),
-  }));
+  })));
 }
 
 function withCurrentOption(options: EditSideOption[], id: string, name: string): EditSideOption[] {
   if (!id || options.some(o => o.id === id)) return options;
-  return [{ id, name, displayLabel: name }, ...options];
+  return sortEditSideOptions([{ id, name, displayLabel: name }, ...options]);
+}
+
+function EditSideSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: EditSideOption[];
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = options.find(option => option.id === value);
+  const query = search.trim().toLocaleLowerCase();
+  const filteredOptions = query
+    ? options.filter(option => option.displayLabel.toLocaleLowerCase().includes(query))
+    : options;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-between bg-white px-3 font-normal"
+        >
+          <span className="truncate text-left">
+            {selected?.displayLabel ?? placeholder}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="z-[100] w-[var(--radix-popover-trigger-width)] p-0"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <div className="border-b border-gray-100 p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={`Search ${placeholder.toLocaleLowerCase()}…`}
+              className="h-8 pl-8 text-xs"
+              autoFocus
+            />
+          </div>
+        </div>
+        <div className="max-h-60 overflow-y-auto p-1">
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-gray-500">No matches found.</p>
+          ) : (
+            filteredOptions.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                className={cn(
+                  'flex w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground',
+                  value === option.id && 'bg-accent text-accent-foreground',
+                )}
+                onClick={() => {
+                  onChange(option.id);
+                  setOpen(false);
+                  setSearch('');
+                }}
+              >
+                {option.displayLabel}
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 async function applyKnockoutPropagation(
@@ -233,13 +329,23 @@ export default function MatchesPage() {
       }
     }
     if (category && isTeamCategory(category)) {
-      return teams
-        .filter(t => t.category === category)
-        .map(t => ({ id: t.id, name: t.name, displayLabel: t.name }));
+      return sortEditSideOptions(
+        teams
+          .filter(t => categoriesMatch(t.category, category))
+          .map(t => ({ id: t.id, name: t.name, displayLabel: t.name })),
+      );
     }
-    return participants
-      .filter(p => p.registrationStatus === 'approved')
-      .map(p => ({ id: p.id, name: p.name, displayLabel: p.name }));
+    const approvedParticipants = participants.filter(p => p.registrationStatus === 'approved');
+    const eligibleParticipants = category
+      ? uniqueCategoryPlayers(
+          category,
+          approvedParticipants,
+          categoryAssignmentIds(category, teams, poolsData),
+        )
+      : approvedParticipants;
+    return sortEditSideOptions(
+      eligibleParticipants.map(p => ({ id: p.id, name: p.name, displayLabel: p.name })),
+    );
   };
 
   const [search, setSearch] = useState('');
@@ -1139,25 +1245,21 @@ export default function MatchesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1 min-w-0">
                     <Label>{label1}</Label>
-                    <Select value={editMatchForm.player1Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
-                      <SelectContent>
-                        {opts1.map(o => (
-                          <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EditSideSelect
+                      value={editMatchForm.player1Id}
+                      onChange={(v) => setEditMatchForm((f) => ({ ...f, player1Id: v }))}
+                      options={opts1}
+                      placeholder={placeholder}
+                    />
                   </div>
                   <div className="space-y-1 min-w-0">
                     <Label>{label2}</Label>
-                    <Select value={editMatchForm.player2Id} onValueChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
-                      <SelectContent>
-                        {opts2.map(o => (
-                          <SelectItem key={o.id} value={o.id}>{o.displayLabel}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <EditSideSelect
+                      value={editMatchForm.player2Id}
+                      onChange={(v) => setEditMatchForm((f) => ({ ...f, player2Id: v }))}
+                      options={opts2}
+                      placeholder={placeholder}
+                    />
                   </div>
                 </div>
               );
