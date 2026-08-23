@@ -26,7 +26,9 @@
       "Bash(ls components/ui)",
       "Bash(cat components.json)",
       "Bash(sudo -n true)",
-      "WebFetch(domain:ui.shadcn.com)"
+      "WebFetch(domain:ui.shadcn.com)",
+      "Bash(ssh *)",
+      "Bash(gh auth *)"
     ],
     "deny": [],
     "ask": []
