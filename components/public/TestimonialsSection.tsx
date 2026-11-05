@@ -13,7 +13,7 @@ const FALLBACK: Testimonial[] = [
     tournamentName: '',
     author: 'Amit Sharma',
     authorRole: 'Sports Secretary, PBEL City',
-    quote: 'Manchplay made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
+    quote: 'TourneyCraft made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
     rating: 5,
     sport: 'Badminton',
     published: true,
@@ -57,7 +57,7 @@ export function TestimonialsSection() {
           <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-3">What People Say</p>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Trusted by Organisers</h2>
           <p className="text-slate-200 text-base max-w-md mx-auto">
-            Hear from the admins and players who&apos;ve run their events on Manchplay.
+            Hear from the admins and players who&apos;ve run their events on TourneyCraft.
           </p>
         </div>
 

@@ -68,7 +68,7 @@ export interface Notification {
 }
 
 export interface PaymentAccount {
-  name: string;   // Recipient name (e.g. "PBEL Sports Club - Badminton")
+  name: string;   // Recipient name (e.g. "City Sports Club - Badminton")
   number: string; // UPI ID, phone, or account number
 }
 

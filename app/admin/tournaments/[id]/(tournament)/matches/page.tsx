@@ -683,7 +683,7 @@ export default function MatchesPage() {
       <Button
         size="sm"
         variant="outline"
-        className={compact ? 'h-9 text-xs touch-manipulation' : 'h-7 px-2 text-xs touch-manipulation'}
+        className={compact ? 'min-h-11 h-auto text-xs touch-manipulation' : 'h-7 px-2 text-xs touch-manipulation'}
         onClick={() => setLineupMatch(match)}
       >
         <ClipboardList className={compact ? 'h-3.5 w-3.5 mr-1' : 'h-3 w-3 mr-1'} />
@@ -745,20 +745,20 @@ export default function MatchesPage() {
       </div>
 
       {/* Search + filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[140px] flex-1 sm:flex-none sm:w-48">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <div className="relative col-span-2 min-w-0 sm:min-w-[140px] sm:flex-none sm:w-48">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search players, rounds…"
-            className="h-8 pl-7 pr-3 w-full text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="h-10 sm:h-8 pl-7 pr-3 w-full text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
         <Select value={roundFilter} onValueChange={setRoundFilter}>
-          <SelectTrigger className="h-8 w-[130px] text-xs">
+          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
             <SelectValue placeholder="Round / Pool" />
           </SelectTrigger>
           <SelectContent>
@@ -769,7 +769,7 @@ export default function MatchesPage() {
 
         {distinctCategories.length > 0 && (
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-8 w-[130px] text-xs">
+            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -785,7 +785,7 @@ export default function MatchesPage() {
 
         {distinctFormats.length > 0 && (
           <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="h-8 w-[150px] text-xs">
+            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[150px] text-xs">
               <SelectValue placeholder="Format" />
             </SelectTrigger>
             <SelectContent>
@@ -800,7 +800,7 @@ export default function MatchesPage() {
         )}
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-8 w-[120px] text-xs">
+          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[120px] text-xs">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -818,15 +818,15 @@ export default function MatchesPage() {
           value={dateFilter}
           onChange={setDateFilter}
           placeholder="Filter by date"
-          className="w-auto space-y-0"
-          triggerClassName="h-8 w-auto px-2 text-xs"
+          className="col-span-2 sm:col-auto w-full sm:w-auto space-y-0"
+          triggerClassName="h-10 sm:h-8 w-full sm:w-auto px-2 text-xs"
         />
 
         {anyFilterActive && (
           <button
             onClick={clearFilters}
             title="Clear all filters"
-            className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+            className="h-10 w-10 sm:h-8 sm:w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
           >
             <FilterX className="h-3.5 w-3.5" />
           </button>
@@ -921,7 +921,7 @@ export default function MatchesPage() {
                   {canRunMatches && match.status === 'scheduled' && (
                     <Button
                       size="sm"
-                      className="h-9 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                      className="min-h-11 h-auto text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
                       onClick={() => handleStartMatch(match)}
                     >
                       <Play className="h-3.5 w-3.5 mr-1" />
@@ -931,7 +931,7 @@ export default function MatchesPage() {
                   {canRunMatches && match.status === 'live' && (
                     <Button
                       size="sm"
-                      className="h-9 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                      className="min-h-11 h-auto text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
                       onClick={() => handleCompleteMatch(match)}
                     >
                       <CheckCircle className="h-3.5 w-3.5 mr-1" />
@@ -941,7 +941,7 @@ export default function MatchesPage() {
                   {canRunMatches && match.status !== 'completed' && renderLineupButton(match, true)}
                   {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                     <Link href={adminMatchScorePath(match.id, tournamentId)} className="flex-1">
-                      <Button size="sm" variant="outline" className="w-full h-9 text-xs touch-manipulation">
+                      <Button size="sm" variant="outline" className="w-full min-h-11 h-auto text-xs touch-manipulation">
                         <Swords className="h-3.5 w-3.5 mr-1" />
                         {match.status === 'scheduled' ? 'Score' : 'Update'}
                       </Button>
@@ -949,13 +949,13 @@ export default function MatchesPage() {
                   )}
                   {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
                     <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer">
-                      <Button size="sm" variant="outline" className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation" title="Open TV scoreboard">
+                      <Button size="sm" variant="outline" className="min-h-11 h-11 w-11 p-0 flex-shrink-0 touch-manipulation" title="Open TV scoreboard">
                         <Monitor className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
                   )}
                   <Link href={`/admin/tournaments/${tournamentId}/matches/${match.id}`} className="ml-auto">
-                    <Button size="sm" variant="outline" className="h-9 px-3 text-xs touch-manipulation gap-1">
+                    <Button size="sm" variant="outline" className="min-h-11 h-auto px-3 text-xs touch-manipulation gap-1">
                       <ExternalLink className="h-3.5 w-3.5" />
                       View
                     </Button>
@@ -963,7 +963,7 @@ export default function MatchesPage() {
                   {canRunMatches && (
                     <Button
                       size="sm" variant="ghost"
-                      className="h-9 w-9 p-0 flex-shrink-0 touch-manipulation"
+                      className="min-h-11 h-11 w-11 p-0 flex-shrink-0 touch-manipulation"
                       onClick={() => openEditMatch(match)}
                       title="Edit match"
                     >

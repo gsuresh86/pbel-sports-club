@@ -271,7 +271,7 @@ export default function TournamentsPage() {
 
           {/* ── Hero ─────────────────────────────────────────────────── */}
           <div className="mb-10">
-            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">PBEL Sports Club</p>
+            <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-2">TourneyCraft</p>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-none tracking-tight mb-4">
               Find Your<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-300">

@@ -800,7 +800,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
 
         {/* ── FOOTER STRIP ────────────────────────────────────── */}
         <div className="border-t border-white/5 mt-12 py-8 px-6 text-center">
-          <p className="text-slate-500 text-xs">PBEL Sports Club · {tournament.name}</p>
+          <p className="text-slate-500 text-xs">TourneyCraft · {tournament.name}</p>
         </div>
     </div>
   );

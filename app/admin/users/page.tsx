@@ -58,6 +58,11 @@ export default function UserManagementPage() {
     isActive: true,
   });
 
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setSearchTerm(q);
+  }, []);
+
   const isFullAdmin = user?.role === 'admin' || user?.role === 'super-admin';
   const canManageUsers = isFullAdmin || user?.role === 'tournament-admin';
   // Tournaments this user is allowed to assign (full admins get all)

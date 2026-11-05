@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { PublicLayout } from '@/components/PublicLayout';
 import { HostTournamentForm } from '@/components/public/HostTournamentForm';
 import { TestimonialsSection } from '@/components/public/TestimonialsSection';
@@ -201,7 +202,7 @@ const CONTACT = [
 
 export default function Home() {
   return (
-    <PublicLayout hideAuth={true}>
+    <PublicLayout>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center px-4 pt-24 pb-16">
@@ -218,11 +219,11 @@ export default function Home() {
 
           {/* Headline */}
           <h1 className="text-6xl sm:text-8xl md:text-9xl font-black text-white leading-[0.9] tracking-tight mb-3">
-            Manch
+            Tourney
           </h1>
           <h1 className="text-6xl sm:text-8xl md:text-9xl font-black leading-[0.9] tracking-tight mb-8">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-orange-400">
-              play
+              Craft
             </span>
           </h1>
 
@@ -411,12 +412,12 @@ export default function Home() {
 
               {/* Left — pitch */}
               <div className="p-10 sm:p-14 lg:pr-8">
-                <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-4">Host on Manchplay</p>
+                <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-4">Host on TourneyCraft</p>
                 <h2 className="text-4xl sm:text-5xl font-black text-white mb-5 leading-tight">
                   Ready to Run Your Tournament?
                 </h2>
                 <p className="text-slate-100 text-base mb-8 leading-relaxed">
-                  Whether you&apos;re organising a small community event or a large multi-sport championship — Manchplay gives you the tools, without the complexity.
+                  Whether you&apos;re organising a small community event or a large multi-sport championship — TourneyCraft gives you the tools, without the complexity.
                 </p>
 
                 {/* Benefits */}
@@ -492,7 +493,7 @@ export default function Home() {
               <div className="text-5xl mb-5">🏆</div>
               <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Your Tournament Awaits</h2>
               <p className="text-slate-100 text-base mb-8 max-w-lg mx-auto leading-relaxed">
-                Browse active tournaments, view schedules, and register as a player — or <a href="#host" className="text-yellow-400 font-bold hover:underline">host your own event</a> with Manchplay.
+                Browse active tournaments, view schedules, and register as a player — or <a href="#host" className="text-yellow-400 font-bold hover:underline">host your own event</a> with TourneyCraft.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/tournament">
@@ -516,11 +517,14 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center">
-                <Trophy className="h-4 w-4 text-yellow-400" />
-              </div>
+              <Image
+                src="/logo.png"
+                alt="TourneyCraft logo"
+                width={32}
+                height={32}
+              />
               <div>
-                <p className="text-sm font-black text-white">Manchplay</p>
+                <p className="text-sm font-black text-white">TourneyCraft</p>
               </div>
             </div>
             <div className="flex items-center gap-6">
@@ -536,7 +540,7 @@ export default function Home() {
                 </Link>
               ))}
             </div>
-            <p className="text-sm text-slate-400">© 2026 Manchplay</p>
+            <p className="text-sm text-slate-400">© 2026 TourneyCraft</p>
           </div>
         </div>
       </footer>

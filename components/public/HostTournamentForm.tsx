@@ -120,7 +120,7 @@ export function HostTournamentForm() {
           <input
             value={form.organisation}
             onChange={e => set('organisation', e.target.value)}
-            placeholder="PBEL Sports Club"
+            placeholder="City Sports Club"
             className={inputCls}
           />
         </div>

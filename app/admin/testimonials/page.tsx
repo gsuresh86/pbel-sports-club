@@ -45,6 +45,11 @@ function SuperAdminTestimonialsReview() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setSearch(q);
+  }, []);
+
+  useEffect(() => {
     return onSnapshot(collection(db, 'testimonials'), (snap) => {
       setTestimonials(
         snap.docs

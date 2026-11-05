@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
@@ -241,7 +242,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-dvh bg-gray-50 flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -255,14 +256,15 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         'fixed inset-y-0 left-0 z-50 w-56 bg-white shadow-lg flex flex-col flex-shrink-0',
         'transform transition-transform duration-300 ease-in-out',
         'lg:translate-x-0 lg:static lg:inset-0',
+        'pt-[env(safe-area-inset-top)]',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       )}>
         {/* Logo */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-6 w-6 text-blue-600" />
-            <span className="text-base font-bold text-gray-900">Sports Club</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            <Image src="/logo.png" alt="TourneyCraft logo" width={28} height={28} />
+            <span className="text-sm font-bold text-gray-900 truncate">TourneyCraft</span>
+          </Link>
           <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
@@ -347,10 +349,10 @@ export default function TournamentSidebarLayout({ children }: { children: React.
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Topbar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
-          <div className="flex items-center justify-between h-14 px-4 gap-3">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)]">
+          <div className="flex items-center justify-between h-14 px-3 sm:px-4 gap-1 sm:gap-3">
             {/* Left: hamburger + tournament picker */}
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -364,7 +366,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="flex items-center gap-2 h-10 px-3 max-w-xs sm:max-w-md min-w-0"
+                    className="flex items-center gap-2 h-10 px-2 sm:px-3 max-w-[11rem] sm:max-w-md min-w-0"
                   >
                     <Trophy className="h-4 w-4 text-blue-600 flex-shrink-0" />
                     <span className="font-semibold text-gray-900 truncate">{tournament.name}</span>
@@ -396,6 +398,25 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="sm:hidden cursor-pointer">
+                    <a
+                      href={generateRegistrationLink(tournamentId)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Registration Link
+                    </a>
+                  </DropdownMenuItem>
+                  {canEditTournament && (
+                    <DropdownMenuItem
+                      className="sm:hidden cursor-pointer"
+                      onClick={() => setEditDrawerOpen(true)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Tournament
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => router.push('/admin/tournaments')} className="cursor-pointer">
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     All Tournaments
@@ -405,8 +426,8 @@ export default function TournamentSidebarLayout({ children }: { children: React.
             </div>
 
             {/* Right: notifications + profile */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="sm" asChild>
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
                 <a
                   href={generateRegistrationLink(tournamentId)}
                   target="_blank"
@@ -417,7 +438,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                 </a>
               </Button>
               {canEditTournament && (
-                <Button variant="outline" size="sm" onClick={() => setEditDrawerOpen(true)}>
+                <Button variant="outline" size="sm" className="hidden sm:inline-flex" onClick={() => setEditDrawerOpen(true)}>
                   <Pencil className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Edit Tournament</span>
                 </Button>

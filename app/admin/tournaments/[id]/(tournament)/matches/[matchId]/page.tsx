@@ -589,17 +589,17 @@ export default function MatchDetailPage() {
 
               </div>
 
+              {!isTeamMatch && canScore && (match.status === 'live' || match.status === 'scheduled') && (
+                <Link href={adminMatchScorePath(matchId, tournamentId)} className="mt-4 block">
+                  <Button className="w-full sm:w-auto min-h-12 gap-1.5 bg-blue-600 hover:bg-blue-700 touch-manipulation">
+                    <Swords className="h-4 w-4" />
+                    {match.status === 'live' ? 'Update Score' : 'Start & Score'}
+                  </Button>
+                </Link>
+              )}
+
               {/* Action buttons */}
               <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 mt-4 pt-3">
-                {/* Scoring page link */}
-                {!isTeamMatch && canScore && (match.status === 'live' || match.status === 'scheduled') && (
-                  <Link href={adminMatchScorePath(matchId, tournamentId)}>
-                    <Button size="sm" className="gap-1.5 bg-blue-600 hover:bg-blue-700">
-                      <Swords className="h-3.5 w-3.5" />
-                      {match.status === 'live' ? 'Update Score' : 'Start & Score'}
-                    </Button>
-                  </Link>
-                )}
                 {/* TV scoreboard */}
                 {match.status === 'live' && (
                   <Link href={scoreboardPath(matchId, tournamentId)} target="_blank" rel="noopener noreferrer">
@@ -943,36 +943,60 @@ export default function MatchDetailPage() {
                 <CardTitle className="text-sm">Set Scores</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/80">
-                      <TableHead className="text-xs w-14 pl-4">Set</TableHead>
-                      <TableHead className="text-xs">{side1}</TableHead>
-                      <TableHead className="text-xs">{side2}</TableHead>
-                      <TableHead className="text-xs">Winner</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {match.sets.map(s => {
-                      const s1Won = s.player1Score > s.player2Score;
-                      const s2Won = s.player2Score > s.player1Score;
-                      return (
-                        <TableRow key={s.setNumber}>
-                          <TableCell className="text-xs py-2.5 pl-4 font-medium text-gray-500">Set {s.setNumber}</TableCell>
-                          <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s1Won ? 'text-green-700' : 'text-gray-400')}>
-                            {s.player1Score}
-                          </TableCell>
-                          <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s2Won ? 'text-green-700' : 'text-gray-400')}>
-                            {s.player2Score}
-                          </TableCell>
-                          <TableCell className="text-xs py-2.5 text-gray-600">
-                            {s1Won ? side1 : s2Won ? side2 : '—'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <div className="sm:hidden divide-y divide-gray-100">
+                  {match.sets.map(s => {
+                    const s1Won = s.player1Score > s.player2Score;
+                    const s2Won = s.player2Score > s.player1Score;
+                    return (
+                      <div key={s.setNumber} className="px-4 py-3 space-y-1.5">
+                        <p className="text-xs font-medium text-gray-500">Set {s.setNumber}</p>
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className={cn('min-w-0 truncate font-medium', s1Won && 'text-green-700')}>{side1}</span>
+                          <span className={cn('tabular-nums font-bold', s1Won ? 'text-green-700' : 'text-gray-400')}>{s.player1Score}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span className={cn('min-w-0 truncate font-medium', s2Won && 'text-green-700')}>{side2}</span>
+                          <span className={cn('tabular-nums font-bold', s2Won ? 'text-green-700' : 'text-gray-400')}>{s.player2Score}</span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Winner: {s1Won ? side1 : s2Won ? side2 : '—'}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50/80">
+                        <TableHead className="text-xs w-14 pl-4">Set</TableHead>
+                        <TableHead className="text-xs">{side1}</TableHead>
+                        <TableHead className="text-xs">{side2}</TableHead>
+                        <TableHead className="text-xs">Winner</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {match.sets.map(s => {
+                        const s1Won = s.player1Score > s.player2Score;
+                        const s2Won = s.player2Score > s.player1Score;
+                        return (
+                          <TableRow key={s.setNumber}>
+                            <TableCell className="text-xs py-2.5 pl-4 font-medium text-gray-500">Set {s.setNumber}</TableCell>
+                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s1Won ? 'text-green-700' : 'text-gray-400')}>
+                              {s.player1Score}
+                            </TableCell>
+                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s2Won ? 'text-green-700' : 'text-gray-400')}>
+                              {s.player2Score}
+                            </TableCell>
+                            <TableCell className="text-xs py-2.5 text-gray-600">
+                              {s1Won ? side1 : s2Won ? side2 : '—'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}

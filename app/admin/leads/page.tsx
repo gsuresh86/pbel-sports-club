@@ -115,6 +115,11 @@ export default function LeadsManagementPage() {
   const [declineReason, setDeclineReason] = useState('');
 
   useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) setSearchTerm(q);
+  }, []);
+
+  useEffect(() => {
     if (!authLoading && (!user || (user.role !== 'admin' && user.role !== 'super-admin' && user.role !== 'tournament-admin'))) {
       router.push('/login');
     } else if (user && (user.role === 'admin' || user.role === 'super-admin' || user.role === 'tournament-admin')) {

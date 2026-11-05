@@ -791,9 +791,9 @@ export default function LiveScoringPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-dvh bg-gray-50">
       {/* Sticky top bar */}
-      <div className="sticky top-0 z-10 bg-white border-b shadow-sm px-3 py-3 sm:px-4">
+      <div className="sticky top-0 z-10 bg-white border-b shadow-sm px-3 py-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="max-w-4xl mx-auto flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 flex items-start gap-2">
             <Button
@@ -835,8 +835,9 @@ export default function LiveScoringPage() {
             <Button
               variant="outline"
               size="sm"
-              className="hidden sm:flex touch-manipulation"
+              className="touch-manipulation"
               onClick={copyScoreboardUrl}
+              title="Copy scoreboard URL"
             >
               {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>

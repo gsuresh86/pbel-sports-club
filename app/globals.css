@@ -185,6 +185,23 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Standalone PWA / notched devices: keep chrome out of the status bar */
+html,
+body {
+  min-height: 100dvh;
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (display-mode: standalone) {
+  html,
+  body {
+    min-height: 100dvh;
+  }
+}
+
 /* System scrollbar - less prominent */
 ::-webkit-scrollbar {
   width: 6px;

@@ -98,6 +98,7 @@ export default function ManageTournamentsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const openedCreateFromUrlRef = useRef(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [tableScope, setTableScope] = useState<'all' | 'active'>('all');
@@ -220,7 +221,26 @@ export default function ManageTournamentsPage() {
   // The tournament console links here with ?edit=<id>. Reuse this drawer so
   // every edit entry point has the same fields and behavior.
   useEffect(() => {
-    const editId = new URLSearchParams(window.location.search).get('edit');
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) setSearchTerm(q);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('create') === '1' && !openedCreateFromUrlRef.current) {
+      openedCreateFromUrlRef.current = true;
+      handleCreate();
+      params.delete('create');
+      const next = params.toString();
+      window.history.replaceState(
+        window.history.state,
+        '',
+        next ? `/admin/tournaments?${next}` : '/admin/tournaments'
+      );
+    }
+
+    const editId = params.get('edit');
     if (!editId || openedEditFromUrlRef.current === editId) return;
 
     const tournament = tournaments.find((item) => item.id === editId);
@@ -228,7 +248,13 @@ export default function ManageTournamentsPage() {
 
     openedEditFromUrlRef.current = editId;
     handleEdit(tournament);
-    window.history.replaceState(window.history.state, '', '/admin/tournaments');
+    params.delete('edit');
+    const next = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      next ? `/admin/tournaments?${next}` : '/admin/tournaments'
+    );
   }, [handleEdit, tournaments]);
 
   const copyRegistrationLink = (link: string) => {
@@ -492,26 +518,17 @@ export default function ManageTournamentsPage() {
   return (
     <AdminLayout moduleName="Tournaments">
       <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
-        {/* Page header */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-              Tournaments Overview
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Track registrations, deadlines, and tournament status at a glance.
-            </p>
-          </div>
-          {(user?.role === 'admin' || user?.role === 'super-admin') && (
+        {(user?.role === 'admin' || user?.role === 'super-admin') && (
+          <div className="mb-4 flex justify-end">
             <Button
               onClick={handleCreate}
-              className="h-10 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+              className="h-9 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               Add Tournament
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* KPI cards */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

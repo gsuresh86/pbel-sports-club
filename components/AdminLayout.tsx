@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfileSidebar } from '@/contexts/ProfileSidebarContext';
 import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -17,19 +19,18 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   LayoutDashboard,
-  Users,
   Trophy,
   Settings,
   Menu,
   X,
   LogOut,
   User as UserIcon,
-  Search,
   UserPlus,
   MessageSquareQuote,
   Activity,
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
+import { AdminGlobalSearch } from '@/components/admin/AdminGlobalSearch';
 import {
   canAccessTournamentConsole,
   canReviewTestimonials,
@@ -145,7 +146,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-dvh bg-gray-50 flex">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -155,15 +156,15 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
       )}
 
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 flex flex-col ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 flex flex-col pt-[env(safe-area-inset-top)] ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Sidebar header */}
         <div className="flex items-center justify-between h-14 px-4 border-gray-200">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-8 w-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">Sports Club</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            <Image src="/logo.png" alt="TourneyCraft logo" width={32} height={32} />
+            <span className="text-lg font-bold text-gray-900 truncate">TourneyCraft</span>
+          </Link>
           <Button
             variant="ghost"
             size="sm"
@@ -238,10 +239,10 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
       {/* Main content */}
       <div className="flex-1 min-w-0">
         {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between h-14 px-4">
             {/* Left side */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 min-w-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -250,27 +251,14 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {getCurrentModuleName()}
-                </h1>
-                <p className="text-sm text-gray-500">
-                  {adminMenuItems.find(item => item.href === pathname)?.description || 'Administrative panel'}
-                </p>
-              </div>
+              <h1 className="text-lg font-semibold text-gray-900 truncate">
+                {getCurrentModuleName()}
+              </h1>
             </div>
 
             {/* Right side */}
-            <div className="flex items-center gap-4">
-              {/* Search */}
-              <div className="relative hidden md:block">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            <div className="flex items-center gap-3">
+              <AdminGlobalSearch user={user} />
 
               {/* Notifications */}
               {user?.id && <NotificationDropdown userId={user.id} />}

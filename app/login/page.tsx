@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import Image from 'next/image';
 import { getLoginRedirect } from '@/lib/permissions';
 
 export default function LoginPage() {
@@ -51,7 +52,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-dvh flex flex-col">
+      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur-md pt-[env(safe-area-inset-top)]">
+        <div className="flex h-14 items-center justify-between px-4">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            <Image
+              src="/logo.png"
+              alt="TourneyCraft logo"
+              width={32}
+              height={32}
+            />
+            <span className="font-semibold text-gray-900 truncate">TourneyCraft</span>
+          </Link>
+          <span className="text-sm font-medium text-gray-500">Login</span>
+        </div>
+      </header>
+      <div className="flex flex-1 min-h-0">
       {/* Left Side - Sports Background */}
       <div 
         className="hidden lg:flex lg:w-1/2 relative bg-cover bg-center bg-no-repeat"
@@ -84,7 +100,7 @@ export default function LoginPage() {
           <div className="max-w-md space-y-6 animate-fade-in">
             <h1 className="text-5xl font-bold leading-tight">
               Welcome to
-              <span className="block text-blue-400">Sports Club</span>
+              <span className="block text-blue-400">TourneyCraft</span>
             </h1>
             <p className="text-xl text-gray-200 leading-relaxed">
               Join our community of athletes and compete in exciting tournaments. 
@@ -176,6 +192,7 @@ export default function LoginPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );
