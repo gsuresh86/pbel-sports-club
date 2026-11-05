@@ -1,49 +1,59 @@
 'use client';
 
 import { useState } from 'react';
+import { addDoc, collection } from 'firebase/firestore';
 import { CheckCircle2, Send, Loader2 } from 'lucide-react';
+import { db } from '@/lib/firebase';
 
 const SPORTS_OPTIONS = ['Badminton', 'Table Tennis', 'Volleyball', 'Throw Ball', 'Chess', 'Pickleball', 'Multiple Sports', 'Other'];
 const SIZE_OPTIONS = ['< 20 participants', '20–50', '50–100', '100–200', '200+'];
 
+const EMPTY_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  organisation: '',
+  sport: '',
+  size: '',
+  message: '',
+};
+
 export function HostTournamentForm() {
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    organisation: '',
-    sport: '',
-    size: '',
-    message: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
-    const body = [
-      `Name: ${form.name}`,
-      `Email: ${form.email}`,
-      `Phone: ${form.phone}`,
-      `Organisation: ${form.organisation}`,
-      `Sport: ${form.sport}`,
-      `Expected Participants: ${form.size}`,
-      `Message: ${form.message}`,
-    ].join('%0D%0A');
-
-    const subject = encodeURIComponent(`Tournament Hosting Inquiry — ${form.name}`);
-    window.open(`mailto:gsuresh86@gmail.com?subject=${subject}&body=${body}`, '_blank');
-
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await addDoc(collection(db, 'tournamentLeads'), {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        sport: form.sport,
+        organisation: form.organisation.trim(),
+        expectedParticipants: form.size,
+        message: form.message.trim(),
+        registeredAt: new Date(),
+        status: 'pending',
+        source: 'public-host-enquiry',
+      });
       setSubmitted(true);
-    }, 600);
+    } catch (err) {
+      console.error('Error submitting host enquiry:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to submit enquiry: ${errorMessage}. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -54,11 +64,10 @@ export function HostTournamentForm() {
         </div>
         <h3 className="text-xl font-black text-white mb-2">We&apos;re on it!</h3>
         <p className="text-slate-200 text-sm max-w-sm">
-          Your email client should have opened. If not, drop us a line at{' '}
-          <span className="text-yellow-400 font-semibold">gsuresh86@gmail.com</span> and we&apos;ll get back to you within 24 hours.
+          Thanks for your enquiry. Our team will review it and get back to you within 24 hours.
         </p>
         <button
-          onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', organisation: '', sport: '', size: '', message: '' }); }}
+          onClick={() => { setSubmitted(false); setError(''); setForm(EMPTY_FORM); }}
           className="mt-6 text-xs text-slate-500 hover:text-white underline underline-offset-4 transition-colors"
         >
           Submit another inquiry
@@ -151,6 +160,9 @@ export function HostTournamentForm() {
           className={`${inputCls} resize-none`}
         />
       </div>
+      {error && (
+        <p className="text-sm text-red-400">{error}</p>
+      )}
       <button
         type="submit"
         disabled={loading}

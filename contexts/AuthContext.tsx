@@ -8,7 +8,7 @@ import {
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, UserRole } from '@/types';
 
@@ -90,7 +90,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    try {
+      await updateDoc(doc(db, 'users', credential.user.uid), {
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      });
+      const { logUserActivity } = await import('@/lib/user-activity');
+      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
+      const profile = userDoc.exists() ? userDoc.data() : {};
+      await logUserActivity({
+        userId: credential.user.uid,
+        userName: (profile.name as string) || credential.user.displayName || '',
+        userEmail: (profile.email as string) || credential.user.email || email,
+        type: 'login',
+        title: 'Logged in',
+      });
+    } catch (error) {
+      console.warn('Failed to record login activity:', error);
+    }
   };
 
   const signUp = async (email: string, password: string, name: string, _role?: UserRole) => {

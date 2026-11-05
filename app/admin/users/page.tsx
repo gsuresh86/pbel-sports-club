@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -471,10 +471,17 @@ export default function UserManagementPage() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return 'bg-red-100 text-red-800 border-red-200';
-      case 'tournament-admin': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'public': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'admin':
+      case 'super-admin':
+        return 'bg-rose-50 text-rose-700 border-rose-100';
+      case 'tournament-admin':
+        return 'bg-sky-50 text-sky-700 border-sky-100';
+      case 'referee':
+        return 'bg-amber-50 text-amber-700 border-amber-100';
+      case 'public':
+        return 'bg-slate-100 text-slate-600 border-slate-200';
+      default:
+        return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   };
 
@@ -497,10 +504,10 @@ export default function UserManagementPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading users...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto" />
+          <p className="mt-4 text-slate-500 text-sm">Loading users...</p>
         </div>
       </div>
     );
@@ -508,32 +515,63 @@ export default function UserManagementPage() {
 
   return (
     <AdminLayout moduleName="User Management">
-      <div className="p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-          <p className="text-gray-600">
-            {isFullAdmin
-              ? 'Manage admin users and their tournament access'
-              : 'Add and manage referees for your assigned tournaments'}
-          </p>
+      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-slate-500">Total Users</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{users.length}</p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-rose-100 bg-rose-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-rose-700/80">Admins</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {users.filter(u => u.role === 'admin' || u.role === 'super-admin').length}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-sky-100 bg-sky-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-sky-700/80">Tournament Admins</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {users.filter(u => u.role === 'tournament-admin').length}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-emerald-700/80">Active Users</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {users.filter(u => u.isActive !== false).length}
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Search and Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search users by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">All Users</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Showing {filteredUsers.length} of {users.length}
+              </p>
             </div>
-            <div className="flex gap-2">
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Search by name or email"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
+                />
+              </div>
+
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
+                <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl border-slate-200 focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -544,142 +582,166 @@ export default function UserManagementPage() {
                   <SelectItem value="public">Public</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
-                <Plus className="h-4 w-4 mr-2" />
+
+              <Button
+                onClick={() => { resetForm(); setDialogOpen(true); }}
+                className="h-9 rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
                 {isFullAdmin ? 'Add User' : 'Add Referee'}
               </Button>
             </div>
           </div>
-          
-          {/* Results count */}
-          <div className="text-sm text-gray-600">
-            Showing {filteredUsers.length} of {users.length} users
-          </div>
-        </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Users</p>
-                  <p className="text-2xl font-bold">{users.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Shield className="h-8 w-8 text-red-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Admins</p>
-                  <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Settings className="h-8 w-8 text-blue-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Tournament Admins</p>
-                  <p className="text-2xl font-bold">{users.filter(u => u.role === 'tournament-admin').length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-green-500" />
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Active Users</p>
-                  <p className="text-2xl font-bold">{users.filter(u => u.isActive !== false).length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Users Table */}
-        <Card className="rounded-none">
-          <CardHeader>
-            <CardTitle>Users ({filteredUsers.length})</CardTitle>
-            <CardDescription>
-              Manage user accounts and tournament access permissions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-auto max-h-[calc(100dvh-20rem)]">
+          {filteredUsers.length === 0 ? (
+            <div className="py-16 text-center">
+              {users.length === 0 ? (
+                <>
+                  <Users className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <h3 className="text-base font-semibold text-slate-900">No users yet</h3>
+                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                    Create your first user to get started
+                  </p>
+                  <Button
+                    onClick={() => { resetForm(); setDialogOpen(true); }}
+                    className="rounded-xl bg-slate-900 hover:bg-slate-800"
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    {isFullAdmin ? 'Add User' : 'Add Referee'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <h3 className="text-base font-semibold text-slate-900">No users found</h3>
+                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                    Try adjusting your search or filters
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setRoleFilter('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Assigned Tournaments</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">
+                      Name
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Email
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Role
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Assigned Tournaments
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Status
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Created
+                    </TableHead>
+                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-slate-400">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge className={getRoleColor(user.role)}>
+                  {filteredUsers.map((user, index) => (
+                    <TableRow
+                      key={user.id}
+                      className={`border-slate-50 ${
+                        index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                      } hover:bg-slate-50`}
+                    >
+                      <TableCell className="pl-5 py-3.5">
+                        <div className="font-medium text-slate-900">{user.name}</div>
+                      </TableCell>
+                      <TableCell className="py-3.5 text-sm text-slate-700">
+                        {user.email}
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <Badge className={`rounded-full border capitalize ${getRoleColor(user.role)}`}>
                           <span className="flex items-center gap-1">
                             {getRoleIcon(user.role)}
                             {user.role.replace('-', ' ')}
                           </span>
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {user.assignedTournaments && user.assignedTournaments.length > 0 ? (
-                            user.assignedTournaments.map((tournamentId) => {
+                      <TableCell className="py-3.5">
+                        {user.assignedTournaments && user.assignedTournaments.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {user.assignedTournaments.map((tournamentId) => {
                               const tournament = tournaments.find(t => t.id === tournamentId);
                               return (
-                                <Badge key={tournamentId} variant="outline" className="text-xs mr-1">
+                                <Badge
+                                  key={tournamentId}
+                                  variant="outline"
+                                  className="rounded-full border-slate-200 text-xs font-normal text-slate-600"
+                                >
                                   {tournament?.name || 'Unknown Tournament'}
                                 </Badge>
                               );
-                            })
-                          ) : (
-                            <span className="text-gray-400 text-sm">No tournaments assigned</span>
-                          )}
-                        </div>
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400">No tournaments assigned</span>
+                        )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge className={user.isActive !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                            {user.isActive !== false ? 'Active' : 'Inactive'}
-                          </Badge>
+                      <TableCell className="py-3.5">
+                        <Badge
+                          className={`rounded-full border ${
+                            user.isActive !== false
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-100'
+                          }`}
+                        >
+                          {user.isActive !== false ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-3.5 text-sm text-slate-600">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="pr-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-0.5">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
                             onClick={() => toggleUserStatus(user.id, user.isActive !== false)}
-                            className="h-6 w-6 p-0"
+                            title={user.isActive !== false ? 'Deactivate user' : 'Activate user'}
                           >
-                            {user.isActive !== false ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            {user.isActive !== false ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleEdit(user)}>
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            onClick={() => handleEdit(user)}
+                            title="Edit User"
+                          >
+                            <Edit className="h-4 w-4" />
                           </Button>
                           {(user.role !== 'admin' && user.role !== 'super-admin') && (
-                            <Button size="sm" variant="destructive" onClick={() => handleDelete(user.id)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                              onClick={() => handleDelete(user.id)}
+                              title="Delete User"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -690,15 +752,7 @@ export default function UserManagementPage() {
                 </TableBody>
               </Table>
             </div>
-
-            {filteredUsers.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
-                <p className="text-gray-600">Try adjusting your search or filter criteria</p>
-              </div>
-            )}
-          </CardContent>
+          )}
         </Card>
 
         {/* Add/Edit User Dialog */}

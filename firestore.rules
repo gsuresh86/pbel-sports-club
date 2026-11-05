@@ -370,6 +370,16 @@ service cloud.firestore {
       );
     }
 
+    // User activity — public create for own events, admin read
+    match /userActivity/{activityId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow update, delete: if request.auth != null && isAdmin();
+    }
+
     // Notifications - users can read/update their own notifications
     match /notifications/{notificationId} {
       // Allow read if user is authenticated and owns the notification

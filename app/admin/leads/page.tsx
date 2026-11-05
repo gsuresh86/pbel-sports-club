@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,10 +40,19 @@ import {
   Trophy,
   Trash2,
   Eye,
-  Clock,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Filter,
 } from 'lucide-react';
+
+function formatLeadDate(date?: Date | null) {
+  if (!date) return null;
+  return new Date(date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 interface Lead {
   id: string;
@@ -54,6 +63,10 @@ interface Lead {
   name: string;
   email: string;
   phone: string;
+  organisation?: string;
+  expectedParticipants?: string;
+  message?: string;
+  source?: string;
   tournamentId?: string;
   registeredAt: Date;
   status: 'pending' | 'approved' | 'declined';
@@ -119,7 +132,8 @@ export default function LeadsManagementPage() {
         lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lead.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.tournamentName?.toLowerCase().includes(searchTerm.toLowerCase())
+        lead.tournamentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.organisation?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -198,7 +212,12 @@ export default function LeadsManagementPage() {
       endDate: lead.endDate ? new Date(lead.endDate).toISOString().split('T')[0] : '',
       registrationDeadline: lead.startDate ? new Date(new Date(lead.startDate).getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '',
       venue: '',
-      description: `Tournament requested by ${lead.name}`,
+      description: [
+        `Tournament requested by ${lead.name}`,
+        lead.organisation ? `Organisation: ${lead.organisation}` : '',
+        lead.expectedParticipants ? `Expected participants: ${lead.expectedParticipants}` : '',
+        lead.message ? `Notes: ${lead.message}` : '',
+      ].filter(Boolean).join('\n'),
       maxParticipants: '',
       entryFee: '',
       prizePool: '',
@@ -427,16 +446,16 @@ export default function LeadsManagementPage() {
     });
   };
 
-  const getStatusColor = (status: Lead['status']) => {
+  const getStatusBadgeClass = (status: Lead['status']) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-amber-50 text-amber-700 border-amber-100';
       case 'approved':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-100';
       case 'declined':
-        return 'bg-red-100 text-red-800';
+        return 'bg-rose-50 text-rose-700 border-rose-100';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-slate-100 text-slate-600 border-slate-200';
     }
   };
 
@@ -475,82 +494,64 @@ export default function LeadsManagementPage() {
 
   return (
     <AdminLayout moduleName="Leads Management">
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Tournament Leads</h1>
-          <p className="text-gray-600">Review and approve/decline tournament registration requests</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Leads</p>
-                  <p className="text-2xl font-bold text-gray-900">{leads.length}</p>
-                </div>
-                <Trophy className="h-8 w-8 text-blue-600" />
-              </div>
+      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-slate-500">Total Leads</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{leads.length}</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {leads.filter(l => l.status === 'pending').length}
-                  </p>
-                </div>
-                <Clock className="h-8 w-8 text-yellow-600" />
-              </div>
+          <Card className="rounded-2xl border-amber-100 bg-amber-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-amber-700/80">Pending</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {leads.filter(l => l.status === 'pending').length}
+              </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {leads.filter(l => l.status === 'approved').length}
-                  </p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
+          <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-emerald-700/80">Approved</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {leads.filter(l => l.status === 'approved').length}
+              </p>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Declined</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {leads.filter(l => l.status === 'declined').length}
-                  </p>
-                </div>
-                <XCircle className="h-8 w-8 text-red-600" />
-              </div>
+          <Card className="rounded-2xl border-rose-100 bg-rose-50 shadow-none gap-0 py-3">
+            <CardContent className="px-5">
+              <p className="text-sm text-rose-700/80">Declined</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                {leads.filter(l => l.status === 'declined').length}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">All Leads</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Showing {filteredLeads.length} of {leads.length}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <Input
-                  placeholder="Search by name, email, phone, or tournament name..."
+                  placeholder="Search by name, email, or tournament"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
                 />
               </div>
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full lg:w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
+                  <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -559,9 +560,10 @@ export default function LeadsManagementPage() {
                   <SelectItem value="declined">Declined</SelectItem>
                 </SelectContent>
               </Select>
+
               <Select value={sportFilter} onValueChange={setSportFilter}>
-                <SelectTrigger className="w-full lg:w-[180px]">
-                  <SelectValue placeholder="Filter by sport" />
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
+                  <SelectValue placeholder="Sport" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Sports</SelectItem>
@@ -573,138 +575,188 @@ export default function LeadsManagementPage() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Leads Table */}
-        <Card className="rounded-none">
-          <CardHeader>
-            <CardTitle>Leads ({filteredLeads.length})</CardTitle>
-            <CardDescription>Review and manage tournament registration requests</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {filteredLeads.length === 0 ? (
-              <div className="text-center py-12">
-                <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No leads found</p>
-              </div>
-            ) : (
-              <div className="overflow-auto max-h-[calc(100dvh-20rem)]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Requester</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Tournament Details</TableHead>
-                      <TableHead>Sport</TableHead>
-                      <TableHead>Dates</TableHead>
-                      <TableHead>Registered</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLeads.map((lead) => (
-                      <TableRow key={lead.id}>
-                        <TableCell className="font-medium">{lead.name}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-3 w-3 text-gray-400" />
-                              <span>{lead.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Phone className="h-3 w-3 text-gray-400" />
-                              <span>{lead.phone}</span>
-                            </div>
+          {filteredLeads.length === 0 ? (
+            <div className="py-16 text-center">
+              {leads.length === 0 ? (
+                <>
+                  <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <h3 className="text-base font-semibold text-slate-900">No leads yet</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Hosting enquiries from the public site will appear here
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                  <h3 className="text-base font-semibold text-slate-900">No leads found</h3>
+                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                    Try adjusting your search or filters
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setStatusFilter('all');
+                      setSportFilter('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">
+                      Requester
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Contact
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Tournament
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Sport
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Dates
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Registered
+                    </TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                      Status
+                    </TableHead>
+                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-slate-400">
+                      Actions
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredLeads.map((lead, index) => (
+                    <TableRow
+                      key={lead.id}
+                      className={`border-slate-50 ${
+                        index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                      } hover:bg-slate-50`}
+                    >
+                      <TableCell className="pl-5 py-3.5">
+                        <div className="font-medium text-slate-900">{lead.name}</div>
+                        {lead.organisation && (
+                          <div className="text-xs text-slate-400">{lead.organisation}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-1.5 text-sm text-slate-700">
+                          <Mail className="h-3 w-3 text-slate-300 shrink-0" />
+                          <span>{lead.email}</span>
+                        </div>
+                        {lead.phone && (
+                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                            <Phone className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span>{lead.phone}</span>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="font-medium text-sm">
-                              {lead.tournamentName || 'No tournament name provided'}
-                            </div>
-                            {lead.tournamentId && (
-                              <Badge variant="outline" className="text-xs">
-                                Tournament Created
-                              </Badge>
-                            )}
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <div className="font-medium text-sm text-slate-900">
+                          {lead.tournamentName || lead.organisation || 'No tournament name provided'}
+                        </div>
+                        {lead.expectedParticipants && (
+                          <div className="text-xs text-slate-400">{lead.expectedParticipants}</div>
+                        )}
+                        {lead.message && (
+                          <div className="text-xs text-slate-400 line-clamp-1">{lead.message}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <span className="text-sm capitalize text-slate-700">
+                          {getSportIcon(lead.sport)} {lead.sport.replace('-', ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        {lead.startDate && lead.endDate ? (
+                          <div className="flex items-center gap-1.5 text-sm text-slate-700 whitespace-nowrap">
+                            <span>{formatLeadDate(lead.startDate)}</span>
+                            <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span>{formatLeadDate(lead.endDate)}</span>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {getSportIcon(lead.sport)} {lead.sport.charAt(0).toUpperCase() + lead.sport.slice(1).replace('-', ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {lead.startDate && lead.endDate ? (
-                            <div className="text-sm space-y-1">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                <span>{new Date(lead.startDate).toLocaleDateString()}</span>
-                              </div>
-                              <div className="text-gray-600">to {new Date(lead.endDate).toLocaleDateString()}</div>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">Not specified</span>
+                        ) : (
+                          <span className="text-sm text-slate-400">Not specified</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
+                          <Calendar className="h-3 w-3 text-slate-300" />
+                          <span>{formatLeadDate(lead.registeredAt)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5">
+                        <Badge
+                          className={`rounded-full border capitalize ${getStatusBadgeClass(lead.status)}`}
+                        >
+                          {lead.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="pr-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {lead.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                onClick={() => handleApprove(lead)}
+                                title="Approve"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                                onClick={() => handleDecline(lead)}
+                                title="Decline"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="h-3 w-3" />
-                            <span>{new Date(lead.registeredAt).toLocaleDateString()}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusColor(lead.status)}>
-                            {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {lead.status === 'pending' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleApprove(lead)}
-                                  className="bg-green-600 hover:bg-green-700"
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleDecline(lead)}
-                                  variant="destructive"
-                                >
-                                  <XCircle className="h-4 w-4 mr-1" />
-                                  Decline
-                                </Button>
-                              </>
-                            )}
-                            {lead.status === 'approved' && lead.tournamentId && (
-                              <Badge className="bg-green-100 text-green-800">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Tournament Created
-                              </Badge>
-                            )}
+                          {lead.tournamentId && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(lead.id)}
-                              className="text-red-600 hover:text-red-700"
+                              className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                              onClick={() => router.push(`/admin/tournaments/${lead.tournamentId}/overview`)}
+                              title="View Tournament"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4" />
                             </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => handleDelete(lead.id)}
+                            title="Delete Lead"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
 
         {/* Multi-Step Approve Dialog - Create Tournament & Assign User */}

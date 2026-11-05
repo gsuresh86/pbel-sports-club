@@ -401,6 +401,23 @@ export function TournamentFormDrawer({
           console.error('Error sending notification:', error);
         }
 
+        if (user?.id) {
+          try {
+            const { logUserActivity } = await import('@/lib/user-activity');
+            await logUserActivity({
+              userId: user.id,
+              userName: user.name,
+              userEmail: user.email,
+              type: 'tournament_created',
+              title: `Created tournament “${formData.name}”`,
+              tournamentId: docRef.id,
+              tournamentName: formData.name,
+            });
+          } catch (error) {
+            console.warn('Failed to record tournament activity:', error);
+          }
+        }
+
         handleOpenChange(false);
         onSaved?.({ id: docRef.id, mode: 'create' });
       }

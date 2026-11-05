@@ -44,6 +44,7 @@ export interface User {
   tournamentPermissions?: Record<string, Permission[]>;
   createdAt: Date;
   updatedAt?: Date;
+  lastLoginAt?: Date;
   createdBy?: string;
   isActive?: boolean;
   fcmToken?: string;
