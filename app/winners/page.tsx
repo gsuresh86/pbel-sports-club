@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { PublicLayout } from '@/components/PublicLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Winner, Tournament } from '@/types';
+import { Reveal } from '@/components/public/Reveal';
 
 export default function WinnersPage() {
   const [winners, setWinners] = useState<Winner[]>([]);
@@ -26,13 +27,13 @@ export default function WinnersPage() {
         getDocs(collection(db, 'tournaments')),
       ]);
 
-      const winnersData = winnersSnapshot.docs.map(doc => ({
+      const winnersData = winnersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
       })) as Winner[];
 
-      const tournamentsData = tournamentsSnapshot.docs.map(doc => ({
+      const tournamentsData = tournamentsSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         startDate: doc.data().startDate?.toDate(),
@@ -51,41 +52,43 @@ export default function WinnersPage() {
     }
   };
 
-  const getTournament = (tournamentId: string) => {
-    return tournaments.find(t => t.id === tournamentId);
-  };
+  const getTournament = (tournamentId: string) => tournaments.find((t) => t.id === tournamentId);
 
   const getPositionBadge = (position: number) => {
     switch (position) {
       case 1:
-        return <Badge className="bg-yellow-500">🥇 Champion</Badge>;
+        return <Badge className="bg-yellow-500 text-slate-950">Champion</Badge>;
       case 2:
-        return <Badge className="bg-gray-400">🥈 Runner-up</Badge>;
+        return <Badge className="bg-slate-400 text-white">Runner-up</Badge>;
       case 3:
-        return <Badge className="bg-orange-600">🥉 Third Place</Badge>;
+        return <Badge className="bg-orange-600 text-white">Third Place</Badge>;
       default:
         return <Badge>{position}</Badge>;
     }
   };
 
-  const groupedWinners = winners.reduce((acc, winner) => {
-    const tournamentId = winner.tournamentId;
-    if (!acc[tournamentId]) {
-      acc[tournamentId] = [];
-    }
-    acc[tournamentId].push(winner);
-    return acc;
-  }, {} as Record<string, Winner[]>);
+  const groupedWinners = winners.reduce(
+    (acc, winner) => {
+      const tournamentId = winner.tournamentId;
+      if (!acc[tournamentId]) acc[tournamentId] = [];
+      acc[tournamentId].push(winner);
+      return acc;
+    },
+    {} as Record<string, Winner[]>,
+  );
 
-  const filteredTournamentIds = selectedSport === 'all'
-    ? Object.keys(groupedWinners)
-    : Object.keys(groupedWinners).filter(id => getTournament(id)?.sport === selectedSport);
+  const filteredTournamentIds =
+    selectedSport === 'all'
+      ? Object.keys(groupedWinners)
+      : Object.keys(groupedWinners).filter(
+          (id) => getTournament(id)?.sport === selectedSport,
+        );
 
   if (loading) {
     return (
       <PublicLayout>
         <div className="min-h-screen flex items-center justify-center">
-          <p className="text-lg">Loading winners...</p>
+          <p className="text-lg text-muted-foreground">Loading winners...</p>
         </div>
       </PublicLayout>
     );
@@ -93,14 +96,15 @@ export default function WinnersPage() {
 
   return (
     <PublicLayout>
-      <div className="bg-yellow-50/90 backdrop-blur-sm py-12 px-4">
+      <div className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4">🏆 Hall of Champions</h1>
-            <p className="text-xl text-gray-600">
-              Celebrating excellence in sports
+          <Reveal className="text-center mb-12">
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest mb-2">
+              Results
             </p>
-          </div>
+            <h1 className="text-5xl font-bold text-foreground mb-4">Hall of Champions</h1>
+            <p className="text-xl text-muted-foreground">Celebrating excellence in sports</p>
+          </Reveal>
 
           <Tabs defaultValue="all" className="mb-8" onValueChange={setSelectedSport}>
             <TabsList>
@@ -115,51 +119,55 @@ export default function WinnersPage() {
             {filteredTournamentIds.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <p className="text-gray-500">No winners announced yet.</p>
+                  <p className="text-muted-foreground">No winners announced yet.</p>
                 </CardContent>
               </Card>
             ) : (
-              filteredTournamentIds.map((tournamentId) => {
+              filteredTournamentIds.map((tournamentId, i) => {
                 const tournament = getTournament(tournamentId);
                 const tournamentWinners = groupedWinners[tournamentId].sort(
-                  (a, b) => a.position - b.position
+                  (a, b) => a.position - b.position,
                 );
 
                 return (
-                  <Card key={tournamentId} className="overflow-hidden">
-                    <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                      <CardTitle className="text-2xl">
-                        {tournament?.name || 'Tournament'}
-                      </CardTitle>
-                      <p className="text-blue-100">
-                        {tournament?.sport} • {tournament?.endDate && new Date(tournament.endDate).getFullYear()}
-                      </p>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="grid md:grid-cols-3 gap-6">
-                        {tournamentWinners.map((winner) => (
-                          <div
-                            key={winner.id}
-                            className={`text-center p-6 rounded-lg ${
-                              winner.position === 1
-                                ? 'bg-yellow-50 border-2 border-yellow-400'
-                                : winner.position === 2
-                                ? 'bg-gray-50 border-2 border-gray-400'
-                                : 'bg-orange-50 border-2 border-orange-400'
-                            }`}
-                          >
-                            <div className="mb-4">{getPositionBadge(winner.position)}</div>
-                            <h3 className="text-2xl font-bold mb-2">
-                              {winner.participantName}
-                            </h3>
-                            {winner.prize && (
-                              <p className="text-gray-600">Prize: {winner.prize}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <Reveal key={tournamentId} delay={Math.min(i * 60, 240)}>
+                    <Card className="overflow-hidden border-border">
+                      <CardHeader className="bg-gradient-to-r from-slate-800 to-slate-900 text-white dark:from-slate-800 dark:to-slate-950">
+                        <CardTitle className="text-2xl">
+                          {tournament?.name || 'Tournament'}
+                        </CardTitle>
+                        <p className="text-slate-300">
+                          {tournament?.sport} •{' '}
+                          {tournament?.endDate &&
+                            new Date(tournament.endDate).getFullYear()}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        <div className="grid md:grid-cols-3 gap-6">
+                          {tournamentWinners.map((winner) => (
+                            <div
+                              key={winner.id}
+                              className={`text-center p-6 rounded-lg border-2 ${
+                                winner.position === 1
+                                  ? 'bg-amber-500/10 border-amber-500'
+                                  : winner.position === 2
+                                    ? 'bg-muted border-border'
+                                    : 'bg-orange-500/10 border-orange-500/60'
+                              }`}
+                            >
+                              <div className="mb-4">{getPositionBadge(winner.position)}</div>
+                              <h3 className="text-2xl font-bold text-foreground mb-2">
+                                {winner.participantName}
+                              </h3>
+                              {winner.prize && (
+                                <p className="text-muted-foreground">Prize: {winner.prize}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Reveal>
                 );
               })
             )}

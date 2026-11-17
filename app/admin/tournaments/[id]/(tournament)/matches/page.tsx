@@ -97,7 +97,7 @@ function getMatchStatusColor(status: string) {
     case 'completed': return 'bg-green-100 text-green-800';
     case 'live': return 'bg-red-100 text-red-800';
     case 'scheduled': return 'bg-blue-100 text-blue-800';
-    case 'not-scheduled': return 'bg-gray-100 text-gray-600';
+    case 'not-scheduled': return 'bg-gray-100 text-muted-foreground';
     case 'cancelled': return 'bg-gray-100 text-gray-800';
     case 'postponed': return 'bg-yellow-100 text-yellow-800';
     default: return 'bg-gray-100 text-gray-800';
@@ -182,7 +182,7 @@ function EditSideSelect({
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-between bg-white px-3 font-normal"
+          className="w-full justify-between bg-card px-3 font-normal"
         >
           <span className="truncate text-left">
             {selected?.displayLabel ?? placeholder}
@@ -195,9 +195,9 @@ function EditSideSelect({
         align="start"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
-        <div className="border-b border-gray-100 p-2">
+        <div className="border-b border-border p-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -209,7 +209,7 @@ function EditSideSelect({
         </div>
         <div className="max-h-60 overflow-y-auto p-1">
           {filteredOptions.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-gray-500">No matches found.</p>
+            <p className="px-3 py-2 text-xs text-muted-foreground">No matches found.</p>
           ) : (
             filteredOptions.map(option => (
               <button
@@ -672,7 +672,7 @@ export default function MatchesPage() {
 
   const renderTeamTieScore = (match: Match) => {
     const rubbers = rubbersByParent.get(match.id) ?? [];
-    if (rubbers.length === 0) return <span className="text-gray-400">—</span>;
+    if (rubbers.length === 0) return <span className="text-muted-foreground">—</span>;
     const { team1, team2 } = countRubbersWon(rubbers);
     return <span className="font-semibold">{team1}-{team2}</span>;
   };
@@ -699,7 +699,7 @@ export default function MatchesPage() {
       return <span className="font-semibold">{match.player1Score ?? '-'}-{match.player2Score ?? '-'}</span>;
     if (match.status === 'live' && match.sets?.length)
       return <span className="text-green-600 text-xs">{match.sets.map(s => `${s.player1Score}-${s.player2Score}`).join(', ')}</span>;
-    return <span className="text-gray-400">-</span>;
+    return <span className="text-muted-foreground">-</span>;
   };
 
   return (
@@ -712,7 +712,7 @@ export default function MatchesPage() {
           <h3 className="text-base font-semibold sm:text-lg">
             Matches ({filteredMatches.length}{filteredMatches.length !== totalMatches ? ` of ${totalMatches}` : ''})
           </h3>
-          <p className="text-xs text-gray-600 sm:text-sm">Start matches and enter scores below.</p>
+          <p className="text-xs text-muted-foreground sm:text-sm">Start matches and enter scores below.</p>
         </div>
         {isFullAdmin && (
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -747,7 +747,7 @@ export default function MatchesPage() {
       {/* Search + filters */}
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <div className="relative col-span-2 min-w-0 sm:min-w-[140px] sm:flex-none sm:w-48">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={search}
@@ -826,7 +826,7 @@ export default function MatchesPage() {
           <button
             onClick={clearFilters}
             title="Clear all filters"
-            className="h-10 w-10 sm:h-8 sm:w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+            className="h-10 w-10 sm:h-8 sm:w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-gray-800 transition-colors"
           >
             <FilterX className="h-3.5 w-3.5" />
           </button>
@@ -842,7 +842,7 @@ export default function MatchesPage() {
             onValueChange={(v: Match['status']) => { setBulkStatus(v); applyBulkStatus(v); }}
             disabled={bulkWorking}
           >
-            <SelectTrigger className="h-8 w-40 text-xs bg-white">
+            <SelectTrigger className="h-8 w-40 text-xs bg-card">
               <SelectValue placeholder="Set status…" />
             </SelectTrigger>
             <SelectContent>
@@ -864,7 +864,7 @@ export default function MatchesPage() {
           <button
             onClick={clearSelection}
             disabled={bulkWorking}
-            className="text-xs text-gray-500 hover:text-gray-800 hover:underline"
+            className="text-xs text-muted-foreground hover:text-gray-800 hover:underline"
           >
             Clear
           </button>
@@ -896,7 +896,7 @@ export default function MatchesPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-xs text-gray-500 font-medium">
+                      <span className="text-xs text-muted-foreground font-medium">
                         #{match.matchNumber} · {match.round}
                       </span>
                       <Badge className={`text-[10px] px-1.5 ${getMatchStatusColor(match.status)}`}>
@@ -906,18 +906,18 @@ export default function MatchesPage() {
                     {/* Players */}
                     <div className="mt-1 text-sm font-medium leading-snug">
                       <span>{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</span>
-                      <span className="text-gray-400 font-normal mx-1.5">vs</span>
+                      <span className="text-muted-foreground font-normal mx-1.5">vs</span>
                       <span>{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</span>
                     </div>
                     {/* Score + time */}
                     <div className="mt-0.5 flex items-center justify-between gap-2">
-                      <span className="text-xs text-gray-500">{formatDateShort(new Date(match.scheduledTime))}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateShort(new Date(match.scheduledTime))}</span>
                       <span className="text-xs">{renderScore(match)}</span>
                     </div>
                   </div>
                 </div>
                 {/* Action buttons */}
-                <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 pt-1 border-t border-border">
                   {canRunMatches && match.status === 'scheduled' && (
                     <Button
                       size="sm"
@@ -1136,11 +1136,11 @@ export default function MatchesPage() {
           {/* Empty state */}
           {filteredMatches.length === 0 && (
             <div className="text-center py-8">
-              <Activity className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               {totalMatches === 0 ? (
                 <>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No matches scheduled</h3>
-                  <p className="text-gray-600">
+                  <h3 className="text-lg font-medium text-foreground mb-2">No matches scheduled</h3>
+                  <p className="text-muted-foreground">
                     {isMatchStaffOnly
                       ? 'No matches have been scheduled for this tournament yet.'
                       : <>Click <strong>Generate</strong> to create matches from pools.</>}
@@ -1148,7 +1148,7 @@ export default function MatchesPage() {
                 </>
               ) : (
                 <>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No matches match your filters</h3>
+                  <h3 className="text-lg font-medium text-foreground mb-2">No matches match your filters</h3>
                   <button className="text-sm text-blue-600 hover:underline" onClick={clearFilters}>Clear filters</button>
                 </>
               )}
@@ -1166,12 +1166,12 @@ export default function MatchesPage() {
             onClick={() => setGenDrawerOpen(false)}
           />
           {/* Panel — z-[52]: above backdrop; Radix portals forced to z-[60] via globals.css */}
-          <div className="fixed inset-y-0 right-0 z-[52] flex w-full max-w-4xl flex-col bg-white shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-[52] flex w-full max-w-4xl flex-col bg-card shadow-2xl">
             <div className="flex flex-shrink-0 items-center justify-between border-b px-4 py-3">
               <h2 className="text-base font-semibold">Create Matches</h2>
               <button
                 onClick={() => setGenDrawerOpen(false)}
-                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-gray-800 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>

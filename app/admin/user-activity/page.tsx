@@ -32,12 +32,12 @@ interface UserRow {
 }
 
 const ROLE_CFG: Record<string, { label: string; cls: string }> = {
-  'super-admin': { label: 'Super Admin', cls: 'bg-violet-50 text-violet-700 border-violet-100' },
-  admin: { label: 'Admin', cls: 'bg-rose-50 text-rose-700 border-rose-100' },
-  'tournament-admin': { label: 'Tournament Admin', cls: 'bg-sky-50 text-sky-700 border-sky-100' },
-  referee: { label: 'Referee', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
-  staff: { label: 'Staff', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
-  public: { label: 'Public', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+  'super-admin': { label: 'Super Admin', cls: 'bg-violet-50 text-violet-700 border-violet-100 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800' },
+  admin: { label: 'Admin', cls: 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800' },
+  'tournament-admin': { label: 'Tournament Admin', cls: 'bg-sky-50 text-sky-700 border-sky-100 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800' },
+  referee: { label: 'Referee', cls: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800' },
+  staff: { label: 'Staff', cls: 'bg-muted text-muted-foreground border-border' },
+  public: { label: 'Public', cls: 'bg-muted text-muted-foreground border-border' },
 };
 
 function toDate(val: unknown): Date | null {
@@ -78,15 +78,15 @@ function eventKey(event: UserActivityEvent) {
 function eventMeta(type: UserActivityType) {
   switch (type) {
     case 'login':
-      return { label: 'Login', icon: LogIn, wrap: 'bg-sky-50 text-sky-700 border-sky-100' };
+      return { label: 'Login', icon: LogIn, wrap: 'bg-sky-50 text-sky-700 border-sky-100 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800' };
     case 'tournament_created':
-      return { label: 'Tournament', icon: Trophy, wrap: 'bg-emerald-50 text-emerald-700 border-emerald-100' };
+      return { label: 'Tournament', icon: Trophy, wrap: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800' };
     case 'user_created':
-      return { label: 'Account', icon: Users, wrap: 'bg-slate-100 text-slate-600 border-slate-200' };
+      return { label: 'Account', icon: Users, wrap: 'bg-muted text-muted-foreground border-border' };
     case 'match_scored':
-      return { label: 'Match', icon: Activity, wrap: 'bg-amber-50 text-amber-700 border-amber-100' };
+      return { label: 'Match', icon: Activity, wrap: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800' };
     default:
-      return { label: 'Activity', icon: Activity, wrap: 'bg-slate-100 text-slate-600 border-slate-200' };
+      return { label: 'Activity', icon: Activity, wrap: 'bg-muted text-muted-foreground border-border' };
   }
 }
 
@@ -303,39 +303,39 @@ export default function UserActivityPage() {
 
   return (
     <AdminLayout moduleName="User Activity">
-      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-border bg-muted shadow-none gap-0 py-3">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Total Users</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{rows.length}</p>
+              <p className="text-sm text-muted-foreground">Total Users</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{rows.length}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-sky-100 bg-sky-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-sky-100 bg-sky-50 shadow-none gap-0 py-3 dark:border-sky-800 dark:bg-sky-950/50">
             <CardContent className="px-5">
-              <p className="text-sm text-sky-700/80">Logged In</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{loggedInCount}</p>
+              <p className="text-sm text-sky-700/80 dark:text-sky-300/80">Logged In</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{loggedInCount}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3 dark:border-emerald-800 dark:bg-emerald-950/50">
             <CardContent className="px-5">
-              <p className="text-sm text-emerald-700/80">Tournaments Created</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{tournamentsCreated}</p>
+              <p className="text-sm text-emerald-700/80 dark:text-emerald-300/80">Tournaments Created</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{tournamentsCreated}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-amber-100 bg-amber-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-amber-100 bg-amber-50 shadow-none gap-0 py-3 dark:border-amber-800 dark:bg-amber-950/50">
             <CardContent className="px-5">
-              <p className="text-sm text-amber-700/80">Timeline Events</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{events.length}</p>
+              <p className="text-sm text-amber-700/80 dark:text-amber-300/80">Timeline Events</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{events.length}</p>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="mb-6 rounded-2xl border-slate-200/80 bg-white shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="mb-6 rounded-2xl border-border bg-card shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Activity Timeline</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">Activity Timeline</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {selectedUser
                   ? `Showing activity for ${selectedUser.name}`
                   : `Showing ${filteredEvents.length} events`}
@@ -343,17 +343,17 @@ export default function UserActivityPage() {
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search users or activity"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
+                  className="h-9 w-full sm:w-64 rounded-xl border-border bg-card pl-9 text-sm focus-ring-thin"
                 />
               </div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-40 rounded-xl border-slate-200 focus-ring-thin">
-                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
+                <SelectTrigger className="h-9 w-full sm:w-40 rounded-xl border-border focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,25 +377,25 @@ export default function UserActivityPage() {
           </div>
 
           {fetching ? (
-            <div className="py-16 text-center text-sm text-slate-400">Loading activity…</div>
+            <div className="py-16 text-center text-sm text-muted-foreground">Loading activity…</div>
           ) : filteredEvents.length === 0 ? (
             <div className="py-16 text-center">
-              <Activity className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-              <h3 className="text-base font-semibold text-slate-900">No activity yet</h3>
-              <p className="mt-1 text-sm text-slate-500">
+              <Activity className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+              <h3 className="text-base font-semibold text-foreground">No activity yet</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Logins and new tournaments will appear here as they happen.
               </p>
             </div>
           ) : (
             <div className="max-h-[28rem] overflow-auto px-5 py-4">
-              <ol className="relative space-y-0 border-l border-slate-200 ml-3">
+              <ol className="relative space-y-0 border-l border-border ml-3">
                 {filteredEvents.slice(0, 80).map((event, index) => {
                   const meta = eventMeta(event.type);
                   const Icon = meta.icon;
                   return (
                     <li key={`${event.id || eventKey(event)}-${index}`} className="relative pb-5 last:pb-0 pl-6">
-                      <span className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-slate-200">
-                        <span className="h-2 w-2 rounded-full bg-slate-500" />
+                      <span className="absolute -left-[9px] top-1 flex h-4 w-4 items-center justify-center rounded-full border border-card bg-muted">
+                        <span className="h-2 w-2 rounded-full bg-foreground/40" />
                       </span>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -406,15 +406,15 @@ export default function UserActivityPage() {
                             </Badge>
                             <button
                               type="button"
-                              className="text-sm font-medium text-slate-900 hover:underline"
+                              className="text-sm font-medium text-foreground hover:underline"
                               onClick={() => setSelectedUserId(event.userId)}
                             >
                               {event.userName || event.userEmail || 'Unknown user'}
                             </button>
                           </div>
-                          <p className="mt-1 text-sm text-slate-600">{event.title}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{event.title}</p>
                         </div>
-                        <span className="shrink-0 text-xs text-slate-400 whitespace-nowrap">
+                        <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
                           {fmtRelative(event.createdAt)}
                         </span>
                       </div>
@@ -426,17 +426,17 @@ export default function UserActivityPage() {
           )}
         </Card>
 
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="rounded-2xl border-border bg-card shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">All Users</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">All Users</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Showing {filteredRows.length} of {rows.length}
               </p>
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl border-slate-200 focus-ring-thin">
-                <Filter className="h-3 w-3 mr-1 text-slate-400" />
+              <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl border-border focus-ring-thin">
+                <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
@@ -451,18 +451,18 @@ export default function UserActivityPage() {
           </div>
 
           {filteredRows.length === 0 ? (
-            <div className="py-16 text-center text-sm text-slate-400">No users found</div>
+            <div className="py-16 text-center text-sm text-muted-foreground">No users found</div>
           ) : (
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
-                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">User</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Role</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Last login</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Tournaments</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Joined</TableHead>
-                    <TableHead className="h-11 pr-5 text-xs font-medium text-slate-400">Status</TableHead>
+                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">User</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Role</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Last login</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Tournaments</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Joined</TableHead>
+                    <TableHead className="h-11 pr-5 text-xs font-medium text-muted-foreground">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -472,27 +472,31 @@ export default function UserActivityPage() {
                     return (
                       <TableRow
                         key={row.user.id}
-                        className={`cursor-pointer border-slate-50 ${
-                          selected ? 'bg-sky-50' : index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
-                        } hover:bg-slate-50`}
+                        className={`cursor-pointer border-border/60 ${
+                          selected
+                            ? 'bg-sky-50 dark:bg-sky-950/40'
+                            : index % 2 === 1
+                              ? 'bg-muted/40'
+                              : 'bg-card'
+                        } hover:bg-muted`}
                         onClick={() => setSelectedUserId(selected ? null : row.user.id)}
                       >
                         <TableCell className="pl-5 py-3.5">
-                          <div className="font-medium text-slate-900">{row.user.name || '—'}</div>
-                          <div className="text-xs text-slate-400">{row.user.email}</div>
+                          <div className="font-medium text-foreground">{row.user.name || '—'}</div>
+                          <div className="text-xs text-muted-foreground">{row.user.email}</div>
                         </TableCell>
                         <TableCell className="py-3.5">
                           <Badge className={`rounded-full border ${roleCfg.cls}`}>{roleCfg.label}</Badge>
                         </TableCell>
-                        <TableCell className="py-3.5 text-sm text-slate-700">
+                        <TableCell className="py-3.5 text-sm text-foreground/80">
                           {row.lastLoginAt ? fmtRelative(row.lastLoginAt) : 'Never'}
                         </TableCell>
-                        <TableCell className="py-3.5 text-sm text-slate-700">
+                        <TableCell className="py-3.5 text-sm text-foreground/80">
                           {row.tournamentsCreated || '—'}
                         </TableCell>
                         <TableCell className="py-3.5">
-                          <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                            <Calendar className="h-3 w-3 text-slate-300" />
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3 text-muted-foreground/60" />
                             {fmtDate(row.joinedAt)}
                           </div>
                         </TableCell>
@@ -500,8 +504,8 @@ export default function UserActivityPage() {
                           <Badge
                             className={`rounded-full border ${
                               row.user.isActive !== false
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : 'bg-rose-50 text-rose-700 border-rose-100'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
+                                : 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800'
                             }`}
                           >
                             {row.user.isActive !== false ? 'Active' : 'Inactive'}

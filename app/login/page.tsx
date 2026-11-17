@@ -125,24 +125,24 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-50 px-4 py-12">
+      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 px-4 py-12">
         <div className="w-full max-w-md">
-          <Card className="shadow-xl border-0 animate-fade-in">
+          <Card className="shadow-xl border border-white/10 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
             <CardHeader className="space-y-1 pb-6">
-              <CardTitle className="text-3xl font-bold text-center">Welcome Back</CardTitle>
-              <CardDescription className="text-center text-base">
+              <CardTitle className="text-3xl font-bold text-center text-white">Welcome Back</CardTitle>
+              <CardDescription className="text-center text-base text-slate-300">
                 Sign in to your account to continue
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  <div className="p-3 text-sm text-red-200 bg-red-950/60 border border-red-500/30 rounded-md">
                     {error}
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium">
+                  <Label htmlFor="email" className="text-sm font-medium text-slate-200">
                     Email Address
                   </Label>
                   <Input
@@ -152,11 +152,11 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="h-11"
+                    className="h-11 border-slate-600 bg-slate-900/80 text-white placeholder:text-slate-400"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-medium">
+                  <Label htmlFor="password" className="text-sm font-medium text-slate-200">
                     Password
                   </Label>
                   <Input
@@ -166,7 +166,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="h-11"
+                    className="h-11 border-slate-600 bg-slate-900/80 text-white placeholder:text-slate-400"
                   />
                 </div>
                 <Button 
@@ -179,11 +179,11 @@ export default function LoginPage() {
               </form>
 
               <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-slate-400">
                   Don&apos;t have an account?{' '}
                   <Link 
                     href="/signup" 
-                    className="text-blue-600 hover:text-blue-700 font-medium hover:underline transition-colors"
+                    className="text-blue-400 hover:text-blue-300 font-medium hover:underline transition-colors"
                   >
                     Sign up
                   </Link>

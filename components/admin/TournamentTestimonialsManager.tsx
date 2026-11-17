@@ -220,7 +220,7 @@ export function TournamentTestimonialsManager({
 
       {tournaments.length > 1 && (
         <div className="max-w-sm">
-          <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
             Tournament
           </label>
           <Select value={selectedTournamentId} onValueChange={setSelectedTournamentId}>
@@ -304,13 +304,13 @@ export function TournamentTestimonialsManager({
                     />
                   ))}
                 </div>
-                <p className="text-sm text-gray-700 italic leading-relaxed mb-3">
+                <p className="text-sm text-foreground/80 italic leading-relaxed mb-3">
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {t.sport && (
-                      <span className="text-xs bg-gray-100 text-gray-600 border border-gray-200 rounded-full px-2 py-0.5">
+                      <span className="text-xs bg-gray-100 text-muted-foreground border border-border rounded-full px-2 py-0.5">
                         {t.sport}
                       </span>
                     )}
@@ -366,7 +366,7 @@ export function TournamentTestimonialsManager({
           <form onSubmit={handleSave} className="space-y-4 pt-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
                   Name *
                 </label>
                 <input
@@ -374,34 +374,34 @@ export function TournamentTestimonialsManager({
                   value={form.author}
                   onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
                   placeholder="Amit Sharma"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
                   Role / Title
                 </label>
                 <input
                   value={form.authorRole}
                   onChange={(e) => setForm((f) => ({ ...f, authorRole: e.target.value }))}
                   placeholder="Sports Secretary, PBEL City"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
                 />
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
                 Sport
               </label>
               <input
                 value={form.sport}
                 onChange={(e) => setForm((f) => ({ ...f, sport: e.target.value }))}
                 placeholder="Badminton, Volleyball…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">
                 Quote *
               </label>
               <textarea
@@ -410,11 +410,11 @@ export function TournamentTestimonialsManager({
                 value={form.quote}
                 onChange={(e) => setForm((f) => ({ ...f, quote: e.target.value }))}
                 placeholder="TourneyCraft made our event incredibly smooth…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30 resize-none"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30 resize-none"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide block mb-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
                 Rating
               </label>
               <StarPicker value={form.rating} onChange={(n) => setForm((f) => ({ ...f, rating: n }))} />

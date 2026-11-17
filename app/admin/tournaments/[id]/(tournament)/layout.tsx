@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { TournamentFormDrawer } from '@/components/admin/TournamentFormDrawer';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn, generateRegistrationLink } from '@/lib/utils';
 import {
   Trophy,
@@ -76,9 +77,9 @@ function getStatusColor(status: string) {
   switch (status) {
     case 'upcoming': return 'bg-blue-100 text-blue-800 border-blue-200';
     case 'ongoing': return 'bg-green-100 text-green-800 border-green-200';
-    case 'completed': return 'bg-gray-100 text-gray-800 border-gray-200';
+    case 'completed': return 'bg-gray-100 text-gray-800 border-border';
     case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    default: return 'bg-gray-100 text-gray-800 border-border';
   }
 }
 
@@ -220,7 +221,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto" />
-          <p className="mt-4 text-sm text-gray-600">Loading tournament...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Loading tournament...</p>
         </div>
       </div>
     );
@@ -230,9 +231,9 @@ export default function TournamentSidebarLayout({ children }: { children: React.
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Tournament not found</h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">Tournament not found</h3>
+          <p className="text-sm text-muted-foreground mb-4">
             The tournament you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Button onClick={() => router.push('/admin/tournaments')}>Back to Tournaments</Button>
@@ -242,28 +243,28 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50 flex">
+    <div className="min-h-dvh bg-background text-foreground flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <div className={cn(
-        'fixed inset-y-0 left-0 z-50 w-56 bg-white shadow-lg flex flex-col flex-shrink-0',
+        'fixed inset-y-0 left-0 z-50 w-56 bg-card border-r border-border shadow-lg flex flex-col flex-shrink-0',
         'transform transition-transform duration-300 ease-in-out',
         'lg:translate-x-0 lg:static lg:inset-0',
         'pt-[env(safe-area-inset-top)]',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       )}>
         {/* Logo */}
-        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image src="/logo.png" alt="TourneyCraft logo" width={28} height={28} />
-            <span className="text-sm font-bold text-gray-900 truncate">TourneyCraft</span>
+            <span className="text-sm font-bold text-foreground truncate">TourneyCraft</span>
           </Link>
           <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(false)}>
             <X className="h-5 w-5" />
@@ -275,7 +276,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
           <div className="px-3 pt-3 space-y-1">
             <Link
               href="/admin/tournaments"
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gray-800 px-2 py-1.5 rounded-md hover:bg-muted transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
               Tournaments List
@@ -287,7 +288,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
           {(isSystemAdmin(user?.role) || canSubmitTestimonials(user)) && (
             <>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-1 pt-3">
                 Platform
               </p>
               <Link
@@ -297,7 +298,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                   'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                   pathname.startsWith('/admin/testimonials')
                     ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <MessageSquareQuote className="h-4 w-4 flex-shrink-0" />
@@ -305,7 +306,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
               </Link>
             </>
           )}
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 pb-1 pt-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 pb-1 pt-3">
             Tournament
           </p>
           {navItems.map((item) => {
@@ -321,7 +322,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                   'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
@@ -332,15 +333,15 @@ export default function TournamentSidebarLayout({ children }: { children: React.
         </nav>
 
         {/* User footer */}
-        <div className="p-3 border-t border-gray-200">
-          <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-muted">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user?.profilePhotoUrl} />
               <AvatarFallback>{user?.name?.charAt(0) || user?.email?.charAt(0) || 'A'}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">{user?.name || 'Admin'}</div>
-              <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+              <div className="text-sm font-medium text-foreground truncate">{user?.name || 'Admin'}</div>
+              <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
             </div>
           </div>
         </div>
@@ -349,7 +350,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Topbar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)]">
+        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm border-b border-border pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between h-14 px-3 sm:px-4 gap-1 sm:gap-3">
             {/* Left: hamburger + tournament picker */}
             <div className="flex items-center gap-1 sm:gap-2 min-w-0">
@@ -369,13 +370,13 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                     className="flex items-center gap-2 h-10 px-2 sm:px-3 max-w-[11rem] sm:max-w-md min-w-0"
                   >
                     <Trophy className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                    <span className="font-semibold text-gray-900 truncate">{tournament.name}</span>
+                    <span className="font-semibold text-foreground truncate">{tournament.name}</span>
                     <Badge
                       className={cn('text-xs px-1.5 py-0 hidden sm:inline-flex flex-shrink-0', getStatusColor(tournament.status))}
                     >
                       {tournament.status}
                     </Badge>
-                    <ChevronDown className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-80" align="start">
@@ -385,12 +386,12 @@ export default function TournamentSidebarLayout({ children }: { children: React.
                     <DropdownMenuItem
                       key={t.id}
                       onClick={() => switchTournament(t.id)}
-                      className={cn('flex items-center gap-2 cursor-pointer', t.id === tournamentId && 'bg-blue-50')}
+                      className={cn('flex items-center gap-2 cursor-pointer', t.id === tournamentId && 'bg-blue-50 dark:bg-blue-950/40')}
                     >
                       <Trophy className="h-4 w-4 text-blue-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{t.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{t.venue}</div>
+                        <div className="text-xs text-muted-foreground truncate">{t.venue}</div>
                       </div>
                       <Badge className={cn('text-xs px-1.5 py-0 flex-shrink-0', getStatusColor(t.status))}>
                         {t.status}
@@ -425,8 +426,9 @@ export default function TournamentSidebarLayout({ children }: { children: React.
               </DropdownMenu>
             </div>
 
-            {/* Right: notifications + profile */}
+            {/* Right: theme + notifications + profile */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              <ThemeToggle />
               <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
                 <a
                   href={generateRegistrationLink(tournamentId)}

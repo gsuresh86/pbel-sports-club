@@ -200,8 +200,8 @@ export default function TshirtDistributionPage() {
                   <li
                     key={key}
                     className={cn(
-                      'flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm transition-colors',
-                      player.tshirtTaken ? 'border-green-200 bg-green-50/40' : 'border-gray-200',
+                      'flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm transition-colors',
+                      player.tshirtTaken ? 'border-green-200 bg-green-50/40' : 'border-border',
                     )}
                   >
                     <div className="flex items-start gap-3 p-3 sm:p-4">
@@ -270,14 +270,14 @@ export default function TshirtDistributionPage() {
                       </div>
                     </div>
 
-                    <div className="mt-auto border-t bg-gray-50/80 p-3">
+                    <div className="mt-auto border-t bg-muted/80 p-3">
                       <label
                         htmlFor={`distribute-${key}`}
                         className={cn(
                           'flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 transition-colors',
                           player.tshirtTaken
                             ? 'border-green-300 bg-green-50'
-                            : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50',
+                            : 'border-border bg-card hover:border-blue-300 hover:bg-blue-50/50',
                           isToggling && 'pointer-events-none opacity-70',
                         )}
                       >

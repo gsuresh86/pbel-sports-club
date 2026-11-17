@@ -316,11 +316,11 @@ export default function OverviewPage() {
       case 'ongoing':
         return 'bg-emerald-50 text-emerald-700 border-emerald-100';
       case 'completed':
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
       case 'cancelled':
         return 'bg-rose-50 text-rose-700 border-rose-100';
       default:
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
     }
   };
 
@@ -331,12 +331,12 @@ export default function OverviewPage() {
     : null;
 
   return (
-    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 min-h-full bg-[#f4f5f7] p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 min-h-full bg-muted/40 p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Dashboard Overview
             </h1>
             <Badge
@@ -350,11 +350,11 @@ export default function OverviewPage() {
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               {formatDate(tournament.startDate)}
-              <ArrowRight className="h-3 w-3 text-slate-300" />
+              <ArrowRight className="h-3 w-3 text-muted-foreground/60" />
               {formatDate(tournament.endDate)}
             </span>
             <span className="inline-flex items-center gap-1">
@@ -365,7 +365,7 @@ export default function OverviewPage() {
         </div>
         <Button
           variant="outline"
-          className="h-10 rounded-xl border-slate-200 bg-white hover:bg-slate-50"
+          className="h-10 rounded-xl border-border bg-card hover:bg-muted"
           onClick={() => router.push(`/admin/tournaments/${tournamentId}/participants`)}
         >
           <Users className="h-4 w-4 mr-1.5" />
@@ -375,14 +375,14 @@ export default function OverviewPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
           <CardContent className="px-5">
-            <p className="text-sm text-slate-500">Participants</p>
+            <p className="text-sm text-muted-foreground">Participants</p>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+              <p className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
                 {totalParticipants}
                 {tournament.maxParticipants ? (
-                  <span className="text-lg font-semibold text-slate-400">
+                  <span className="text-lg font-semibold text-muted-foreground">
                     /{tournament.maxParticipants}
                   </span>
                 ) : null}
@@ -393,34 +393,34 @@ export default function OverviewPage() {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               {approvedParticipants} approved · {pendingParticipants} pending
             </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
           <CardContent className="px-5">
-            <p className="text-sm text-slate-500">Revenue Collected</p>
+            <p className="text-sm text-muted-foreground">Revenue Collected</p>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+              <p className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
                 {formatCurrency(analytics.totalRevenue)}
               </p>
               <span className="mb-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                 {analytics.paidCount} paid
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               {paidParticipants} of {totalParticipants} participants
             </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5 bg-amber-50/40 border-amber-100">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-5 bg-amber-50/40 border-amber-100">
           <CardContent className="px-5">
             <p className="text-sm text-amber-700/80">Expected (Pending)</p>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+              <p className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
                 {formatCurrency(analytics.expectedFromPendingRegistrations)}
               </p>
               {analytics.pendingRegistrationCount > 0 && (
@@ -435,11 +435,11 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
           <CardContent className="px-5">
-            <p className="text-sm text-slate-500">Matches</p>
+            <p className="text-sm text-muted-foreground">Matches</p>
             <div className="mt-2 flex items-end justify-between gap-2">
-              <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">
+              <p className="text-3xl font-bold tracking-tight text-foreground tabular-nums">
                 {totalMatches}
               </p>
               {liveMatches > 0 ? (
@@ -447,10 +447,10 @@ export default function OverviewPage() {
                   {liveMatches} live
                 </span>
               ) : (
-                <span className="mb-1 text-xs text-slate-400">{completedMatches} done</span>
+                <span className="mb-1 text-xs text-muted-foreground">{completedMatches} done</span>
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               {completedMatches} completed · {liveMatches} live
             </p>
           </CardContent>
@@ -487,12 +487,12 @@ export default function OverviewPage() {
         ].map((kpi) => (
           <div
             key={kpi.label}
-            className="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
           >
             <kpi.icon className={cn('h-4 w-4 shrink-0', kpi.tint)} />
             <div className="min-w-0">
-              <p className="text-xs text-slate-500 truncate">{kpi.label}</p>
-              <p className="text-lg font-bold tabular-nums text-slate-900 leading-tight">
+              <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+              <p className="text-lg font-bold tabular-nums text-foreground leading-tight">
                 {kpi.value}
               </p>
             </div>
@@ -501,14 +501,14 @@ export default function OverviewPage() {
       </div>
 
       {/* Collections + community */}
-      <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
+      <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
         <CardContent className="px-5 py-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <button
               type="button"
               onClick={() => setCollectionsOpen((o) => !o)}
               aria-expanded={collectionsOpen}
-              className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"
+              className="flex shrink-0 items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
             >
               <IndianRupee className="h-4 w-4" /> Collections by recipient
               <ChevronDown
@@ -521,24 +521,24 @@ export default function OverviewPage() {
                   {revenueByReceiver.map((receiver) => (
                     <span
                       key={`${receiver.name}-${receiver.number}`}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-muted px-3 py-1.5 text-sm"
                       title={receiver.number || undefined}
                     >
                       <span className="font-medium text-slate-800">{receiver.name}</span>
-                      <span className="tabular-nums text-slate-600">
-                        <span className="font-semibold text-slate-900">
+                      <span className="tabular-nums text-muted-foreground">
+                        <span className="font-semibold text-foreground">
                           {formatCurrency(receiver.amount)}
                         </span>
-                        <span className="text-slate-400"> · {receiver.count} paid</span>
+                        <span className="text-muted-foreground"> · {receiver.count} paid</span>
                       </span>
                     </span>
                   ))}
                 </div>
               ) : (
-                <span className="text-sm text-slate-400">No payments collected yet.</span>
+                <span className="text-sm text-muted-foreground">No payments collected yet.</span>
               ))}
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-400 tabular-nums">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {paidParticipants} of {totalParticipants} paid
               </span>
               <button
@@ -548,16 +548,16 @@ export default function OverviewPage() {
                   'inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm',
                   analytics.volunteerCount > 0
                     ? 'bg-rose-50 border-rose-100 hover:bg-rose-100 cursor-pointer'
-                    : 'bg-white border-slate-200 text-slate-400'
+                    : 'bg-card border-border text-muted-foreground'
                 )}
               >
                 <HandHeart className="h-4 w-4 text-rose-500" />
                 <span className="font-medium">{analytics.volunteerCount}</span> volunteers
               </button>
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-1.5 text-sm text-foreground/80">
                 <Home className="h-4 w-4 text-sky-500" />
                 <span className="font-medium">{analytics.residentCount}</span> residents
-                <span className="text-slate-400">· {analytics.nonResidentCount} other</span>
+                <span className="text-muted-foreground">· {analytics.nonResidentCount} other</span>
               </span>
             </div>
           </div>
@@ -567,15 +567,15 @@ export default function OverviewPage() {
       {/* Staff: Referees + Admins */}
       {isFullAdmin && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-5 py-4 border-b border-slate-100">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="px-5 py-4 border-b border-border">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-slate-400" />
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <Target className="h-4 w-4 text-muted-foreground" />
                     Referees
                   </CardTitle>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Users who can score matches
                   </p>
                 </div>
@@ -583,7 +583,7 @@ export default function OverviewPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="rounded-xl border-slate-200"
+                    className="rounded-xl border-border"
                     onClick={() => setRefereeDialogOpen(true)}
                   >
                     <UserPlus className="h-4 w-4 mr-1" />
@@ -594,11 +594,11 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent className="px-5 py-4">
               {assignedReferees.length === 0 ? (
-                <div className="text-center py-6 text-sm text-slate-400">
+                <div className="text-center py-6 text-sm text-muted-foreground">
                   No referees assigned yet.{' '}
                   {unassignedReferees.length > 0 && (
                     <button
-                      className="underline text-slate-700"
+                      className="underline text-foreground/80"
                       onClick={() => setRefereeDialogOpen(true)}
                     >
                       Add one
@@ -638,15 +638,15 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-5 py-4 border-b border-slate-100">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="px-5 py-4 border-b border-border">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                    <Users2 className="h-4 w-4 text-slate-400" />
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <Users2 className="h-4 w-4 text-muted-foreground" />
                     Tournament Admins
                   </CardTitle>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Users who can manage this tournament
                   </p>
                 </div>
@@ -654,7 +654,7 @@ export default function OverviewPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="rounded-xl border-slate-200"
+                    className="rounded-xl border-border"
                     onClick={() => setAdminDialogOpen(true)}
                   >
                     <UserPlus className="h-4 w-4 mr-1" />
@@ -665,11 +665,11 @@ export default function OverviewPage() {
             </CardHeader>
             <CardContent className="px-5 py-4">
               {assignedAdmins.length === 0 ? (
-                <div className="text-center py-6 text-sm text-slate-400">
+                <div className="text-center py-6 text-sm text-muted-foreground">
                   No admins assigned yet.{' '}
                   {unassignedAdmins.length > 0 && (
                     <button
-                      className="underline text-slate-700"
+                      className="underline text-foreground/80"
                       onClick={() => setAdminDialogOpen(true)}
                     >
                       Add one
@@ -713,35 +713,35 @@ export default function OverviewPage() {
 
       {/* Insights */}
       {participants.length === 0 ? (
-        <Card className="rounded-2xl border-slate-200/80 shadow-none">
+        <Card className="rounded-2xl border-border shadow-none">
           <CardContent className="py-12 text-center">
-            <BarChart3 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-slate-900 mb-1">
+            <BarChart3 className="h-10 w-10 text-muted-foreground/60 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-foreground mb-1">
               No registration insights yet
             </h3>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted-foreground">
               Charts and breakdowns will appear once registrations come in.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">Registration Insights</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">Registration Insights</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {participants.length} registrations across {analytics.categories.length} categor
                 {analytics.categories.length === 1 ? 'y' : 'ies'}
               </p>
             </div>
-            <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1 self-start">
+            <div className="flex items-center rounded-xl border border-border bg-muted p-1 self-start">
               <button
                 type="button"
                 onClick={() => setInsightScope('charts')}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   insightScope === 'charts'
                     ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Charts
@@ -752,7 +752,7 @@ export default function OverviewPage() {
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   insightScope === 'timeline'
                     ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Timeline
@@ -765,13 +765,13 @@ export default function OverviewPage() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* By Category */}
-                  <div className="rounded-xl border border-slate-100 bg-white p-4">
+                  <div className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Trophy className="h-4 w-4 text-slate-400" />
-                      <h3 className="text-sm font-semibold text-slate-900">By Category</h3>
+                      <Trophy className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-foreground">By Category</h3>
                     </div>
                     {analytics.categories.length === 0 ? (
-                      <p className="text-sm text-slate-400">No category data yet.</p>
+                      <p className="text-sm text-muted-foreground">No category data yet.</p>
                     ) : (
                       (() => {
                         const maxTotal = Math.max(
@@ -811,7 +811,7 @@ export default function OverviewPage() {
                                     className="flex items-center gap-2"
                                     title={`${cat.replace(/-/g, ' ')}: ${counts.players} players · ${listed} listed · ${counts.rejected} rejected`}
                                   >
-                                    <span className="text-xs w-20 flex-shrink-0 text-slate-600 capitalize truncate">
+                                    <span className="text-xs w-20 flex-shrink-0 text-muted-foreground capitalize truncate">
                                       {abbrev(cat)}
                                     </span>
                                     <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
@@ -825,14 +825,14 @@ export default function OverviewPage() {
                                         ))}
                                       </div>
                                     </div>
-                                    <span className="text-[11px] font-semibold text-slate-700 tabular-nums w-8 flex-shrink-0 text-right">
+                                    <span className="text-[11px] font-semibold text-foreground/80 tabular-nums w-8 flex-shrink-0 text-right">
                                       {counts.players}
                                     </span>
                                   </div>
                                 );
                               })}
                             </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-3">
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground mt-3">
                               <span className="inline-flex items-center gap-1">
                                 <span className="h-2 w-2 rounded-sm bg-emerald-500" />
                                 Approved
@@ -849,16 +849,16 @@ export default function OverviewPage() {
                   </div>
 
                   {/* T-Shirt Sizes */}
-                  <div className="rounded-xl border border-slate-100 bg-white p-4">
+                  <div className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <Shirt className="h-4 w-4 text-slate-400" />
-                      <h3 className="text-sm font-semibold text-slate-900">T-Shirt Sizes</h3>
-                      <span className="text-xs text-slate-400 ml-auto">
+                      <Shirt className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-foreground">T-Shirt Sizes</h3>
+                      <span className="text-xs text-muted-foreground ml-auto">
                         {analytics.totalTshirts} shirts
                       </span>
                     </div>
                     {analytics.tshirtSizes.length === 0 ? (
-                      <p className="text-sm text-slate-400">No t-shirt size data yet.</p>
+                      <p className="text-sm text-muted-foreground">No t-shirt size data yet.</p>
                     ) : (
                       <div className="space-y-1.5">
                         {analytics.tshirtSizes.map(([size, count]) => {
@@ -880,7 +880,7 @@ export default function OverviewPage() {
                           return (
                             <div key={size} className="flex items-center gap-3">
                               <span
-                                className="text-sm w-24 flex-shrink-0 text-slate-600 truncate"
+                                className="text-sm w-24 flex-shrink-0 text-muted-foreground truncate"
                                 title={size}
                               >
                                 {size}
@@ -890,11 +890,11 @@ export default function OverviewPage() {
                                   className={`h-full ${barColor} transition-all`}
                                   style={{ width: `${pct}%` }}
                                 />
-                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-slate-700">
+                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-semibold text-foreground/80">
                                   {count}
                                 </span>
                               </div>
-                              <span className="text-xs text-slate-400 w-8 text-right">
+                              <span className="text-xs text-muted-foreground w-8 text-right">
                                 {pct}%
                               </span>
                             </div>
@@ -906,10 +906,10 @@ export default function OverviewPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-slate-100 bg-white p-4">
+                  <div className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center gap-1.5 mb-3">
-                      <PieChart className="h-3.5 w-3.5 text-slate-400" />
-                      <h3 className="text-sm font-semibold text-slate-900">Gender Split</h3>
+                      <PieChart className="h-3.5 w-3.5 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-foreground">Gender Split</h3>
                     </div>
                     <div className="space-y-1.5">
                       {(['male', 'female', 'other'] as const).map((g) => {
@@ -924,7 +924,7 @@ export default function OverviewPage() {
                         };
                         return (
                           <div key={g} className="flex items-center gap-2">
-                            <span className="text-xs capitalize w-12 flex-shrink-0 text-slate-600">
+                            <span className="text-xs capitalize w-12 flex-shrink-0 text-muted-foreground">
                               {g}
                             </span>
                             <div className="flex-1 bg-slate-100 rounded-full h-5 relative overflow-hidden">
@@ -932,11 +932,11 @@ export default function OverviewPage() {
                                 className={`h-full ${colors[g]} transition-all`}
                                 style={{ width: `${pct}%` }}
                               />
-                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-slate-700">
+                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-foreground/80">
                                 {count}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-400 w-7 text-right tabular-nums">
+                            <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">
                               {pct}%
                             </span>
                           </div>
@@ -945,10 +945,10 @@ export default function OverviewPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-slate-100 bg-white p-4">
+                  <div className="rounded-xl border border-border bg-card p-4">
                     <div className="flex items-center gap-1.5 mb-3">
-                      <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
-                      <h3 className="text-sm font-semibold text-slate-900">Expertise Level</h3>
+                      <TrendingUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-foreground">Expertise Level</h3>
                     </div>
                     <div className="space-y-1.5">
                       {(['beginner', 'intermediate', 'advanced', 'expert'] as const).map((l) => {
@@ -965,7 +965,7 @@ export default function OverviewPage() {
                         return (
                           <div key={l} className="flex items-center gap-2">
                             <span
-                              className="text-xs capitalize w-16 flex-shrink-0 text-slate-600 truncate"
+                              className="text-xs capitalize w-16 flex-shrink-0 text-muted-foreground truncate"
                               title={l}
                             >
                               {l}
@@ -975,11 +975,11 @@ export default function OverviewPage() {
                                 className={`h-full ${colors[l]} transition-all`}
                                 style={{ width: `${pct}%` }}
                               />
-                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-slate-700">
+                              <span className="absolute inset-0 flex items-center justify-end pr-1.5 text-[11px] font-semibold text-foreground/80">
                                 {count}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-400 w-7 text-right tabular-nums">
+                            <span className="text-[11px] text-muted-foreground w-7 text-right tabular-nums">
                               {pct}%
                             </span>
                           </div>
@@ -990,10 +990,10 @@ export default function OverviewPage() {
                 </div>
               </>
             ) : analytics.timeline.length > 1 ? (
-              <div className="rounded-xl border border-slate-100 bg-white p-4">
+              <div className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Activity className="h-4 w-4 text-slate-400" />
-                  <h3 className="text-sm font-semibold text-slate-900">Daily Registrations</h3>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold text-foreground">Daily Registrations</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <div className="flex items-end gap-2 min-w-max h-24 px-0.5">
@@ -1001,7 +1001,7 @@ export default function OverviewPage() {
                       const maxDay = Math.max(...analytics.timeline.map(([, c]) => c));
                       return analytics.timeline.map(([date, count]) => (
                         <div key={date} className="flex flex-col items-center gap-1 w-10">
-                          <span className="text-xs font-semibold text-slate-700">{count}</span>
+                          <span className="text-xs font-semibold text-foreground/80">{count}</span>
                           <div
                             className="w-8 bg-sky-500 rounded-t transition-all hover:bg-sky-600"
                             style={{
@@ -1010,7 +1010,7 @@ export default function OverviewPage() {
                             }}
                             title={`${date}: ${count} registrations`}
                           />
-                          <span className="text-[9px] text-slate-400 text-center leading-tight">
+                          <span className="text-[9px] text-muted-foreground text-center leading-tight">
                             {date}
                           </span>
                         </div>
@@ -1020,7 +1020,7 @@ export default function OverviewPage() {
                 </div>
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">
+              <p className="py-8 text-center text-sm text-muted-foreground">
                 Not enough daily data for a timeline yet.
               </p>
             )}

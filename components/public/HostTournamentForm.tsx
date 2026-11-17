@@ -59,16 +59,16 @@ export function HostTournamentForm() {
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-green-400/10 border border-green-400/30 flex items-center justify-center mb-5">
-          <CheckCircle2 className="h-8 w-8 text-green-400" />
+        <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-5">
+          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
         </div>
-        <h3 className="text-xl font-black text-white mb-2">We&apos;re on it!</h3>
-        <p className="text-slate-200 text-sm max-w-sm">
+        <h3 className="text-xl font-black text-foreground mb-2">We&apos;re on it!</h3>
+        <p className="text-muted-foreground text-sm max-w-sm">
           Thanks for your enquiry. Our team will review it and get back to you within 24 hours.
         </p>
         <button
           onClick={() => { setSubmitted(false); setError(''); setForm(EMPTY_FORM); }}
-          className="mt-6 text-xs text-slate-500 hover:text-white underline underline-offset-4 transition-colors"
+          className="mt-6 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
         >
           Submit another inquiry
         </button>
@@ -76,9 +76,9 @@ export function HostTournamentForm() {
     );
   }
 
-  const inputCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 transition-all outline-none";
-  const selectCls = "w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-white focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30 transition-all outline-none appearance-none cursor-pointer";
-  const labelCls = "block text-xs font-semibold text-slate-200 mb-1.5 uppercase tracking-wide";
+  const inputCls = "w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all outline-none";
+  const selectCls = "w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all outline-none appearance-none cursor-pointer";
+  const labelCls = "block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -166,7 +166,7 @@ export function HostTournamentForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-60 text-black font-black px-8 py-4 rounded-xl text-sm shadow-lg shadow-yellow-400/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.99]"
+        className="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-60 text-slate-950 font-black px-8 py-4 rounded-xl text-sm shadow-lg shadow-amber-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.99]"
       >
         {loading ? (
           <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>

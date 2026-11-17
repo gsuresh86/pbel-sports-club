@@ -1,0 +1,2 @@
+/** Inline script to avoid theme flash before hydration. Keep in sync with ThemeProvider STORAGE_KEY. */
+export const themeInitScript = `(function(){try{var k='tourneycraft-theme';var t=localStorage.getItem(k);var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var r=t==='dark'||(t!=='light'&&d)?'dark':'light';var e=document.documentElement;e.classList.toggle('dark',r==='dark');e.style.colorScheme=r;}catch(e){}})();`;

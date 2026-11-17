@@ -462,18 +462,18 @@ export default function ManageTournamentsPage() {
       case 'ongoing':
         return 'bg-emerald-50 text-emerald-700 border-emerald-100';
       case 'completed':
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
       case 'cancelled':
         return 'bg-rose-50 text-rose-700 border-rose-100';
       default:
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
     }
   };
 
   const getRegistrationBadgeClass = (open: boolean) =>
     open
       ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-      : 'bg-slate-100 text-slate-600 border-slate-200';
+      : 'bg-slate-100 text-muted-foreground border-border';
 
   const alertStyles: Record<
     AlertPriority,
@@ -506,10 +506,10 @@ export default function ManageTournamentsPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7]">
+      <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto" />
-          <p className="mt-4 text-slate-500 text-sm">Loading tournaments...</p>
+          <p className="mt-4 text-muted-foreground text-sm">Loading tournaments...</p>
         </div>
       </div>
     );
@@ -517,7 +517,7 @@ export default function ManageTournamentsPage() {
 
   return (
     <AdminLayout moduleName="Tournaments">
-      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
         {(user?.role === 'admin' || user?.role === 'super-admin') && (
           <div className="mb-4 flex justify-end">
             <Button
@@ -532,11 +532,11 @@ export default function ManageTournamentsPage() {
 
         {/* KPI cards */}
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Total Tournaments</p>
+              <p className="text-sm text-muted-foreground">Total Tournaments</p>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <p className="text-3xl font-bold tracking-tight text-slate-900">
+                <p className="text-3xl font-bold tracking-tight text-foreground">
                   {overviewStats.totalTournaments}
                 </p>
                 {overviewStats.activeTournaments > 0 && (
@@ -548,25 +548,25 @@ export default function ManageTournamentsPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Active Players</p>
+              <p className="text-sm text-muted-foreground">Active Players</p>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <p className="text-3xl font-bold tracking-tight text-slate-900">
+                <p className="text-3xl font-bold tracking-tight text-foreground">
                   {overviewStats.totalPlayers}
                 </p>
-                <span className="mb-1 text-xs text-slate-400">
+                <span className="mb-1 text-xs text-muted-foreground">
                   {overviewStats.totalRegistrations} regs
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Registration Open</p>
+              <p className="text-sm text-muted-foreground">Registration Open</p>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <p className="text-3xl font-bold tracking-tight text-slate-900">
+                <p className="text-3xl font-bold tracking-tight text-foreground">
                   {overviewStats.registrationOpen}
                 </p>
                 {overviewStats.registrationOpen > 0 && (
@@ -578,11 +578,11 @@ export default function ManageTournamentsPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-5">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-5">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Prize Pool</p>
+              <p className="text-sm text-muted-foreground">Prize Pool</p>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <p className="text-3xl font-bold tracking-tight text-slate-900">
+                <p className="text-3xl font-bold tracking-tight text-foreground">
                   {overviewStats.prizePool > 0
                     ? formatCurrency(overviewStats.prizePool)
                     : '—'}
@@ -595,15 +595,15 @@ export default function ManageTournamentsPage() {
         {/* Mid widgets */}
         <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Priority alerts */}
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-base font-semibold text-slate-900">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-base font-semibold text-foreground">
                 Alerts
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-3">
               {priorityAlerts.length === 0 ? (
-                <p className="py-6 text-center text-sm text-slate-400">
+                <p className="py-6 text-center text-sm text-muted-foreground">
                   No urgent items right now
                 </p>
               ) : (
@@ -620,7 +620,7 @@ export default function ManageTournamentsPage() {
                             <span className={`text-xs font-semibold ${style.labelColor}`}>
                               {style.label}
                             </span>
-                            <span className="text-xs text-slate-400">{item.timeLabel}</span>
+                            <span className="text-xs text-slate-500">{item.timeLabel}</span>
                           </div>
                           <p className="mt-1 text-sm font-semibold text-slate-900">
                             {item.title}
@@ -659,15 +659,15 @@ export default function ManageTournamentsPage() {
           </Card>
 
           {/* Upcoming schedule */}
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-base font-semibold text-slate-900">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-base font-semibold text-foreground">
                 Upcoming Schedule
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-1">
               {upcomingSchedule.length === 0 ? (
-                <p className="py-6 text-center text-sm text-slate-400">
+                <p className="py-6 text-center text-sm text-muted-foreground">
                   No upcoming tournaments
                 </p>
               ) : (
@@ -690,7 +690,7 @@ export default function ManageTournamentsPage() {
                       onClick={() =>
                         router.push(`/admin/tournaments/${tournament.id}/overview`)
                       }
-                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-muted transition-colors"
                     >
                       <div
                         className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-center ${dateBlockColors[index % dateBlockColors.length]}`}
@@ -703,10 +703,10 @@ export default function ManageTournamentsPage() {
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-900">
+                        <p className="truncate text-sm font-semibold text-foreground">
                           {tournament.name}
                         </p>
-                        <p className="truncate text-xs text-slate-500">{caption}</p>
+                        <p className="truncate text-xs text-muted-foreground">{caption}</p>
                       </div>
                     </button>
                   );
@@ -716,26 +716,26 @@ export default function ManageTournamentsPage() {
           </Card>
 
           {/* Needs attention mini table */}
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-base font-semibold text-slate-900">
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="flex flex-row items-center px-5 py-4 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-base font-semibold text-foreground">
                 Needs Attention
               </CardTitle>
             </CardHeader>
             <CardContent className="px-0 py-0">
               {attentionTournaments.length === 0 ? (
-                <p className="py-10 text-center text-sm text-slate-400">All clear</p>
+                <p className="py-10 text-center text-sm text-muted-foreground">All clear</p>
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-slate-100">
-                      <TableHead className="h-10 pl-5 text-xs font-medium text-slate-400">
+                    <TableRow className="hover:bg-transparent border-border">
+                      <TableHead className="h-10 pl-5 text-xs font-medium text-muted-foreground">
                         Tournament
                       </TableHead>
-                      <TableHead className="h-10 text-xs font-medium text-slate-400">
+                      <TableHead className="h-10 text-xs font-medium text-muted-foreground">
                         Players
                       </TableHead>
-                      <TableHead className="h-10 pr-5 text-xs font-medium text-slate-400">
+                      <TableHead className="h-10 pr-5 text-xs font-medium text-muted-foreground">
                         Status
                       </TableHead>
                     </TableRow>
@@ -744,20 +744,20 @@ export default function ManageTournamentsPage() {
                     {attentionTournaments.map((tournament) => (
                       <TableRow
                         key={tournament.id}
-                        className="border-slate-50 cursor-pointer hover:bg-slate-50/80"
+                        className="border-border/60 cursor-pointer hover:bg-muted/80"
                         onClick={() =>
                           router.push(`/admin/tournaments/${tournament.id}/overview`)
                         }
                       >
                         <TableCell className="pl-5 py-3">
-                          <p className="text-sm font-medium text-slate-900 truncate max-w-[140px]">
+                          <p className="text-sm font-medium text-foreground truncate max-w-[140px]">
                             {tournament.name}
                           </p>
-                          <p className="text-xs text-slate-400 capitalize">
+                          <p className="text-xs text-muted-foreground capitalize">
                             {tournament.sport.replace('-', ' ')}
                           </p>
                         </TableCell>
-                        <TableCell className="py-3 text-sm text-slate-600">
+                        <TableCell className="py-3 text-sm text-muted-foreground">
                           {tournamentStats[tournament.id]?.players ?? 0}
                         </TableCell>
                         <TableCell className="pr-5 py-3">
@@ -777,29 +777,29 @@ export default function ManageTournamentsPage() {
         </div>
 
         {/* Main tournaments table */}
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">All Tournaments</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">All Tournaments</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Showing {filteredTournaments.length} of {tournaments.length}
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, sport, or venue"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
+                  className="h-9 w-full sm:w-64 rounded-xl border-border bg-card pl-9 text-sm focus-ring-thin"
                 />
               </div>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
-                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-border focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -812,7 +812,7 @@ export default function ManageTournamentsPage() {
               </Select>
 
               <Select value={sportFilter} onValueChange={setSportFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-border focus-ring-thin">
                   <SelectValue placeholder="Sport" />
                 </SelectTrigger>
                 <SelectContent>
@@ -824,14 +824,14 @@ export default function ManageTournamentsPage() {
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <div className="flex items-center rounded-xl border border-border bg-muted p-1">
                 <button
                   type="button"
                   onClick={() => setTableScope('all')}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                     tableScope === 'all'
                       ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   All
@@ -842,7 +842,7 @@ export default function ManageTournamentsPage() {
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                     tableScope === 'active'
                       ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   Active
@@ -855,9 +855,9 @@ export default function ManageTournamentsPage() {
             <div className="py-16 text-center">
               {tournaments.length === 0 ? (
                 <>
-                  <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No tournaments yet</h3>
-                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                  <Trophy className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No tournaments yet</h3>
+                  <p className="mt-1 text-sm text-muted-foreground mb-4">
                     Create your first tournament to get started
                   </p>
                   {(user?.role === 'admin' || user?.role === 'super-admin') && (
@@ -872,9 +872,9 @@ export default function ManageTournamentsPage() {
                 </>
               ) : (
                 <>
-                  <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No tournaments found</h3>
-                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                  <Search className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No tournaments found</h3>
+                  <p className="mt-1 text-sm text-muted-foreground mb-4">
                     Try adjusting your search or filters
                   </p>
                   <Button
@@ -896,25 +896,25 @@ export default function ManageTournamentsPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
-                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">
+                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">
                       Tournament
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Sport</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Sport</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Dates
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">Venue</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Venue</TableHead>
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Status
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Players
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Registration
                     </TableHead>
-                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-muted-foreground">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -923,31 +923,31 @@ export default function ManageTournamentsPage() {
                   {filteredTournaments.map((tournament, index) => (
                     <TableRow
                       key={tournament.id}
-                      className={`border-slate-50 ${
-                        index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
-                      } hover:bg-slate-50`}
+                      className={`border-border/60 ${
+                        index % 2 === 1 ? 'bg-muted/40' : 'bg-white'
+                      } hover:bg-muted`}
                     >
                       <TableCell className="pl-5 py-3.5">
-                        <div className="font-medium text-slate-900">{tournament.name}</div>
-                        <div className="text-xs text-slate-400 capitalize">
+                        <div className="font-medium text-foreground">{tournament.name}</div>
+                        <div className="text-xs text-muted-foreground capitalize">
                           {tournament.tournamentType?.replace('-', ' ')}
                         </div>
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <span className="text-sm capitalize text-slate-700">
+                        <span className="text-sm capitalize text-foreground/80">
                           {tournament.sport.replace('-', ' ')}
                         </span>
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-700 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-sm text-foreground/80 whitespace-nowrap">
                           <span>{formatDate(tournament.startDate)}</span>
-                          <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                          <ArrowRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                           <span>{formatDate(tournament.endDate)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600 max-w-[160px]">
-                          <MapPin className="h-3 w-3 text-slate-300 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground max-w-[160px]">
+                          <MapPin className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                           <span className="truncate">{tournament.venue}</span>
                         </div>
                       </TableCell>
@@ -959,16 +959,16 @@ export default function ManageTournamentsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="text-sm text-slate-700">
+                        <div className="text-sm text-foreground/80">
                           {tournamentStats[tournament.id]?.players ?? 0}
                           {tournament.maxParticipants ? (
-                            <span className="text-slate-400">
+                            <span className="text-muted-foreground">
                               {' '}
                               / {tournament.maxParticipants}
                             </span>
                           ) : null}
                         </div>
-                        <div className="text-xs text-slate-400">
+                        <div className="text-xs text-muted-foreground">
                           {tournamentStats[tournament.id]?.registrations ?? 0} regs
                         </div>
                       </TableCell>
@@ -984,7 +984,7 @@ export default function ManageTournamentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() =>
                               router.push(`/admin/tournaments/${tournament.id}/overview`)
                             }
@@ -995,7 +995,7 @@ export default function ManageTournamentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() => handleEdit(tournament)}
                             title="Edit Tournament"
                           >
@@ -1004,7 +1004,7 @@ export default function ManageTournamentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() =>
                               copyRegistrationLink(generateRegistrationLink(tournament.id))
                             }
@@ -1017,7 +1017,7 @@ export default function ManageTournamentsPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                 disabled={operationTournamentId === tournament.id}
                                 onClick={() => handleCloneTournament(tournament)}
                                 title="Clone Tournament"

@@ -484,9 +484,9 @@ export default function UserManagementPage() {
       case 'referee':
         return 'bg-amber-50 text-amber-700 border-amber-100';
       case 'public':
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
       default:
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
     }
   };
 
@@ -509,10 +509,10 @@ export default function UserManagementPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7]">
+      <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto" />
-          <p className="mt-4 text-slate-500 text-sm">Loading users...</p>
+          <p className="mt-4 text-muted-foreground text-sm">Loading users...</p>
         </div>
       </div>
     );
@@ -520,18 +520,18 @@ export default function UserManagementPage() {
 
   return (
     <AdminLayout moduleName="User Management">
-      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-border bg-muted shadow-none gap-0 py-3">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Total Users</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{users.length}</p>
+              <p className="text-sm text-muted-foreground">Total Users</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{users.length}</p>
             </CardContent>
           </Card>
           <Card className="rounded-2xl border-rose-100 bg-rose-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-rose-700/80">Admins</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {users.filter(u => u.role === 'admin' || u.role === 'super-admin').length}
               </p>
             </CardContent>
@@ -539,7 +539,7 @@ export default function UserManagementPage() {
           <Card className="rounded-2xl border-sky-100 bg-sky-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-sky-700/80">Tournament Admins</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {users.filter(u => u.role === 'tournament-admin').length}
               </p>
             </CardContent>
@@ -547,36 +547,36 @@ export default function UserManagementPage() {
           <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-emerald-700/80">Active Users</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {users.filter(u => u.isActive !== false).length}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="rounded-2xl border-border bg-card shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">All Users</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">All Users</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Showing {filteredUsers.length} of {users.length}
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or email"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
+                  className="h-9 w-full sm:w-64 rounded-xl border-border bg-card pl-9 text-sm focus-ring-thin"
                 />
               </div>
 
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl border-slate-200 focus-ring-thin">
-                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
+                <SelectTrigger className="h-9 w-full sm:w-44 rounded-xl border-border focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -602,9 +602,9 @@ export default function UserManagementPage() {
             <div className="py-16 text-center">
               {users.length === 0 ? (
                 <>
-                  <Users className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No users yet</h3>
-                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                  <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No users yet</h3>
+                  <p className="mt-1 text-sm text-muted-foreground mb-4">
                     Create your first user to get started
                   </p>
                   <Button
@@ -617,9 +617,9 @@ export default function UserManagementPage() {
                 </>
               ) : (
                 <>
-                  <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No users found</h3>
-                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                  <Search className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No users found</h3>
+                  <p className="mt-1 text-sm text-muted-foreground mb-4">
                     Try adjusting your search or filters
                   </p>
                   <Button
@@ -639,26 +639,26 @@ export default function UserManagementPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
-                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">
+                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">
                       Name
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Email
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Role
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Assigned Tournaments
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Status
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Created
                     </TableHead>
-                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-muted-foreground">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -667,14 +667,14 @@ export default function UserManagementPage() {
                   {filteredUsers.map((user, index) => (
                     <TableRow
                       key={user.id}
-                      className={`border-slate-50 ${
-                        index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
-                      } hover:bg-slate-50`}
+                      className={`border-border/60 ${
+                        index % 2 === 1 ? 'bg-muted/40' : 'bg-white'
+                      } hover:bg-muted`}
                     >
                       <TableCell className="pl-5 py-3.5">
-                        <div className="font-medium text-slate-900">{user.name}</div>
+                        <div className="font-medium text-foreground">{user.name}</div>
                       </TableCell>
-                      <TableCell className="py-3.5 text-sm text-slate-700">
+                      <TableCell className="py-3.5 text-sm text-foreground/80">
                         {user.email}
                       </TableCell>
                       <TableCell className="py-3.5">
@@ -694,7 +694,7 @@ export default function UserManagementPage() {
                                 <Badge
                                   key={tournamentId}
                                   variant="outline"
-                                  className="rounded-full border-slate-200 text-xs font-normal text-slate-600"
+                                  className="rounded-full border-border text-xs font-normal text-muted-foreground"
                                 >
                                   {tournament?.name || 'Unknown Tournament'}
                                 </Badge>
@@ -702,7 +702,7 @@ export default function UserManagementPage() {
                             })}
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">No tournaments assigned</span>
+                          <span className="text-sm text-muted-foreground">No tournaments assigned</span>
                         )}
                       </TableCell>
                       <TableCell className="py-3.5">
@@ -716,7 +716,7 @@ export default function UserManagementPage() {
                           {user.isActive !== false ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-3.5 text-sm text-slate-600">
+                      <TableCell className="py-3.5 text-sm text-muted-foreground">
                         {formatDate(user.createdAt)}
                       </TableCell>
                       <TableCell className="pr-5 py-3.5 text-right">
@@ -724,7 +724,7 @@ export default function UserManagementPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() => toggleUserStatus(user.id, user.isActive !== false)}
                             title={user.isActive !== false ? 'Deactivate user' : 'Activate user'}
                           >
@@ -733,7 +733,7 @@ export default function UserManagementPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() => handleEdit(user)}
                             title="Edit User"
                           >
@@ -816,7 +816,7 @@ export default function UserManagementPage() {
                     </SelectContent>
                   </Select>
                   {!isFullAdmin && (
-                    <p className="text-xs text-gray-500">Tournament admins can only create referees.</p>
+                    <p className="text-xs text-muted-foreground">Tournament admins can only create referees.</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -835,7 +835,7 @@ export default function UserManagementPage() {
                 <div className="space-y-3">
                   <div>
                     <Label>Assigned Tournaments</Label>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       {formData.role === 'referee'
                         ? 'Select tournaments this referee can score matches for'
                         : 'Select tournaments this user can manage'}
@@ -873,7 +873,7 @@ export default function UserManagementPage() {
                           {formData.assignedTournaments.map((tournamentId) => {
                             const tournament = tournaments.find(t => t.id === tournamentId);
                             return (
-                              <div key={tournamentId} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                              <div key={tournamentId} className="flex items-center justify-between bg-muted rounded-lg p-2">
                                 <span className="text-sm">{tournament?.name || 'Unknown Tournament'}</span>
                                 <Button
                                   type="button"
@@ -897,7 +897,7 @@ export default function UserManagementPage() {
                     )}
                     
                     {assignableTournaments.length === 0 && (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-muted-foreground">
                         {isFullAdmin
                           ? 'No tournaments available. Create tournaments first.'
                           : 'You have no assigned tournaments yet. Ask an admin to assign you to one.'}

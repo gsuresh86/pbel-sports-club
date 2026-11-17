@@ -765,7 +765,7 @@ export default function LiveScoringPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading match details...</p>
+          <p className="mt-4 text-muted-foreground">Loading match details...</p>
         </div>
       </div>
     );
@@ -791,9 +791,9 @@ export default function LiveScoringPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-gray-50">
+    <div className="min-h-dvh bg-muted">
       {/* Sticky top bar */}
-      <div className="sticky top-0 z-10 bg-white border-b shadow-sm px-3 py-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="sticky top-0 z-10 bg-card border-b shadow-sm px-3 py-3 sm:px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="max-w-4xl mx-auto flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 flex items-start gap-2">
             <Button
@@ -823,7 +823,7 @@ export default function LiveScoringPage() {
                 )}
               </Badge>
             </div>
-            <p className="text-xs text-gray-500 mt-1 truncate">
+            <p className="text-xs text-muted-foreground mt-1 truncate">
               {displayNames.player1Name} vs {displayNames.player2Name}
               {match.court ? ` · Court ${match.court}` : ''}
               {' · '}
@@ -860,7 +860,7 @@ export default function LiveScoringPage() {
         {/* Start match */}
         {match.status === 'scheduled' && (
           <div className="mb-6 text-center">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {new Date(match.scheduledTime).toLocaleDateString()} at{' '}
               {new Date(match.scheduledTime).toLocaleTimeString()}
               {match.venue ? ` · ${match.venue}` : ''}
@@ -878,7 +878,7 @@ export default function LiveScoringPage() {
 
         {/* Live score + controls */}
         {(match.status === 'live' || match.status === 'completed') && (
-          <div className="mb-6 rounded-xl bg-white border shadow-sm p-4 sm:p-6">
+          <div className="mb-6 rounded-xl bg-card border shadow-sm p-4 sm:p-6">
             <LiveScoreHeader
               player1Name={displayNames.player1Name}
               player2Name={displayNames.player2Name}
@@ -944,7 +944,7 @@ export default function LiveScoringPage() {
             </div>
             {!canCloseSet(player1Score, player2Score, matchFormat) &&
               (player1Score >= MIN_SET_SCORE - 1 || player2Score >= MIN_SET_SCORE - 1) && (
-                <p className="hidden sm:block text-center text-xs text-gray-500 mb-6">
+                <p className="hidden sm:block text-center text-xs text-muted-foreground mb-6">
                   {matchFormat === 'single-set-30'
                     ? 'First to 30 wins the set automatically.'
                     : `Reach ${MIN_SET_SCORE}+ with a 2-point lead (e.g. ${MIN_SET_SCORE}-${MIN_SET_SCORE - 2}) to close the set.`}
@@ -1043,8 +1043,8 @@ export default function LiveScoringPage() {
                 <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <Label className="text-sm text-gray-700">Winner</Label>
-                      <p className="text-xs text-gray-500 mt-1 mb-2">
+                      <Label className="text-sm text-foreground/80">Winner</Label>
+                      <p className="text-xs text-muted-foreground mt-1 mb-2">
                         Tap a player to set the winner without changing scores. Required when sets won are tied.
                       </p>
                       <div className="flex gap-2 flex-wrap">
@@ -1171,12 +1171,12 @@ export default function LiveScoringPage() {
                     {match.sets.map((set, index) => (
                       <div
                         key={index}
-                        className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                        className="flex justify-between items-center p-3 bg-muted rounded-lg"
                       >
                         <span className="font-medium">Set {set.setNumber}</span>
                         <div className="flex items-center gap-4">
                           <span className="text-blue-600 font-semibold">{set.player1Score}</span>
-                          <span className="text-gray-400">-</span>
+                          <span className="text-muted-foreground">-</span>
                           <span className="text-red-600 font-semibold">{set.player2Score}</span>
                         </div>
                       </div>
@@ -1185,7 +1185,7 @@ export default function LiveScoringPage() {
                 </CardContent>
               </Card>
             ) : (
-              <p className="text-center text-gray-500 py-8 text-sm">No completed sets yet</p>
+              <p className="text-center text-muted-foreground py-8 text-sm">No completed sets yet</p>
             )}
           </TabsContent>
         </Tabs>
@@ -1193,7 +1193,7 @@ export default function LiveScoringPage() {
 
       {/* Fixed bottom bar — mobile live scoring */}
       {match.status === 'live' && !winner && (
-        <div className="fixed bottom-0 inset-x-0 z-20 sm:hidden bg-white border-t shadow-lg px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="fixed bottom-0 inset-x-0 z-20 sm:hidden bg-card border-t shadow-lg px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="flex gap-2">
             <Button
               onClick={closeSet}

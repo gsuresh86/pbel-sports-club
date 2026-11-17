@@ -179,7 +179,7 @@ function RulesPreview({ rules }: { rules: string }) {
     if (bulletBuf.length) {
       elements.push(
         <ul key={key++} className="list-disc list-outside ml-5 space-y-0.5 my-1.5">
-          {bulletBuf.map((t, i) => <li key={i} className="text-gray-700 text-sm">{renderInline(t)}</li>)}
+          {bulletBuf.map((t, i) => <li key={i} className="text-foreground/80 text-sm">{renderInline(t)}</li>)}
         </ul>
       );
       bulletBuf = [];
@@ -187,7 +187,7 @@ function RulesPreview({ rules }: { rules: string }) {
     if (numBuf.length) {
       elements.push(
         <ol key={key++} start={numStart} className="list-decimal list-outside ml-5 space-y-0.5 my-1.5">
-          {numBuf.map((t, i) => <li key={i} className="text-gray-700 text-sm">{renderInline(t)}</li>)}
+          {numBuf.map((t, i) => <li key={i} className="text-foreground/80 text-sm">{renderInline(t)}</li>)}
         </ol>
       );
       numBuf = [];
@@ -198,13 +198,13 @@ function RulesPreview({ rules }: { rules: string }) {
     const line = raw.trim();
     if (!line) { flush(); elements.push(<div key={key++} className="h-2" />); continue; }
     if (line.startsWith('## ')) { flush(); elements.push(<h3 key={key++} className="text-sm font-semibold text-gray-800 mt-3 mb-1">{renderInline(line.slice(3))}</h3>); continue; }
-    if (line.startsWith('# '))  { flush(); elements.push(<h2 key={key++} className="text-base font-bold text-gray-900 mt-4 mb-1 pb-1 border-b border-gray-200 first:mt-0">{renderInline(line.slice(2))}</h2>); continue; }
+    if (line.startsWith('# '))  { flush(); elements.push(<h2 key={key++} className="text-base font-bold text-foreground mt-4 mb-1 pb-1 border-b border-border first:mt-0">{renderInline(line.slice(2))}</h2>); continue; }
     const bm = line.match(/^[-•]\s+(.+)/);
     if (bm) { if (numBuf.length) flush(); bulletBuf.push(bm[1]); continue; }
     const nm = line.match(/^(\d+)[.)]\s+(.+)/);
     if (nm) { if (bulletBuf.length) flush(); if (!numBuf.length) numStart = parseInt(nm[1]); numBuf.push(nm[2]); continue; }
     flush();
-    elements.push(<p key={key++} className="text-gray-700 text-sm leading-relaxed">{renderInline(line)}</p>);
+    elements.push(<p key={key++} className="text-foreground/80 text-sm leading-relaxed">{renderInline(line)}</p>);
   }
   flush();
 
@@ -517,7 +517,7 @@ export function TournamentFormDrawer({
 
               <div className="space-y-2">
                 <Label>Categories</Label>
-                <p className="text-sm text-gray-600">Select tournament categories</p>
+                <p className="text-sm text-muted-foreground">Select tournament categories</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
                   {[
                     'girls-under-13', 'boys-under-13', 'girls-under-18', 'boys-under-18',
@@ -600,7 +600,7 @@ export function TournamentFormDrawer({
                       value={formData.entryFee}
                       onChange={(e) => setFormData({ ...formData, entryFee: e.target.value })}
                     />
-                    <p className="text-xs text-gray-500">Per person. Doubles = entry fee × 2</p>
+                    <p className="text-xs text-muted-foreground">Per person. Doubles = entry fee × 2</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="doublesFee">Doubles Registration Fee (₹)</Label>
@@ -611,7 +611,7 @@ export function TournamentFormDrawer({
                       value={formData.doublesFee}
                       onChange={(e) => setFormData({ ...formData, doublesFee: e.target.value })}
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Optional flat price for the pair. Leave blank to keep entry fee × 2. Doesn&apos;t apply to returning participants.
                     </p>
                   </div>
@@ -625,7 +625,7 @@ export function TournamentFormDrawer({
                       value={formData.repeatFee}
                       onChange={(e) => setFormData({ ...formData, repeatFee: e.target.value })}
                     />
-                    <p className="text-xs text-gray-500">Discounted fee for an additional category</p>
+                    <p className="text-xs text-muted-foreground">Discounted fee for an additional category</p>
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
@@ -655,7 +655,7 @@ export function TournamentFormDrawer({
                     )}
                   </div>
                   {formData.limitRegistrationsPerParticipant && (
-                    <p className="text-xs text-gray-500">How many categories one participant may register for</p>
+                    <p className="text-xs text-muted-foreground">How many categories one participant may register for</p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -714,8 +714,8 @@ export function TournamentFormDrawer({
               {editingTournament && (
                 <div className="space-y-2">
                   <Label>Rules</Label>
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <ScrollText className="h-4 w-4 text-blue-500" />
                       <span>
                         {formData.rules.trim()
@@ -763,7 +763,7 @@ export function TournamentFormDrawer({
                       <Label htmlFor="showRegistrationTitle">
                         Show tournament title over banner
                       </Label>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Turn this off when the banner image already includes the tournament title.
                       </p>
                     </div>
@@ -793,7 +793,7 @@ export function TournamentFormDrawer({
               <div className="space-y-3">
                 <div>
                   <Label className="text-sm font-semibold">Registration Form Fields</Label>
-                  <p className="text-xs text-gray-500">Choose which optional fields appear on the public registration form</p>
+                  <p className="text-xs text-muted-foreground">Choose which optional fields appear on the public registration form</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center space-x-2">
@@ -847,7 +847,7 @@ export function TournamentFormDrawer({
                   aspectRatio="1/1"
                   maxSize={2}
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Optional. If omitted, participants pay via phone/UPI accounts only.
                 </p>
               </div>
@@ -868,7 +868,7 @@ export function TournamentFormDrawer({
                   </Button>
                 </div>
                 {formData.paymentAccounts.length === 0 && (
-                  <p className="text-xs text-gray-400 italic">No accounts added yet. Add UPI IDs or bank details that participants can pay to.</p>
+                  <p className="text-xs text-muted-foreground italic">No accounts added yet. Add UPI IDs or bank details that participants can pay to.</p>
                 )}
                 {formData.paymentAccounts.map((account, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -903,14 +903,14 @@ export function TournamentFormDrawer({
                 ))}
               </div>
 
-              <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+              <div className="space-y-3 rounded-lg border border-border p-4">
                 <div>
                   <Label className="text-sm font-semibold">Point of Contact</Label>
-                  <p className="text-xs text-gray-500 mt-0.5">Up to two contacts shown on the public registration form</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Up to two contacts shown on the public registration form</p>
                 </div>
                 {formData.contacts.map((contact, idx) => (
-                  <div key={idx} className="space-y-2 rounded-md border border-gray-100 bg-gray-50/50 p-3">
-                    <p className="text-xs font-medium text-gray-700">Contact {idx + 1}</p>
+                  <div key={idx} className="space-y-2 rounded-md border border-border bg-muted/50 p-3">
+                    <p className="text-xs font-medium text-foreground/80">Contact {idx + 1}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label htmlFor={`contactName-${idx}`}>Name</Label>
@@ -958,7 +958,7 @@ export function TournamentFormDrawer({
                   value={formData.whatsappGroupLink}
                   onChange={(e) => setFormData({ ...formData, whatsappGroupLink: e.target.value })}
                 />
-                <p className="text-xs text-gray-500">Participants will see this link on their registration confirmation screen</p>
+                <p className="text-xs text-muted-foreground">Participants will see this link on their registration confirmation screen</p>
               </div>
             </form>
           </div>
@@ -997,32 +997,32 @@ export function TournamentFormDrawer({
           </DrawerHeader>
 
           <div className="flex-1 overflow-hidden flex flex-col lg:flex-row min-h-0">
-            <div className="flex-1 flex flex-col min-h-0 border-r border-gray-100">
-              <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 border-b border-gray-100">
+            <div className="flex-1 flex flex-col min-h-0 border-r border-border">
+              <div className="flex items-center gap-1 px-3 py-2 bg-muted border-b border-border">
                 <button
                   type="button"
                   title="Bold (Ctrl+B)"
                   onMouseDown={(e) => { e.preventDefault(); wrapSelection('**'); }}
-                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold text-foreground/80 hover:bg-gray-200 transition-colors"
                 >B</button>
                 <button
                   type="button"
                   title="Italic (Ctrl+I)"
                   onMouseDown={(e) => { e.preventDefault(); wrapSelection('*'); }}
-                  className="w-7 h-7 rounded flex items-center justify-center text-sm italic font-serif text-gray-700 hover:bg-gray-200 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm italic font-serif text-foreground/80 hover:bg-gray-200 transition-colors"
                 >I</button>
                 <button
                   type="button"
                   title="Bold + Italic"
                   onMouseDown={(e) => { e.preventDefault(); wrapSelection('***'); }}
-                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold italic font-serif text-gray-700 hover:bg-gray-200 transition-colors"
+                  className="w-7 h-7 rounded flex items-center justify-center text-sm font-bold italic font-serif text-foreground/80 hover:bg-gray-200 transition-colors"
                 >BI</button>
                 <div className="w-px h-4 bg-gray-300 mx-1" />
-                <div className="flex items-center gap-2 text-xs text-gray-400 select-none">
-                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600"># H1</code></span>
-                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">## H2</code></span>
-                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">1.</code> num</span>
-                  <span><code className="bg-white px-1 rounded border border-gray-200 text-gray-600">-</code> bullet</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground select-none">
+                  <span><code className="bg-card px-1 rounded border border-border text-muted-foreground"># H1</code></span>
+                  <span><code className="bg-card px-1 rounded border border-border text-muted-foreground">## H2</code></span>
+                  <span><code className="bg-card px-1 rounded border border-border text-muted-foreground">1.</code> num</span>
+                  <span><code className="bg-card px-1 rounded border border-border text-muted-foreground">-</code> bullet</span>
                 </div>
               </div>
               <div className="flex-1 p-4 overflow-auto">
@@ -1035,20 +1035,20 @@ export function TournamentFormDrawer({
                     if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); wrapSelection('*'); }
                   }}
                   placeholder={`# General Rules\n\n1. All players must register before the deadline.\n2. Players must arrive **15 minutes** before their scheduled match.\n\n# Scoring Rules\n\n- Each set is played to 21 points.\n- A player must win by *2 clear points*.`}
-                  className="font-mono text-sm resize-none h-full min-h-[320px] border-gray-200"
+                  className="font-mono text-sm resize-none h-full min-h-[320px] border-border"
                 />
               </div>
             </div>
 
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                <p className="text-xs font-medium text-gray-700">Live Preview</p>
+              <div className="px-4 py-3 bg-muted border-b border-border">
+                <p className="text-xs font-medium text-foreground/80">Live Preview</p>
               </div>
               <div className="flex-1 overflow-auto p-5">
                 {rulesContent.trim() ? (
                   <RulesPreview rules={rulesContent} />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 py-12">
+                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-12">
                     <ScrollText className="h-10 w-10 mb-3 text-gray-200" />
                     <p className="text-sm">Start typing to see a preview</p>
                   </div>

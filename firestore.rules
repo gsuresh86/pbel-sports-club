@@ -380,6 +380,14 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && isAdmin();
     }
 
+    // Site visit aggregates — written only via Admin SDK API; super-admin read
+    match /siteAnalytics/{docId} {
+      allow read: if request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super-admin';
+      allow write: if false;
+    }
+
     // Notifications - users can read/update their own notifications
     match /notifications/{notificationId} {
       // Allow read if user is authenticated and owns the notification

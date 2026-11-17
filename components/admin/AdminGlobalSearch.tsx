@@ -217,7 +217,7 @@ async function loadSearchIndex(user: User): Promise<SearchIndex> {
 }
 
 function ResultIcon({ type }: { type: AdminSearchItem['type'] }) {
-  const className = 'h-3.5 w-3.5 text-slate-400';
+  const className = 'h-3.5 w-3.5 text-muted-foreground';
   switch (type) {
     case 'tournament':
     case 'match':
@@ -326,7 +326,7 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
 
   const searchField = (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       <input
         ref={inputRef}
         type="search"
@@ -342,13 +342,13 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
         }}
         onKeyDown={onKeyDown}
         placeholder="Search tournaments, users, leads…"
-        className="h-9 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-14 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        className="h-9 w-full rounded-lg border border-gray-300 bg-card pl-9 pr-14 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         role="combobox"
         aria-expanded={showPanel}
         aria-controls="admin-global-search-results"
         aria-autocomplete="list"
       />
-      <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 sm:inline">
+      <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
         ⌘K
       </kbd>
     </div>
@@ -358,19 +358,19 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
     <div
       id="admin-global-search-results"
       role="listbox"
-      className="absolute right-0 z-50 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1.5 shadow-lg sm:w-[28rem]"
+      className="absolute right-0 z-50 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-border bg-card py-1.5 shadow-lg sm:w-[28rem]"
     >
       {loading && !index ? (
-        <div className="flex items-center gap-2 px-3 py-3 text-sm text-slate-500">
+        <div className="flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading search…
         </div>
       ) : results.length === 0 ? (
-        <p className="px-3 py-3 text-sm text-slate-500">No matches for “{queryText.trim()}”</p>
+        <p className="px-3 py-3 text-sm text-muted-foreground">No matches for “{queryText.trim()}”</p>
       ) : (
         grouped.map((group) => (
           <div key={group.type} className="py-1">
-            <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="px-3 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {SEARCH_TYPE_LABELS[group.type]}
             </p>
             {group.items.map((item) => {
@@ -384,7 +384,7 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
                   aria-selected={active}
                   className={cn(
                     'flex w-full items-start gap-2.5 px-3 py-2 text-left',
-                    active ? 'bg-slate-100' : 'hover:bg-slate-50'
+                    active ? 'bg-slate-100' : 'hover:bg-muted'
                   )}
                   onMouseEnter={() => setActiveIndex(flatIndex)}
                   onClick={() => goTo(item.href)}
@@ -393,9 +393,9 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
                     <ResultIcon type={item.type} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-slate-900">{item.title}</span>
+                    <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
                     {item.subtitle && (
-                      <span className="block truncate text-xs text-slate-500">{item.subtitle}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{item.subtitle}</span>
                     )}
                   </span>
                 </button>
@@ -411,7 +411,7 @@ export function AdminGlobalSearch({ user }: { user: User | null | undefined }) {
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 md:hidden"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 md:hidden"
         onClick={() => {
           setMobileOpen((current) => !current);
           setOpen(true);

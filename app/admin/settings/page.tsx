@@ -320,7 +320,7 @@ export default function SettingsPage() {
         <div className="p-6 flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading settings...</p>
+            <p className="text-muted-foreground">Loading settings...</p>
           </div>
         </div>
       </AdminLayout>
@@ -362,7 +362,7 @@ export default function SettingsPage() {
                   onChange={(e) => setDefaultRegistrationDaysBefore(parseInt(e.target.value) || 7)}
                   placeholder="7"
                 />
-                <p className="text-xs text-gray-500 mt-1">Number of days before tournament start for registration deadline</p>
+                <p className="text-xs text-muted-foreground mt-1">Number of days before tournament start for registration deadline</p>
               </div>
             </div>
           </CardContent>
@@ -384,7 +384,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             {sports.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 No sports configured. Click "Add Sport" to get started.
               </div>
             ) : (
@@ -458,7 +458,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             {categories.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 No categories configured. Click "Add Category" to get started.
               </div>
             ) : (
@@ -482,12 +482,12 @@ export default function SettingsPage() {
                         <TableCell>
                           <code className="text-xs bg-gray-100 px-2 py-1 rounded">{category.value}</code>
                         </TableCell>
-                        <TableCell className="text-sm text-gray-600">{category.description || '-'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{category.description || '-'}</TableCell>
                         <TableCell>
                           {category.sportValue ? (
                             <Badge variant="outline">{category.sportValue}</Badge>
                           ) : (
-                            <span className="text-gray-400">All Sports</span>
+                            <span className="text-muted-foreground">All Sports</span>
                           )}
                         </TableCell>
                         <TableCell>{category.order}</TableCell>
@@ -552,7 +552,7 @@ export default function SettingsPage() {
                   disabled={!!editingSport}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Lowercase, use hyphens for spaces (e.g., table-tennis)</p>
+                <p className="text-xs text-muted-foreground mt-1">Lowercase, use hyphens for spaces (e.g., table-tennis)</p>
               </div>
               <div>
                 <Label htmlFor="sportLabel">Label (Display Name) *</Label>
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                   placeholder="🏸"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Single emoji character</p>
+                <p className="text-xs text-muted-foreground mt-1">Single emoji character</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -635,7 +635,7 @@ export default function SettingsPage() {
                   disabled={!!editingCategory}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Lowercase, use hyphens for spaces</p>
+                <p className="text-xs text-muted-foreground mt-1">Lowercase, use hyphens for spaces</p>
               </div>
               <div>
                 <Label htmlFor="categoryLabel">Label (Display Name) *</Label>
@@ -675,7 +675,7 @@ export default function SettingsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Leave empty to make category available for all sports</p>
+                <p className="text-xs text-muted-foreground mt-1">Leave empty to make category available for all sports</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

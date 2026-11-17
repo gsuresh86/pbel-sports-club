@@ -77,7 +77,7 @@ function statusColor(status: string) {
     case 'completed': return 'bg-green-100 text-green-800';
     case 'live': return 'bg-red-100 text-red-800';
     case 'scheduled': return 'bg-blue-100 text-blue-800';
-    case 'not-scheduled': return 'bg-gray-100 text-gray-600';
+    case 'not-scheduled': return 'bg-gray-100 text-muted-foreground';
     case 'cancelled': return 'bg-gray-100 text-gray-800';
     case 'postponed': return 'bg-yellow-100 text-yellow-800';
     default: return 'bg-gray-100 text-gray-800';
@@ -155,7 +155,7 @@ export default function MatchDetailPage() {
   const backHref = `/admin/tournaments/${tournamentId}/matches`;
 
   if (!tournament || !match) {
-    return <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Loading…</div>;
+    return <div className="flex items-center justify-center py-20 text-muted-foreground text-sm">Loading…</div>;
   }
 
   const isTeamMatch = isTeamTieMatch(match, teamIds);
@@ -437,7 +437,7 @@ export default function MatchDetailPage() {
 
       {/* Back */}
       <Link href={backHref}>
-        <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-gray-600">
+        <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4" />
           Matches
         </Button>
@@ -463,7 +463,7 @@ export default function MatchDetailPage() {
             <CardContent className="pt-4 pb-4">
               {/* Chips row */}
               <div className="flex items-center gap-2 flex-wrap mb-4">
-                <span className="text-xs text-gray-500 font-medium">
+                <span className="text-xs text-muted-foreground font-medium">
                   #{match.matchNumber} · {match.round}
                 </span>
                 {isTeamMatch && <Badge variant="outline" className="text-xs">Team Tie</Badge>}
@@ -471,7 +471,7 @@ export default function MatchDetailPage() {
                   {statusLabel(match.status)}
                 </Badge>
                 {match.matchFormat && (
-                  <Badge variant="outline" className="text-xs text-gray-500">
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
                     {getFormatLabel(match.matchFormat)}
                   </Badge>
                 )}
@@ -486,7 +486,7 @@ export default function MatchDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className={cn(
                         'text-base font-semibold leading-snug',
-                        match.winner === match.player1Name ? 'text-gray-900' : 'text-gray-500',
+                        match.winner === match.player1Name ? 'text-foreground' : 'text-muted-foreground',
                       )}>
                         {side1}
                       </p>
@@ -520,13 +520,13 @@ export default function MatchDetailPage() {
                           )}
                         </>
                       ) : (
-                        <span className="text-lg font-medium text-gray-400">vs</span>
+                        <span className="text-lg font-medium text-muted-foreground">vs</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0 text-right">
                       <p className={cn(
                         'text-base font-semibold leading-snug',
-                        match.winner === match.player2Name ? 'text-gray-900' : 'text-gray-500',
+                        match.winner === match.player2Name ? 'text-foreground' : 'text-muted-foreground',
                       )}>
                         {side2}
                       </p>
@@ -535,7 +535,7 @@ export default function MatchDetailPage() {
 
                   {/* Rubber dot legend */}
                   {isTeamMatch && rubbers.length > 0 && (
-                    <div className="flex items-center justify-center gap-4 text-xs text-gray-500 mt-2">
+                    <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-2">
                       <span className="flex items-center gap-1">
                         <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500" />{side1}
                       </span>
@@ -560,30 +560,30 @@ export default function MatchDetailPage() {
 
                 {/* Meta */}
                 <div className="flex-1 min-w-0 flex flex-wrap gap-x-6 gap-y-1.5 content-start">
-                  <div className="flex items-center gap-1.5 text-gray-700">
-                    <Calendar className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-1.5 text-foreground/80">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="text-xs">{formatDate(new Date(match.scheduledTime))}</span>
                   </div>
                   {match.venue && (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-foreground/80">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-xs">{match.venue}{match.court ? ` · ${match.court}` : ''}</span>
                     </div>
                   )}
                   {match.actualStartTime && (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-foreground/80">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-xs">Started: {formatDate(new Date(match.actualStartTime))}</span>
                     </div>
                   )}
                   {match.referee && (
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-foreground/80">
+                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-xs">Referee: {match.referee}</span>
                     </div>
                   )}
                   {match.notes && (
-                    <p className="text-xs text-gray-500 italic w-full">Note: {match.notes}</p>
+                    <p className="text-xs text-muted-foreground italic w-full">Note: {match.notes}</p>
                   )}
                 </div>
 
@@ -599,7 +599,7 @@ export default function MatchDetailPage() {
               )}
 
               {/* Action buttons */}
-              <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 mt-4 pt-3">
+              <div className="flex flex-wrap items-center gap-2 border-t border-border mt-4 pt-3">
                 {/* TV scoreboard */}
                 {match.status === 'live' && (
                   <Link href={scoreboardPath(matchId, tournamentId)} target="_blank" rel="noopener noreferrer">
@@ -683,8 +683,8 @@ export default function MatchDetailPage() {
 
               {/* ── SET WINNER PANEL (inline in card) ── */}
               {winnerPickOpen && (
-                <div className="border-t border-gray-100 pt-3 space-y-2">
-                  <p className="text-xs text-gray-500 font-medium">Select the winner:</p>
+                <div className="border-t border-border pt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground font-medium">Select the winner:</p>
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
@@ -836,7 +836,7 @@ export default function MatchDetailPage() {
                   <div className="space-y-1">
                     <Label className="text-xs truncate block">{side1}</Label>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-500">Sets:</span>
+                      <span className="text-xs text-muted-foreground">Sets:</span>
                       <Input type="number" min={0} max={setsToWin} value={setsP1}
                         onChange={e => { setSetsP1(e.target.value); setManualWinner(null); }}
                         className="h-8 w-16 text-center" />
@@ -845,7 +845,7 @@ export default function MatchDetailPage() {
                   <div className="space-y-1">
                     <Label className="text-xs truncate block">{side2}</Label>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-gray-500">Sets:</span>
+                      <span className="text-xs text-muted-foreground">Sets:</span>
                       <Input type="number" min={0} max={setsToWin} value={setsP2}
                         onChange={e => { setSetsP2(e.target.value); setManualWinner(null); }}
                         className="h-8 w-16 text-center" />
@@ -864,7 +864,7 @@ export default function MatchDetailPage() {
                       prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
                     );
                   }}
-                  labelClassName="text-xs text-gray-500"
+                  labelClassName="text-xs text-muted-foreground"
                   inputClassName="h-8 text-xs"
                 />
 
@@ -879,7 +879,7 @@ export default function MatchDetailPage() {
                         'flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors text-left',
                         effectiveWinner === match.player1Name
                           ? 'bg-indigo-600 border-indigo-600 text-white'
-                          : 'border-gray-200 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50',
+                          : 'border-border text-foreground/80 hover:border-indigo-300 hover:bg-indigo-50',
                       )}
                     >
                       <Trophy className="inline h-3.5 w-3.5 mr-1.5" />
@@ -892,7 +892,7 @@ export default function MatchDetailPage() {
                         'flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors text-left',
                         effectiveWinner === match.player2Name
                           ? 'bg-amber-600 border-amber-600 text-white'
-                          : 'border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50',
+                          : 'border-border text-foreground/80 hover:border-amber-300 hover:bg-amber-50',
                       )}
                     >
                       <Trophy className="inline h-3.5 w-3.5 mr-1.5" />
@@ -900,8 +900,8 @@ export default function MatchDetailPage() {
                     </button>
                   </div>
                   {effectiveWinner && (
-                    <p className="text-xs text-gray-500">
-                      Winner: <span className="font-medium text-gray-700">{effectiveWinner}</span>
+                    <p className="text-xs text-muted-foreground">
+                      Winner: <span className="font-medium text-foreground/80">{effectiveWinner}</span>
                       {manualWinner && autoWinner && manualWinner !== autoWinner && (
                         <span className="ml-1 text-amber-600">(overridden)</span>
                       )}
@@ -949,16 +949,16 @@ export default function MatchDetailPage() {
                     const s2Won = s.player2Score > s.player1Score;
                     return (
                       <div key={s.setNumber} className="px-4 py-3 space-y-1.5">
-                        <p className="text-xs font-medium text-gray-500">Set {s.setNumber}</p>
+                        <p className="text-xs font-medium text-muted-foreground">Set {s.setNumber}</p>
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <span className={cn('min-w-0 truncate font-medium', s1Won && 'text-green-700')}>{side1}</span>
-                          <span className={cn('tabular-nums font-bold', s1Won ? 'text-green-700' : 'text-gray-400')}>{s.player1Score}</span>
+                          <span className={cn('tabular-nums font-bold', s1Won ? 'text-green-700' : 'text-muted-foreground')}>{s.player1Score}</span>
                         </div>
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <span className={cn('min-w-0 truncate font-medium', s2Won && 'text-green-700')}>{side2}</span>
-                          <span className={cn('tabular-nums font-bold', s2Won ? 'text-green-700' : 'text-gray-400')}>{s.player2Score}</span>
+                          <span className={cn('tabular-nums font-bold', s2Won ? 'text-green-700' : 'text-muted-foreground')}>{s.player2Score}</span>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           Winner: {s1Won ? side1 : s2Won ? side2 : '—'}
                         </p>
                       </div>
@@ -968,7 +968,7 @@ export default function MatchDetailPage() {
                 <div className="hidden sm:block">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50/80">
+                      <TableRow className="bg-muted/80">
                         <TableHead className="text-xs w-14 pl-4">Set</TableHead>
                         <TableHead className="text-xs">{side1}</TableHead>
                         <TableHead className="text-xs">{side2}</TableHead>
@@ -981,14 +981,14 @@ export default function MatchDetailPage() {
                         const s2Won = s.player2Score > s.player1Score;
                         return (
                           <TableRow key={s.setNumber}>
-                            <TableCell className="text-xs py-2.5 pl-4 font-medium text-gray-500">Set {s.setNumber}</TableCell>
-                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s1Won ? 'text-green-700' : 'text-gray-400')}>
+                            <TableCell className="text-xs py-2.5 pl-4 font-medium text-muted-foreground">Set {s.setNumber}</TableCell>
+                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s1Won ? 'text-green-700' : 'text-muted-foreground')}>
                               {s.player1Score}
                             </TableCell>
-                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s2Won ? 'text-green-700' : 'text-gray-400')}>
+                            <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s2Won ? 'text-green-700' : 'text-muted-foreground')}>
                               {s.player2Score}
                             </TableCell>
-                            <TableCell className="text-xs py-2.5 text-gray-600">
+                            <TableCell className="text-xs py-2.5 text-muted-foreground">
                               {s1Won ? side1 : s2Won ? side2 : '—'}
                             </TableCell>
                           </TableRow>
@@ -1010,7 +1010,7 @@ export default function MatchDetailPage() {
                   {rubbers.length > 0 && (
                     <span className="text-xs font-medium">
                       <span className="text-indigo-600">{side1}</span>
-                      <span className="mx-1.5 font-bold text-gray-700">{rubberWins1}–{rubberWins2}</span>
+                      <span className="mx-1.5 font-bold text-foreground/80">{rubberWins1}–{rubberWins2}</span>
                       <span className="text-amber-600">{side2}</span>
                     </span>
                   )}
@@ -1018,7 +1018,7 @@ export default function MatchDetailPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {rubbers.length === 0 ? (
-                  <div className="px-4 py-10 text-center text-sm text-gray-500">
+                  <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                     <ClipboardList className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                     No rubbers yet — use &quot;Set Lineup&quot; from the matches list to generate rubbers.
                   </div>
@@ -1028,7 +1028,7 @@ export default function MatchDetailPage() {
                     <div className="hidden sm:block overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-gray-50/80">
+                          <TableRow className="bg-muted/80">
                             <TableHead className="text-xs w-8 pl-4">#</TableHead>
                             <TableHead className="text-xs w-16">Type</TableHead>
                             <TableHead className="text-xs text-indigo-700 min-w-[130px]">{side1}</TableHead>
@@ -1050,27 +1050,27 @@ export default function MatchDetailPage() {
                                 key={rubber.id}
                                 className={cn(ws !== null && 'bg-green-50/50')}
                               >
-                                <TableCell className="text-xs py-3 pl-4 font-semibold text-gray-500">
+                                <TableCell className="text-xs py-3 pl-4 font-semibold text-muted-foreground">
                                   {rubber.rubberNumber}
                                 </TableCell>
-                                <TableCell className="text-xs py-3 text-gray-500">
+                                <TableCell className="text-xs py-3 text-muted-foreground">
                                   {rubberTypeLabel(rubber.rubberType ?? 'single')}
                                 </TableCell>
                                 <TableCell className="text-xs py-3">
-                                  <p className={cn('leading-snug', ws === 1 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r1}</p>
+                                  <p className={cn('leading-snug', ws === 1 ? 'font-semibold text-green-700' : 'text-muted-foreground')}>{r1}</p>
                                   {rubber.sets?.map((s, i) => (
-                                    <p key={i} className="text-xs text-gray-500 tabular-nums mt-0.5">{s.player1Score}</p>
+                                    <p key={i} className="text-xs text-muted-foreground tabular-nums mt-0.5">{s.player1Score}</p>
                                   ))}
                                 </TableCell>
                                 <TableCell className="text-xs py-3">
-                                  <p className={cn('leading-snug', ws === 2 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r2}</p>
+                                  <p className={cn('leading-snug', ws === 2 ? 'font-semibold text-green-700' : 'text-muted-foreground')}>{r2}</p>
                                   {rubber.sets?.map((s, i) => (
-                                    <p key={i} className="text-xs text-gray-500 tabular-nums mt-0.5">{s.player2Score}</p>
+                                    <p key={i} className="text-xs text-muted-foreground tabular-nums mt-0.5">{s.player2Score}</p>
                                   ))}
                                 </TableCell>
                                 <TableCell className="text-xs py-3">
                                   {rubber.status === 'completed' ? (
-                                    <span className="font-bold tabular-nums text-gray-700">
+                                    <span className="font-bold tabular-nums text-foreground/80">
                                       {rubber.player1Score ?? 0}–{rubber.player2Score ?? 0}
                                     </span>
                                   ) : (
@@ -1086,7 +1086,7 @@ export default function MatchDetailPage() {
                                       {ws === 1 ? r1.split(' & ')[0] : r2.split(' & ')[0]}
                                     </span>
                                   ) : (
-                                    <span className="text-gray-400">—</span>
+                                    <span className="text-muted-foreground">—</span>
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right py-3 pr-4">
@@ -1101,7 +1101,7 @@ export default function MatchDetailPage() {
                                     )}
                                     {canEditRubber && (
                                       <Link href={adminMatchScorePath(rubber.id, tournamentId)}>
-                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 text-gray-500">
+                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 text-muted-foreground">
                                           <Edit3 className="h-3 w-3" />
                                           Edit
                                         </Button>
@@ -1139,7 +1139,7 @@ export default function MatchDetailPage() {
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-semibold text-gray-600">
+                              <span className="text-xs font-semibold text-muted-foreground">
                                 R{rubber.rubberNumber} · {rubberTypeLabel(rubber.rubberType ?? 'single')}
                               </span>
                               {rubber.status !== 'completed'
@@ -1153,20 +1153,20 @@ export default function MatchDetailPage() {
                             </div>
                             <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
                               <div>
-                                <p className={cn('text-sm font-medium', ws === 1 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r1}</p>
+                                <p className={cn('text-sm font-medium', ws === 1 ? 'font-semibold text-green-700' : 'text-muted-foreground')}>{r1}</p>
                                 {rubber.sets?.map((s, i) => (
-                                  <p key={i} className="text-sm text-gray-500 tabular-nums mt-0.5">{s.player1Score}</p>
+                                  <p key={i} className="text-sm text-muted-foreground tabular-nums mt-0.5">{s.player1Score}</p>
                                 ))}
                               </div>
                               <div className="text-xs shrink-0 mt-0.5 text-center">
                                 {rubber.status === 'completed'
-                                  ? <span className="font-bold text-gray-700 tabular-nums">{rubber.player1Score ?? 0}–{rubber.player2Score ?? 0}</span>
-                                  : <span className="text-gray-400">vs</span>}
+                                  ? <span className="font-bold text-foreground/80 tabular-nums">{rubber.player1Score ?? 0}–{rubber.player2Score ?? 0}</span>
+                                  : <span className="text-muted-foreground">vs</span>}
                               </div>
                               <div className="text-right">
-                                <p className={cn('text-sm font-medium', ws === 2 ? 'font-semibold text-green-700' : 'text-gray-600')}>{r2}</p>
+                                <p className={cn('text-sm font-medium', ws === 2 ? 'font-semibold text-green-700' : 'text-muted-foreground')}>{r2}</p>
                                 {rubber.sets?.map((s, i) => (
-                                  <p key={i} className="text-sm text-gray-500 tabular-nums mt-0.5 text-right">{s.player2Score}</p>
+                                  <p key={i} className="text-sm text-muted-foreground tabular-nums mt-0.5 text-right">{s.player2Score}</p>
                                 ))}
                               </div>
                             </div>

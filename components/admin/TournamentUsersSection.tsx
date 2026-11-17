@@ -311,13 +311,13 @@ export function TournamentUsersSection({
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-gray-500 py-6">
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">
                       Loading {config.labelPlural.toLowerCase()}...
                     </TableCell>
                   </TableRow>
                 ) : inTournament.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-gray-500 py-8">
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-8">
                       <EmptyIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                       No {config.labelPlural.toLowerCase()} assigned to this tournament yet.
                     </TableCell>
@@ -464,7 +464,7 @@ export function TournamentUsersSection({
               <div className="space-y-2">
                 <Label>Select {config.label.toLowerCase()}</Label>
                 {available.length === 0 ? (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     No other {config.labelPlural.toLowerCase()} available. Create a new one instead.
                   </p>
                 ) : (

@@ -30,11 +30,11 @@ import {
   isTournamentStaff,
 } from '@/lib/permissions';
 
-const STICKY_HEAD = 'sticky top-0 z-30 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL = 'sticky z-20 bg-white shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
-const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-white shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-white shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
+const STICKY_HEAD = 'sticky top-0 z-30 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL = 'sticky z-20 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
+const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
 
 interface RegistrationsManagerProps {
   /** When set, scope all data and filters to this tournament only. */
@@ -945,7 +945,7 @@ export function RegistrationsManager({
       <div className={`flex items-center justify-center ${embedded ? 'py-16' : 'min-h-screen'}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading registrations...</p>
+          <p className="mt-4 text-muted-foreground">Loading registrations...</p>
         </div>
       </div>
     );
@@ -1079,9 +1079,9 @@ export function RegistrationsManager({
             {filteredParticipants.length === 0 ? (
               <div className="flex flex-1 items-center justify-center text-center">
                 <div>
-                  <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                  <h3 className="mb-2 text-lg font-medium text-gray-900">No registrations found</h3>
-                  <p className="text-gray-600">Try adjusting your filters or search terms</p>
+                  <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="mb-2 text-lg font-medium text-foreground">No registrations found</h3>
+                  <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
                 </div>
               </div>
             ) : (
@@ -1341,7 +1341,7 @@ export function RegistrationsManager({
         {/* Import Modal */}
         {showImportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-card rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Import Registrations</h2>
                 <Button variant="outline" onClick={resetImport}>
@@ -1353,9 +1353,9 @@ export function RegistrationsManager({
               {importStep === 'upload' && (
                 <div className="space-y-4">
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <FileSpreadsheet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <FileSpreadsheet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <h3 className="text-lg font-medium mb-2">Upload CSV or Excel File</h3>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Select a CSV or Excel file containing registration data
                     </p>
                     <input
@@ -1367,7 +1367,7 @@ export function RegistrationsManager({
                     />
                     <label
                       htmlFor="file-upload"
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-foreground/80 bg-card hover:bg-muted cursor-pointer"
                     >
                       <Upload className="h-4 w-4 mr-2" />
                       Choose File
@@ -1392,7 +1392,7 @@ export function RegistrationsManager({
               {importStep === 'tournament' && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Select Tournament</h3>
-                  <p className="text-gray-600">Choose which tournament these registrations will be imported to:</p>
+                  <p className="text-muted-foreground">Choose which tournament these registrations will be imported to:</p>
                   
                   <div className="space-y-2">
                     <Label htmlFor="import-tournament">Tournament</Label>
@@ -1498,8 +1498,8 @@ export function RegistrationsManager({
                     </div>
                   )}
 
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-700">
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-sm text-foreground/80">
                       <strong>{importPreview.filter(p => p.isValid).length}</strong> valid registrations will be imported
                       {importPreview.filter(p => !p.isValid).length > 0 && (
                         <span className="text-red-600">
@@ -1549,7 +1549,7 @@ export function RegistrationsManager({
                       </TableBody>
                     </Table>
                     {importPreview.length > 20 && (
-                      <div className="p-2 text-center text-sm text-gray-500">
+                      <div className="p-2 text-center text-sm text-muted-foreground">
                         Showing first 20 rows of {importPreview.length} total
                       </div>
                     )}
@@ -1574,7 +1574,7 @@ export function RegistrationsManager({
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <h3 className="text-lg font-medium mb-2">Importing Registrations...</h3>
-                  <p className="text-gray-600">Please wait while we process your data</p>
+                  <p className="text-muted-foreground">Please wait while we process your data</p>
                 </div>
               )}
             </div>

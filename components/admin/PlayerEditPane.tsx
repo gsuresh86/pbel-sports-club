@@ -64,7 +64,7 @@ export function PlayerEditPane({
   const photoUrl = values.profilePhotoUrl;
 
   return (
-    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col border-t bg-white sm:w-[380px] sm:border-l sm:border-t-0 lg:w-[420px]">
+    <aside className="flex h-full min-h-0 w-full shrink-0 flex-col border-t bg-card sm:w-[380px] sm:border-l sm:border-t-0 lg:w-[420px]">
       <div className="flex shrink-0 items-start justify-between gap-2 border-b px-4 py-3">
         <div className="min-w-0">
           <h4 className="truncate text-sm font-semibold">Edit player</h4>

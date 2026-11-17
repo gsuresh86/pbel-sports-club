@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation';
 import {
   collection,
   collectionGroup,
+  doc,
   getCountFromServer,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -17,8 +19,10 @@ import {
   ArrowRight,
   Calendar,
   Clock,
+  Eye,
   Play,
   Plus,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminLayout from '@/components/AdminLayout';
@@ -29,6 +33,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { db } from '@/lib/firebase';
 import { adminTournamentMatchPath } from '@/lib/firestore-paths';
 import { canReviewTestimonials } from '@/lib/permissions';
+import {
+  SITE_ANALYTICS_COLLECTION,
+  SITE_ANALYTICS_SUMMARY_ID,
+  dailyAnalyticsDocId,
+  emptySiteVisitStats,
+  lastNDateKeys,
+  type SiteVisitStats,
+} from '@/lib/site-analytics';
 import { fetchTournaments } from '@/lib/tournament-api';
 import type { Tournament, User } from '@/types';
 
@@ -68,6 +80,7 @@ interface DashboardData {
   pendingRegsByTournament: Record<string, number>;
   liveMatches: LiveMatchRow[];
   recentItems: RecentItem[];
+  siteVisits: SiteVisitStats;
 }
 
 const emptyData: DashboardData = {
@@ -78,7 +91,48 @@ const emptyData: DashboardData = {
   pendingRegsByTournament: {},
   liveMatches: [],
   recentItems: [],
+  siteVisits: emptySiteVisitStats,
 };
+
+async function loadSiteVisitStats(): Promise<SiteVisitStats> {
+  try {
+    const weekKeys = lastNDateKeys(7);
+    const [summarySnap, ...dailySnaps] = await Promise.all([
+      getDoc(doc(db, SITE_ANALYTICS_COLLECTION, SITE_ANALYTICS_SUMMARY_ID)),
+      ...weekKeys.map((key) => getDoc(doc(db, SITE_ANALYTICS_COLLECTION, dailyAnalyticsDocId(key)))),
+    ]);
+
+    const summary = summarySnap.data() || {};
+    let weekPageViews = 0;
+    let weekUniqueVisitors = 0;
+    let todayPageViews = 0;
+    let todayUniqueVisitors = 0;
+
+    dailySnaps.forEach((snap, index) => {
+      const data = snap.data() || {};
+      const pageViews = Number(data.pageViews) || 0;
+      const uniqueVisitors = Number(data.uniqueVisitors) || 0;
+      weekPageViews += pageViews;
+      weekUniqueVisitors += uniqueVisitors;
+      if (index === 0) {
+        todayPageViews = pageViews;
+        todayUniqueVisitors = uniqueVisitors;
+      }
+    });
+
+    return {
+      todayPageViews,
+      todayUniqueVisitors,
+      weekPageViews,
+      weekUniqueVisitors,
+      totalPageViews: Number(summary.totalPageViews) || 0,
+      totalUniqueVisitors: Number(summary.totalUniqueVisitors) || 0,
+    };
+  } catch (error) {
+    console.warn('Could not load site visit stats:', error);
+    return emptySiteVisitStats;
+  }
+}
 
 function toDate(value: unknown): Date | undefined {
   if (value instanceof Date) return value;
@@ -114,15 +168,15 @@ function relativeTime(date?: Date) {
 function statusBadgeClass(status: string) {
   switch (status) {
     case 'upcoming':
-      return 'bg-sky-50 text-sky-700 border-sky-100';
+      return 'bg-sky-50 text-sky-700 border-sky-100 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800';
     case 'ongoing':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800';
     case 'completed':
-      return 'bg-slate-100 text-slate-600 border-slate-200';
+      return 'bg-muted text-muted-foreground border-border';
     case 'cancelled':
-      return 'bg-rose-50 text-rose-700 border-rose-100';
+      return 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800';
     default:
-      return 'bg-slate-100 text-slate-600 border-slate-200';
+      return 'bg-muted text-muted-foreground border-border';
   }
 }
 
@@ -139,13 +193,14 @@ function toneDot(tone: AttentionTone) {
   }
 }
 
-async function loadDashboard(canReview: boolean): Promise<DashboardData> {
-  const [tournaments, usersSnap, leadsSnap, testimonialsSnap, liveMatchesSnap] = await Promise.all([
+async function loadDashboard(canReview: boolean, includeSiteVisits: boolean): Promise<DashboardData> {
+  const [tournaments, usersSnap, leadsSnap, testimonialsSnap, liveMatchesSnap, siteVisits] = await Promise.all([
     fetchTournaments(),
     getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(50))),
     getDocs(query(collection(db, 'tournamentLeads'), orderBy('registeredAt', 'desc'), limit(40))),
     canReview ? getDocs(collection(db, 'testimonials')) : Promise.resolve(null),
     getDocs(query(collectionGroup(db, 'matches'), where('status', '==', 'live'), limit(20))).catch(() => null),
+    includeSiteVisits ? loadSiteVisitStats() : Promise.resolve(emptySiteVisitStats),
   ]);
 
   const users = usersSnap.docs.map((docSnap) => ({
@@ -247,6 +302,7 @@ async function loadDashboard(canReview: boolean): Promise<DashboardData> {
     pendingRegsByTournament,
     liveMatches,
     recentItems,
+    siteVisits,
   };
 }
 
@@ -257,6 +313,7 @@ export default function AdminDashboard() {
   const [loadingStats, setLoadingStats] = useState(true);
 
   const canReview = canReviewTestimonials(user);
+  const isSuperAdmin = user?.role === 'super-admin';
 
   useEffect(() => {
     if (!loading && (!user || (user.role !== 'admin' && user.role !== 'super-admin'))) {
@@ -264,7 +321,7 @@ export default function AdminDashboard() {
       return;
     }
     if (!loading && user) {
-      loadDashboard(canReview)
+      loadDashboard(canReview, user.role === 'super-admin')
         .then(setData)
         .catch((error) => {
           console.error('Error fetching dashboard stats:', error);
@@ -379,19 +436,79 @@ export default function AdminDashboard() {
     { label: 'Live matches', value: stats.liveMatches, href: '/admin/tournaments', hint: stats.liveMatches ? 'in play' : 'none now' },
   ];
 
+  const visitCards = [
+    {
+      label: 'Visits today',
+      value: data.siteVisits.todayPageViews,
+      hint: `${data.siteVisits.todayUniqueVisitors} unique`,
+      icon: Eye,
+    },
+    {
+      label: 'Visits (7 days)',
+      value: data.siteVisits.weekPageViews,
+      hint: `${data.siteVisits.weekUniqueVisitors} unique`,
+      icon: Eye,
+    },
+    {
+      label: 'Total page views',
+      value: data.siteVisits.totalPageViews,
+      hint: 'all time',
+      icon: Eye,
+    },
+    {
+      label: 'Unique visitors',
+      value: data.siteVisits.totalUniqueVisitors,
+      hint: 'all time',
+      icon: Users,
+    },
+  ];
+
   return (
     <AdminLayout moduleName="Dashboard">
-      <div className="min-h-full bg-[#f4f5f7] p-4 lg:p-6">
+      <div className="min-h-full bg-muted/40 p-4 lg:p-6">
+        {isSuperAdmin && (
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">Site visits</h2>
+              <p className="text-[11px] text-muted-foreground">
+                Public pages only · set NEXT_PUBLIC_GA_MEASUREMENT_ID for Google Analytics
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {visitCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <Card
+                    key={card.label}
+                    className="rounded-2xl border-border bg-card shadow-none gap-0 py-3 dark:border-sky-900/60"
+                  >
+                    <CardContent className="px-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">{card.label}</p>
+                        <Icon className="h-3.5 w-3.5 text-muted-foreground/70" />
+                      </div>
+                      <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+                        {loadingStats ? '…' : card.value}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{card.hint}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-6">
           {kpiCards.map((card) => (
             <Link key={card.label} href={card.href}>
-              <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-3 hover:border-slate-300 transition-colors">
+              <Card className="rounded-2xl border-border shadow-none gap-0 py-3 hover:border-foreground/20 transition-colors">
                 <CardContent className="px-4">
-                  <p className="text-xs text-slate-500">{card.label}</p>
-                  <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+                  <p className="text-xs text-muted-foreground">{card.label}</p>
+                  <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                     {loadingStats ? '…' : card.value}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{card.hint}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{card.hint}</p>
                 </CardContent>
               </Card>
             </Link>
@@ -399,35 +516,35 @@ export default function AdminDashboard() {
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-5">
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden xl:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-sm font-semibold text-slate-900">Needs attention</CardTitle>
-              <span className="text-xs text-slate-400">{attentionItems.length}</span>
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden xl:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-sm font-semibold text-foreground">Needs attention</CardTitle>
+              <span className="text-xs text-muted-foreground">{attentionItems.length}</span>
             </CardHeader>
             <CardContent className="px-0 py-0">
               {loadingStats ? (
-                <p className="py-8 text-center text-sm text-slate-400">Loading…</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
               ) : attentionItems.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-400">All clear</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">All clear</p>
               ) : (
                 <ul>
                   {attentionItems.map((item) => (
                     <li key={item.id}>
                       <Link
                         href={item.href}
-                        className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors"
+                        className="flex items-start gap-3 px-4 py-2.5 hover:bg-muted transition-colors"
                       >
                         <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${toneDot(item.tone)}`} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                             {item.label}
                           </span>
-                          <span className="block truncate text-sm font-medium text-slate-900">{item.title}</span>
+                          <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
                           {item.detail && (
-                            <span className="block truncate text-xs text-slate-500">{item.detail}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
                           )}
                         </span>
-                        <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
+                        <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                       </Link>
                     </li>
                   ))}
@@ -436,16 +553,16 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden xl:col-span-3">
-            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-sm font-semibold text-slate-900">Active tournaments</CardTitle>
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden xl:col-span-3">
+            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-sm font-semibold text-foreground">Active tournaments</CardTitle>
               <div className="flex items-center gap-3">
-                <Link href="/admin/tournaments" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+                <Link href="/admin/tournaments" className="text-xs font-medium text-muted-foreground hover:text-foreground">
                   View all
                 </Link>
                 <Button
                   onClick={() => router.push('/admin/tournaments?create=1')}
-                  className="h-8 rounded-lg bg-slate-900 px-2.5 text-xs text-white hover:bg-slate-800"
+                  className="h-8 rounded-lg bg-primary px-2.5 text-xs text-primary-foreground hover:bg-primary/90"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   New
@@ -454,36 +571,36 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="px-0 py-0">
               {loadingStats ? (
-                <p className="py-8 text-center text-sm text-slate-400">Loading…</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
               ) : activeTournaments.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-400">No upcoming or live tournaments</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">No upcoming or live tournaments</p>
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-slate-100">
-                      <TableHead className="h-9 pl-4 text-xs font-medium text-slate-400">Tournament</TableHead>
-                      <TableHead className="h-9 text-xs font-medium text-slate-400">Dates</TableHead>
-                      <TableHead className="h-9 text-xs font-medium text-slate-400">Status</TableHead>
-                      <TableHead className="h-9 pr-4 text-xs font-medium text-slate-400">Pending</TableHead>
+                    <TableRow className="hover:bg-transparent border-border">
+                      <TableHead className="h-9 pl-4 text-xs font-medium text-muted-foreground">Tournament</TableHead>
+                      <TableHead className="h-9 text-xs font-medium text-muted-foreground">Dates</TableHead>
+                      <TableHead className="h-9 text-xs font-medium text-muted-foreground">Status</TableHead>
+                      <TableHead className="h-9 pr-4 text-xs font-medium text-muted-foreground">Pending</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {activeTournaments.map((tournament) => (
                       <TableRow
                         key={tournament.id}
-                        className="border-slate-50 cursor-pointer hover:bg-slate-50/80"
+                        className="border-border/60 cursor-pointer hover:bg-muted/80"
                         onClick={() => router.push(`/admin/tournaments/${tournament.id}/overview`)}
                       >
                         <TableCell className="pl-4 py-2.5">
-                          <p className="text-sm font-medium text-slate-900 truncate max-w-[220px]">{tournament.name}</p>
-                          <p className="text-xs text-slate-400 capitalize">
+                          <p className="text-sm font-medium text-foreground truncate max-w-[220px]">{tournament.name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
                             {tournament.sport?.replace('-', ' ')}
                             {tournament.venue ? ` · ${tournament.venue}` : ''}
                           </p>
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs text-slate-600">
+                        <TableCell className="py-2.5 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-slate-400" />
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
                             {formatDate(tournament.startDate)} – {formatDate(tournament.endDate)}
                           </span>
                         </TableCell>
@@ -492,7 +609,7 @@ export default function AdminDashboard() {
                             {tournament.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="pr-4 py-2.5 text-sm text-slate-700">
+                        <TableCell className="pr-4 py-2.5 text-sm text-foreground/80">
                           {data.pendingRegsByTournament[tournament.id] || 0}
                         </TableCell>
                       </TableRow>
@@ -505,9 +622,9 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-sm font-semibold text-slate-900">Live now</CardTitle>
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-sm font-semibold text-foreground">Live now</CardTitle>
               {data.liveMatches.length > 0 && (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600">
                   <Play className="h-3 w-3" />
@@ -517,22 +634,22 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent className="px-0 py-0">
               {loadingStats ? (
-                <p className="py-8 text-center text-sm text-slate-400">Loading…</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
               ) : data.liveMatches.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-400">No live matches</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">No live matches</p>
               ) : (
                 <ul>
                   {data.liveMatches.map((match) => (
                     <li key={match.id}>
                       <Link
                         href={match.href}
-                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50"
+                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium text-slate-900">{match.label}</span>
-                          <span className="block truncate text-xs text-slate-500">{match.tournamentName}</span>
+                          <span className="block truncate text-sm font-medium text-foreground">{match.label}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{match.tournamentName}</span>
                         </span>
-                        <Badge className="rounded-full border-rose-100 bg-rose-50 text-rose-700">Live</Badge>
+                        <Badge className="rounded-full border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300">Live</Badge>
                       </Link>
                     </li>
                   ))}
@@ -541,29 +658,29 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-            <CardHeader className="px-4 py-3 border-b border-slate-100 space-y-0 grid-rows-1">
-              <CardTitle className="text-sm font-semibold text-slate-900">Recent</CardTitle>
+          <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+            <CardHeader className="px-4 py-3 border-b border-border space-y-0 grid-rows-1">
+              <CardTitle className="text-sm font-semibold text-foreground">Recent</CardTitle>
             </CardHeader>
             <CardContent className="px-0 py-0">
               {loadingStats ? (
-                <p className="py-8 text-center text-sm text-slate-400">Loading…</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
               ) : data.recentItems.length === 0 ? (
-                <p className="py-8 text-center text-sm text-slate-400">No recent activity</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">No recent activity</p>
               ) : (
                 <ul>
                   {data.recentItems.map((item) => (
                     <li key={item.id}>
                       <Link
                         href={item.href}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted"
                       >
                         <span className={`h-2 w-2 shrink-0 rounded-full ${toneDot(item.tone)}`} />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-slate-900">{item.title}</span>
-                          <span className="block truncate text-xs text-slate-500">{item.detail}</span>
+                          <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{item.detail}</span>
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {relativeTime(item.time)}
                         </span>

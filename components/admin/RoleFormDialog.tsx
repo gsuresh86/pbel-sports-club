@@ -181,7 +181,7 @@ export function RoleFormDialog({
               disabled={readOnly || isEditing}
               required
             />
-            <p className="text-xs text-gray-500">Used internally when assigning roles to staff.</p>
+            <p className="text-xs text-muted-foreground">Used internally when assigning roles to staff.</p>
           </div>
 
           <div className="space-y-2">
@@ -203,7 +203,7 @@ export function RoleFormDialog({
                 <div key={group.label} className="space-y-2">
                   <div>
                     <div className="text-sm font-medium">{group.label}</div>
-                    <div className="text-xs text-gray-500">{group.description}</div>
+                    <div className="text-xs text-muted-foreground">{group.description}</div>
                   </div>
                   <div className="space-y-1.5 pl-1">
                     {group.permissions.map((perm) => {
@@ -220,7 +220,7 @@ export function RoleFormDialog({
                           <label htmlFor={checkboxId} className="cursor-pointer">
                             <div className="text-sm">{perm.label}</div>
                             {perm.hint && (
-                              <div className="text-xs text-gray-500">{perm.hint}</div>
+                              <div className="text-xs text-muted-foreground">{perm.hint}</div>
                             )}
                           </label>
                         </div>

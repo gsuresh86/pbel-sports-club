@@ -102,7 +102,7 @@ function SuperAdminTestimonialsReview() {
       <div className="grid grid-cols-3 gap-3">
         <Card className="text-center">
           <CardContent className="py-4">
-            <div className="text-2xl font-black text-gray-900">{testimonials.length}</div>
+            <div className="text-2xl font-black text-foreground">{testimonials.length}</div>
             <div className="text-xs text-muted-foreground mt-0.5">Total</div>
           </CardContent>
         </Card>
@@ -122,7 +122,7 @@ function SuperAdminTestimonialsReview() {
 
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by author, quote, or tournament…"
             value={search}
@@ -132,7 +132,7 @@ function SuperAdminTestimonialsReview() {
         </div>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
           <SelectTrigger className="w-full sm:w-44">
-            <Filter className="h-4 w-4 mr-2 text-gray-400" />
+            <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -231,12 +231,12 @@ function SuperAdminTestimonialsReview() {
                     />
                   ))}
                 </div>
-                <p className="text-sm text-gray-700 italic leading-relaxed mb-2">
+                <p className="text-sm text-foreground/80 italic leading-relaxed mb-2">
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   {t.sport && (
-                    <span className="text-xs bg-gray-100 text-gray-600 border border-gray-200 rounded-full px-2 py-0.5">
+                    <span className="text-xs bg-gray-100 text-muted-foreground border border-border rounded-full px-2 py-0.5">
                       {t.sport}
                     </span>
                   )}

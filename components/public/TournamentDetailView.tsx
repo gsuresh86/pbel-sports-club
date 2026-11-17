@@ -261,10 +261,10 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 text-sm tracking-widest uppercase">Loading Tournament</p>
+          <p className="text-muted-foreground text-sm tracking-widest uppercase">Loading Tournament</p>
         </div>
       </div>
     );
@@ -272,11 +272,10 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
 
   if (!tournament) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-5xl mb-4">🏆</p>
-          <h1 className="text-2xl font-bold text-white mb-2">Tournament Not Found</h1>
-          <Link href="/tournament"><Button variant="outline" className="border-white/20 text-white">← All Tournaments</Button></Link>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Tournament Not Found</h1>
+          <Link href="/tournament"><Button variant="outline">← All Tournaments</Button></Link>
         </div>
       </div>
     );
@@ -285,17 +284,17 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   const bannerUrl = tournament.banner || getSportBanner(tournament.sport);
 
   return (
-    <div className="bg-slate-950 min-h-screen">
+    <div className="bg-background min-h-screen">
 
       {/* ── CUSTOM TOP BAR ─────────────────────────────────────── */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-white/5">
+      <div className="fixed top-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center gap-4">
-          <Link href="/tournament" className="flex items-center gap-1.5 text-slate-400 hover:text-white text-xs transition-colors flex-shrink-0 group">
+          <Link href="/tournament" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground text-xs transition-colors flex-shrink-0 group">
             <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span className="hidden sm:inline">Tournaments</span>
           </Link>
           <div className="flex-1 text-center">
-            <span className="text-sm font-bold text-white tracking-tight truncate">{tournament.name}</span>
+            <span className="text-sm font-bold text-foreground tracking-tight truncate">{tournament.name}</span>
           </div>
           <div className="w-20 flex-shrink-0" />
         </div>
@@ -407,7 +406,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
             )}
 
             {/* ── Tabs — inside banner, sticky ── */}
-            <div className="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-t border-b border-white/10">
+            <div className="sticky top-0 z-20 bg-background/90 backdrop-blur-md border-t border-b border-border">
               <div className="max-w-7xl mx-auto px-6 flex gap-1 overflow-x-auto scrollbar-hide">
                 {tabs.map(tab => (
                   <Link
@@ -415,8 +414,8 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     href={tournamentTabPath(tournamentId, tab.id)}
                     className={`flex items-center gap-1.5 px-4 py-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
                       activeTab === tab.id
-                        ? 'border-yellow-400 text-yellow-400'
-                        : 'border-transparent text-slate-400 hover:text-white'
+                        ? 'border-yellow-400 text-amber-600 dark:text-yellow-400'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     <tab.icon className="h-4 w-4" />
@@ -438,7 +437,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
           {activeTab === 'overview' && (
             <div className="space-y-8">
               {/* Categories — clickable cards linking to category pages */}
-              <div className="bg-slate-900 rounded-2xl p-6 border border-white/5">
+              <div className="bg-card rounded-2xl p-6 border border-border">
                   <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-4">Categories</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {collectPublicCategorySlugs(
@@ -462,11 +461,11 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                       }
                       return (
                         <Link key={cat} href={`/tournament/${tournamentId}/category/${cat}`}
-                          className="group flex flex-col gap-1 bg-white/5 hover:bg-yellow-400/10 border border-white/10 hover:border-yellow-400/40 rounded-xl px-4 py-3 transition-all">
-                          <span className="text-sm font-bold text-white capitalize group-hover:text-yellow-400 transition-colors leading-tight">
+                          className="group flex flex-col gap-1 bg-muted hover:bg-amber-500/10 border border-border hover:border-amber-500/40 rounded-xl px-4 py-3 transition-all">
+                          <span className="text-sm font-bold text-foreground capitalize group-hover:text-amber-600 dark:group-hover:text-yellow-400 transition-colors leading-tight">
                             {formatCategoryLabel(cat)}
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[10px] text-muted-foreground">
                             {parts.join(' · ')}
                           </span>
                         </Link>
@@ -476,7 +475,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
 
                   {/* Match summary bar */}
                   {displayMatches.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-white/5">
+                    <div className="mt-6 pt-4 border-t border-border">
                       <h3 className="text-xs uppercase tracking-widest text-yellow-400 font-bold mb-3">Match Progress</h3>
                       <div className="flex gap-4 text-sm flex-wrap">
                         {[
@@ -486,13 +485,13 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                         ].map(s => (
                           <div key={s.label} className="flex items-center gap-2">
                             <span className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</span>
-                            <span className="text-slate-400">{s.label}</span>
+                            <span className="text-muted-foreground">{s.label}</span>
                           </div>
                         ))}
                       </div>
                       {/* Progress bar */}
                       {displayMatches.length > 0 && (
-                        <div className="mt-3 h-2 bg-white/5 rounded-full overflow-hidden flex">
+                        <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden flex">
                           <div className="h-full bg-green-500 transition-all" style={{ width: `${(displayMatches.filter(m => m.status === 'completed').length / displayMatches.length) * 100}%` }} />
                           <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(displayMatches.filter(m => m.status === 'live').length / displayMatches.length) * 100}%` }} />
                           <div className="h-full bg-blue-500 transition-all" style={{ width: `${(allScheduledMatches.length / displayMatches.length) * 100}%` }} />
@@ -513,18 +512,18 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
               {pools.length > 0 && (
                 <Link
                   href={`/tournament/${tournamentId}/standings`}
-                  className="flex items-center justify-between bg-slate-900 hover:bg-slate-800/80 border border-white/5 hover:border-yellow-400/30 rounded-2xl px-6 py-5 transition-all group"
+                  className="flex items-center justify-between bg-card hover:bg-muted border border-border hover:border-amber-500/40 rounded-2xl px-6 py-5 transition-all group"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center">
                       <Users2 className="h-5 w-5 text-yellow-400" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-yellow-400 transition-colors">View Standings</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">{pools.length} pool{pools.length !== 1 ? 's' : ''} · Live points table</p>
+                      <h3 className="text-sm font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-yellow-400 transition-colors">View Standings</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{pools.length} pool{pools.length !== 1 ? 's' : ''} · Live points table</p>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-slate-500 group-hover:text-yellow-400 transition-colors" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-amber-500 transition-colors" />
                 </Link>
               )}
 
@@ -532,7 +531,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
               {allScheduledMatches.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                       <Clock className="h-5 w-5 text-yellow-400" /> Upcoming Fixtures
                     </h3>
                     <Link href={tournamentTabPath(tournamentId, 'matches')} className="text-xs text-yellow-400 hover:underline">View all →</Link>
@@ -658,7 +657,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                   <select
                     value={teamsCatFilter}
                     onChange={e => setTeamsCatFilter(e.target.value)}
-                    className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+                    className="bg-muted border border-border text-foreground text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
                   >
                     <option value="all">All Categories</option>
                     {tournament.categories?.filter(cat => isTeamCategory(cat)).map(cat => (
@@ -684,13 +683,13 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                     const teamPlayers = team.players.map(id => participants.find(p => p.id === id)).filter(Boolean) as PublicPlayer[];
                     const captain = participants.find(p => p.id === team.captainId);
                     return (
-                      <div key={team.id} className="bg-slate-900 rounded-2xl border border-white/5 overflow-hidden hover:border-yellow-400/30 transition-colors group">
+                      <div key={team.id} className="bg-card rounded-2xl border border-border overflow-hidden hover:border-amber-500/40 transition-colors group">
                         {/* Team header */}
-                        <div className="bg-gradient-to-r from-yellow-400/20 to-amber-500/10 px-5 py-4 border-b border-white/5">
+                        <div className="bg-gradient-to-r from-yellow-400/20 to-amber-500/10 px-5 py-4 border-b border-border">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="font-black text-white text-lg">{team.name}</h3>
-                              <p className="text-xs text-slate-400 capitalize mt-0.5">{team.category.replace(/-/g, ' ')}</p>
+                              <h3 className="font-black text-foreground text-lg">{team.name}</h3>
+                              <p className="text-xs text-muted-foreground capitalize mt-0.5">{team.category.replace(/-/g, ' ')}</p>
                             </div>
                             <TeamLogo logoUrl={team.logoUrl} name={team.name} size={40} className="ring-2 ring-yellow-400/30" />
                           </div>
@@ -703,31 +702,31 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                             return (
                               <div key={player.id} className="flex items-center gap-3 py-1">
                                 {player.profilePhotoUrl ? (
-                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-white/10">
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-border">
                                     <Image src={player.profilePhotoUrl} alt={player.name} width={32} height={32} className="object-cover w-full h-full" />
                                   </div>
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground flex-shrink-0">
                                     {initials}
                                   </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-white font-medium truncate">{player.name}</p>
+                                  <p className="text-sm text-foreground font-medium truncate">{player.name}</p>
                                 </div>
                                 {isCaptain && (
-                                  <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] text-yellow-400 font-bold uppercase">
-                                    <Star className="h-2.5 w-2.5 fill-yellow-400" /> C
+                                  <span className="flex-shrink-0 flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-yellow-400 font-bold uppercase">
+                                    <Star className="h-2.5 w-2.5 fill-amber-500" /> C
                                   </span>
                                 )}
                               </div>
                             );
                           })}
                           {teamPlayers.length === 0 && (
-                            <p className="text-xs text-slate-500 italic py-2">No players assigned yet</p>
+                            <p className="text-xs text-muted-foreground italic py-2">No players assigned yet</p>
                           )}
                         </div>
                         <div className="px-4 pb-3 flex items-center justify-between">
-                          <span className="text-xs text-slate-500">{teamPlayers.length} players</span>
+                          <span className="text-xs text-muted-foreground">{teamPlayers.length} players</span>
                           {captain && <span className="text-xs text-yellow-400">Captain: {captain.name.split(' ')[0]}</span>}
                         </div>
                       </div>
@@ -799,7 +798,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
         </div>
 
         {/* ── FOOTER STRIP ────────────────────────────────────── */}
-        <div className="border-t border-white/5 mt-12 py-8 px-6 text-center">
+        <div className="border-t border-border mt-12 py-8 px-6 text-center">
           <p className="text-slate-500 text-xs">TourneyCraft · {tournament.name}</p>
         </div>
     </div>
@@ -1075,7 +1074,7 @@ function MatchFiltersBar({
             value={matchSearch}
             onChange={e => onSearchChange(e.target.value)}
             placeholder="Search player / team…"
-            className="w-full bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
+            className="w-full bg-muted border border-border text-foreground text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-yellow-400/50 placeholder:text-slate-500"
           />
         </div>
         <DatePickerInput
@@ -1091,7 +1090,7 @@ function MatchFiltersBar({
           <select
             value={matchCategoryFilter}
             onChange={e => onCategoryChange(e.target.value)}
-            className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+            className="bg-muted border border-border text-foreground text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
           >
             <option value="all">All Categories</option>
             {matchDistinctCategories.map(c => (
@@ -1103,7 +1102,7 @@ function MatchFiltersBar({
           <select
             value={matchRoundFilter}
             onChange={e => onRoundChange(e.target.value)}
-            className="bg-slate-800 border border-white/10 text-slate-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
+            className="bg-muted border border-border text-foreground text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-yellow-400/50"
           >
             <option value="all">All Rounds</option>
             {matchDistinctRounds.map(r => <option key={r} value={r}>{r}</option>)}

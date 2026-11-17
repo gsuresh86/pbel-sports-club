@@ -460,7 +460,7 @@ export default function LeadsManagementPage() {
       case 'declined':
         return 'bg-rose-50 text-rose-700 border-rose-100';
       default:
-        return 'bg-slate-100 text-slate-600 border-slate-200';
+        return 'bg-slate-100 text-muted-foreground border-border';
     }
   };
 
@@ -484,7 +484,7 @@ export default function LeadsManagementPage() {
         <div className="p-6 flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading leads...</p>
+            <p className="text-muted-foreground">Loading leads...</p>
           </div>
         </div>
       </AdminLayout>
@@ -499,18 +499,18 @@ export default function LeadsManagementPage() {
 
   return (
     <AdminLayout moduleName="Leads Management">
-      <div className="min-h-full bg-[#f4f5f7] p-6 lg:p-8">
+      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-2xl border-slate-200 bg-slate-50 shadow-none gap-0 py-3">
+          <Card className="rounded-2xl border-border bg-muted shadow-none gap-0 py-3">
             <CardContent className="px-5">
-              <p className="text-sm text-slate-500">Total Leads</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{leads.length}</p>
+              <p className="text-sm text-muted-foreground">Total Leads</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">{leads.length}</p>
             </CardContent>
           </Card>
           <Card className="rounded-2xl border-amber-100 bg-amber-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-amber-700/80">Pending</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {leads.filter(l => l.status === 'pending').length}
               </p>
             </CardContent>
@@ -518,7 +518,7 @@ export default function LeadsManagementPage() {
           <Card className="rounded-2xl border-emerald-100 bg-emerald-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-emerald-700/80">Approved</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {leads.filter(l => l.status === 'approved').length}
               </p>
             </CardContent>
@@ -526,36 +526,36 @@ export default function LeadsManagementPage() {
           <Card className="rounded-2xl border-rose-100 bg-rose-50 shadow-none gap-0 py-3">
             <CardContent className="px-5">
               <p className="text-sm text-rose-700/80">Declined</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+              <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {leads.filter(l => l.status === 'declined').length}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="rounded-2xl border-slate-200/80 shadow-none gap-0 py-0 overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+          <div className="flex flex-col gap-4 border-b border-border px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">All Leads</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h2 className="text-base font-semibold text-foreground">All Leads</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 Showing {filteredLeads.length} of {leads.length}
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or tournament"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9 w-full sm:w-64 rounded-xl border-slate-200 bg-white pl-9 text-sm focus-ring-thin"
+                  className="h-9 w-full sm:w-64 rounded-xl border-border bg-card pl-9 text-sm focus-ring-thin"
                 />
               </div>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
-                  <Filter className="h-3 w-3 mr-1 text-slate-400" />
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-border focus-ring-thin">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -567,7 +567,7 @@ export default function LeadsManagementPage() {
               </Select>
 
               <Select value={sportFilter} onValueChange={setSportFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-slate-200 focus-ring-thin">
+                <SelectTrigger className="h-9 w-full sm:w-36 rounded-xl border-border focus-ring-thin">
                   <SelectValue placeholder="Sport" />
                 </SelectTrigger>
                 <SelectContent>
@@ -586,17 +586,17 @@ export default function LeadsManagementPage() {
             <div className="py-16 text-center">
               {leads.length === 0 ? (
                 <>
-                  <Trophy className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No leads yet</h3>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <Trophy className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No leads yet</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Hosting enquiries from the public site will appear here
                   </p>
                 </>
               ) : (
                 <>
-                  <Search className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                  <h3 className="text-base font-semibold text-slate-900">No leads found</h3>
-                  <p className="mt-1 text-sm text-slate-500 mb-4">
+                  <Search className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" />
+                  <h3 className="text-base font-semibold text-foreground">No leads found</h3>
+                  <p className="mt-1 text-sm text-muted-foreground mb-4">
                     Try adjusting your search or filters
                   </p>
                   <Button
@@ -617,29 +617,29 @@ export default function LeadsManagementPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-slate-100 bg-slate-50/60">
-                    <TableHead className="h-11 pl-5 text-xs font-medium text-slate-400">
+                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                    <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">
                       Requester
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Contact
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Tournament
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Sport
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Dates
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Registered
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
                       Status
                     </TableHead>
-                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-slate-400">
+                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-muted-foreground">
                       Actions
                     </TableHead>
                   </TableRow>
@@ -648,58 +648,58 @@ export default function LeadsManagementPage() {
                   {filteredLeads.map((lead, index) => (
                     <TableRow
                       key={lead.id}
-                      className={`border-slate-50 ${
-                        index % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
-                      } hover:bg-slate-50`}
+                      className={`border-border/60 ${
+                        index % 2 === 1 ? 'bg-muted/40' : 'bg-white'
+                      } hover:bg-muted`}
                     >
                       <TableCell className="pl-5 py-3.5">
-                        <div className="font-medium text-slate-900">{lead.name}</div>
+                        <div className="font-medium text-foreground">{lead.name}</div>
                         {lead.organisation && (
-                          <div className="text-xs text-slate-400">{lead.organisation}</div>
+                          <div className="text-xs text-muted-foreground">{lead.organisation}</div>
                         )}
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-700">
-                          <Mail className="h-3 w-3 text-slate-300 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-sm text-foreground/80">
+                          <Mail className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                           <span>{lead.email}</span>
                         </div>
                         {lead.phone && (
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
-                            <Phone className="h-3 w-3 text-slate-300 shrink-0" />
+                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                             <span>{lead.phone}</span>
                           </div>
                         )}
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="font-medium text-sm text-slate-900">
+                        <div className="font-medium text-sm text-foreground">
                           {lead.tournamentName || lead.organisation || 'No tournament name provided'}
                         </div>
                         {lead.expectedParticipants && (
-                          <div className="text-xs text-slate-400">{lead.expectedParticipants}</div>
+                          <div className="text-xs text-muted-foreground">{lead.expectedParticipants}</div>
                         )}
                         {lead.message && (
-                          <div className="text-xs text-slate-400 line-clamp-1">{lead.message}</div>
+                          <div className="text-xs text-muted-foreground line-clamp-1">{lead.message}</div>
                         )}
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <span className="text-sm capitalize text-slate-700">
+                        <span className="text-sm capitalize text-foreground/80">
                           {getSportIcon(lead.sport)} {lead.sport.replace('-', ' ')}
                         </span>
                       </TableCell>
                       <TableCell className="py-3.5">
                         {lead.startDate && lead.endDate ? (
-                          <div className="flex items-center gap-1.5 text-sm text-slate-700 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 text-sm text-foreground/80 whitespace-nowrap">
                             <span>{formatLeadDate(lead.startDate)}</span>
-                            <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                            <ArrowRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                             <span>{formatLeadDate(lead.endDate)}</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">Not specified</span>
+                          <span className="text-sm text-muted-foreground">Not specified</span>
                         )}
                       </TableCell>
                       <TableCell className="py-3.5">
-                        <div className="flex items-center gap-1.5 text-sm text-slate-600">
-                          <Calendar className="h-3 w-3 text-slate-300" />
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Calendar className="h-3 w-3 text-muted-foreground/60" />
                           <span>{formatLeadDate(lead.registeredAt)}</span>
                         </div>
                       </TableCell>
@@ -738,7 +738,7 @@ export default function LeadsManagementPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                               onClick={() => router.push(`/admin/tournaments/${lead.tournamentId}/overview`)}
                               title="View Tournament"
                             >
@@ -788,14 +788,14 @@ export default function LeadsManagementPage() {
             {/* Progress Indicator */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <div className={`flex items-center ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                <div className={`flex items-center ${currentStep >= 1 ? 'text-blue-600' : 'text-muted-foreground'}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
                     {currentStep > 1 ? <CheckCircle className="h-5 w-5" /> : '1'}
                   </div>
                   <span className="ml-2 font-medium">Tournament Details</span>
                 </div>
                 <div className={`flex-1 h-1 mx-4 ${currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
-                <div className={`flex items-center ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                <div className={`flex items-center ${currentStep >= 2 ? 'text-blue-600' : 'text-muted-foreground'}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
                     2
                   </div>
@@ -964,7 +964,7 @@ export default function LeadsManagementPage() {
                   </p>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
+                <div className="bg-muted rounded-lg p-4 text-sm text-foreground/80">
                   <p className="font-semibold mb-1">Lead Details</p>
                   <p>Name: {selectedLead?.name}</p>
                   <p>Email: {selectedLead?.email}</p>
@@ -985,9 +985,9 @@ export default function LeadsManagementPage() {
                             onChange={() => setSelectedUserId(u.id)}
                           />
                           <span className="font-medium">{u.name}</span>
-                          <span className="text-gray-500">({u.email})</span>
+                          <span className="text-muted-foreground">({u.email})</span>
                           {u.role && (
-                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-foreground/80">
                               {u.role}
                             </span>
                           )}
@@ -1019,7 +1019,7 @@ export default function LeadsManagementPage() {
                       minLength={6}
                       required={matchedUsers.length === 0 || selectedUserId === 'new'}
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       A new user with role <span className="font-semibold">tournament-admin</span> will be created
                       using the lead&apos;s name and email, and assigned to this tournament.
                     </p>

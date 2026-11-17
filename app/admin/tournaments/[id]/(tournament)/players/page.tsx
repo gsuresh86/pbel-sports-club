@@ -171,7 +171,7 @@ export default function PlayersPage() {
               : uniquePlayers.length}
             )
           </h3>
-          <p className="text-xs text-gray-600 sm:text-sm">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Unique players — click a row or <Edit className="inline h-3 w-3" /> to edit name and details
           </p>
         </div>
@@ -226,9 +226,9 @@ export default function PlayersPage() {
           {uniquePlayers.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-8 text-center">
               <div>
-                <Users className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                <h3 className="mb-2 text-lg font-medium text-gray-900">No players yet</h3>
-                <p className="text-gray-600">Players will appear here once registrations are submitted.</p>
+                <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium text-foreground">No players yet</h3>
+                <p className="text-muted-foreground">Players will appear here once registrations are submitted.</p>
               </div>
             </div>
           ) : (

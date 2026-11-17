@@ -64,7 +64,7 @@ export default function ResultsPage() {
     <div className="space-y-4 sm:space-y-6">
       <div>
         <h3 className="text-base font-semibold sm:text-lg">Results</h3>
-        <p className="text-xs text-gray-600 sm:text-sm">Group standings: rank by points, then set difference, then point difference</p>
+        <p className="text-xs text-muted-foreground sm:text-sm">Group standings: rank by points, then set difference, then point difference</p>
       </div>
 
       {groups.length === 0 ? (

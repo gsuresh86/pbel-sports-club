@@ -357,7 +357,7 @@ export function TournamentStaffSection({
               <label htmlFor={checkboxId} className="cursor-pointer">
                 <div className="text-sm font-medium">{role.name}</div>
                 {role.description && (
-                  <div className="text-xs text-gray-500">{role.description}</div>
+                  <div className="text-xs text-muted-foreground">{role.description}</div>
                 )}
               </label>
             </div>
@@ -398,13 +398,13 @@ export function TournamentStaffSection({
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-gray-500 py-6">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
                       Loading staff...
                     </TableCell>
                   </TableRow>
                 ) : inTournament.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-gray-500 py-8">
+                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
                       <Users2 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
                       No staff assigned to this tournament yet.
                     </TableCell>
@@ -572,7 +572,7 @@ export function TournamentStaffSection({
               <div className="space-y-2">
                 <Label>Select user</Label>
                 {available.length === 0 ? (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     No other staff available. Create a new user instead.
                   </p>
                 ) : (

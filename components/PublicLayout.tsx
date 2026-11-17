@@ -8,16 +8,12 @@ interface PublicLayoutProps {
   className?: string;
 }
 
-export function PublicLayout({ children, hideAuth = false, className = "" }: PublicLayoutProps) {
+export function PublicLayout({ children, hideAuth = false, className = '' }: PublicLayoutProps) {
   return (
     <>
       <Navbar hideAuth={hideAuth} />
-      <main className={`min-h-screen relative ${className}`}>
-        <div className="absolute inset-0 bg-[#020617]" />
-
-        <div className="relative z-10">
-          {children}
-        </div>
+      <main className={`min-h-screen relative bg-background text-foreground ${className}`}>
+        <div className="relative z-10">{children}</div>
       </main>
     </>
   );

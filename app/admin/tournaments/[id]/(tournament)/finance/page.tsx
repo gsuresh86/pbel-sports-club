@@ -243,7 +243,7 @@ export default function FinancePage() {
     if (entries.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="text-center text-sm text-gray-500 py-6">
+          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
             {emptyText}
           </TableCell>
         </TableRow>
@@ -261,7 +261,7 @@ export default function FinancePage() {
         </TableCell>
         <TableCell className="text-xs sm:text-sm py-2">
           <div className="font-medium">{entry.description}</div>
-          {entry.note && <div className="text-xs text-gray-500">{entry.note}</div>}
+          {entry.note && <div className="text-xs text-muted-foreground">{entry.note}</div>}
         </TableCell>
         <TableCell className="text-right font-semibold text-xs sm:text-sm py-2 whitespace-nowrap">
           {formatCurrency(entry.amount)}
@@ -292,7 +292,7 @@ export default function FinancePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold sm:text-lg">Finance</h3>
-          <p className="text-xs text-gray-600 sm:text-sm">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Track tournament income and expenses. Registration income is calculated automatically
             from paid registrations.
           </p>
@@ -311,7 +311,7 @@ export default function FinancePage() {
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-600">Total Income</p>
+              <p className="text-xs text-muted-foreground">Total Income</p>
               <p className="text-xl font-bold text-green-700">{formatCurrency(totalIncome)}</p>
             </div>
           </CardContent>
@@ -322,7 +322,7 @@ export default function FinancePage() {
               <TrendingDown className="h-5 w-5 text-red-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-600">Total Expenses</p>
+              <p className="text-xs text-muted-foreground">Total Expenses</p>
               <p className="text-xl font-bold text-red-700">{formatCurrency(totalExpense)}</p>
             </div>
           </CardContent>
@@ -333,7 +333,7 @@ export default function FinancePage() {
               <Wallet className={`h-5 w-5 ${net >= 0 ? 'text-blue-600' : 'text-amber-600'}`} />
             </div>
             <div>
-              <p className="text-xs text-gray-600">Net Balance</p>
+              <p className="text-xs text-muted-foreground">Net Balance</p>
               <p className={`text-xl font-bold ${net >= 0 ? 'text-blue-700' : 'text-amber-700'}`}>
                 {formatCurrency(net)}
               </p>
@@ -357,7 +357,7 @@ export default function FinancePage() {
                   Registration collections
                   <Badge variant="outline" className="ml-2 text-[10px] uppercase">Auto</Badge>
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground">
                   From {paidCount} paid registration{paidCount === 1 ? '' : 's'}
                 </div>
               </div>

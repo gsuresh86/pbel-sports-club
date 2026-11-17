@@ -315,7 +315,7 @@ export default function ManageMatchesPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-          <p className="mt-4 text-gray-600">Loading matches...</p>
+          <p className="mt-4 text-muted-foreground">Loading matches...</p>
         </div>
       </div>
     );
@@ -326,9 +326,9 @@ export default function ManageMatchesPage() {
       <div className="p-6">
         <div className="mb-8 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Match Management</h1>
-            <p className="text-gray-600 mt-2">Create and manage tournament matches</p>
-            <div className="mt-2 text-sm text-gray-500">
+            <h1 className="text-3xl font-bold text-foreground">Match Management</h1>
+            <p className="text-muted-foreground mt-2">Create and manage tournament matches</p>
+            <div className="mt-2 text-sm text-muted-foreground">
               <p>Tournaments: {tournaments.length} | Participants: {participants.length}</p>
             </div>
           </div>
@@ -634,7 +634,7 @@ export default function ManageMatchesPage() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{match.round} - Match {match.matchNumber}</p>
-                            {match.court && <p className="text-sm text-gray-500">{match.court}</p>}
+                            {match.court && <p className="text-sm text-muted-foreground">{match.court}</p>}
                           </div>
                         </TableCell>
                         <TableCell>{tournament?.name || 'Unknown'}</TableCell>
@@ -649,13 +649,13 @@ export default function ManageMatchesPage() {
                         <TableCell>
                           <div className="text-sm">
                             <p>{new Date(match.scheduledTime).toLocaleDateString()}</p>
-                            <p className="text-gray-500">{new Date(match.scheduledTime).toLocaleTimeString()}</p>
+                            <p className="text-muted-foreground">{new Date(match.scheduledTime).toLocaleTimeString()}</p>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
                             <p>{match.venue}</p>
-                            {match.referee && <p className="text-gray-500">Ref: {match.referee}</p>}
+                            {match.referee && <p className="text-muted-foreground">Ref: {match.referee}</p>}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -723,9 +723,9 @@ export default function ManageMatchesPage() {
 
             {filteredMatches.length === 0 && (
               <div className="text-center py-8">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No matches found</h3>
-                <p className="text-gray-600 mb-4">Create your first match to get started</p>
+                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No matches found</h3>
+                <p className="text-muted-foreground mb-4">Create your first match to get started</p>
                 <Button onClick={() => setDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Match

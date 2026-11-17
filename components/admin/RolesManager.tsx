@@ -127,7 +127,7 @@ export function RolesManager({
         </CardHeader>
         <CardContent className={embedded ? 'p-0' : undefined}>
           {loading ? (
-            <p className="text-sm text-gray-500 py-6 text-center">Loading roles...</p>
+            <p className="text-sm text-muted-foreground py-6 text-center">Loading roles...</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -145,10 +145,10 @@ export function RolesManager({
                       <TableCell>
                         <div className="font-medium">{role.name}</div>
                         {role.description && (
-                          <div className="text-xs text-gray-500 mt-0.5">{role.description}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">{role.description}</div>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600 max-w-xs">
+                      <TableCell className="text-sm text-muted-foreground max-w-xs">
                         {accessSummary(role)}
                       </TableCell>
                       <TableCell>

@@ -9,13 +9,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   LayoutDashboard,
@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { AdminGlobalSearch } from '@/components/admin/AdminGlobalSearch';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   canAccessTournamentConsole,
   canReviewTestimonials,
@@ -133,8 +134,8 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
 
   const getCurrentModuleName = () => {
     if (moduleName) return moduleName;
-    
-    const currentItem = adminMenuItems.find(item => item.href === pathname);
+
+    const currentItem = adminMenuItems.find((item) => item.href === pathname);
     return currentItem?.title || 'Admin Panel';
   };
 
@@ -146,24 +147,23 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
   };
 
   return (
-    <div className="min-h-dvh bg-gray-50 flex">
-      {/* Mobile sidebar overlay */}
+    <div className="min-h-dvh bg-background text-foreground flex">
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 flex flex-col pt-[env(safe-area-inset-top)] ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        {/* Sidebar header */}
-        <div className="flex items-center justify-between h-14 px-4 border-gray-200">
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex-shrink-0 lg:w-56 flex flex-col pt-[env(safe-area-inset-top)] ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between h-14 px-4 border-b border-border">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image src="/logo.png" alt="TourneyCraft logo" width={32} height={32} />
-            <span className="text-lg font-bold text-gray-900 truncate">TourneyCraft</span>
+            <span className="text-lg font-bold text-foreground truncate">TourneyCraft</span>
           </Link>
           <Button
             variant="ghost"
@@ -175,38 +175,36 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
           </Button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {adminMenuItems
             .filter((item) => isAdminMenuItemVisible(user, item))
             .map((item) => {
-            const Icon = item.icon;
-            const isActive = isActiveRoute(item.href);
-            
-            return (
-              <Button
-                key={item.href}
-                variant={isActive ? "default" : "ghost"}
-                className={`w-full justify-start h-10 px-3 ${
-                  isActive 
-                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                onClick={() => {
-                  router.push(item.href);
-                  setSidebarOpen(false);
-                }}
-              >
-                <Icon className="h-5 w-5 mr-3" />
-                <span className="font-medium">{item.title}</span>
-              </Button>
-            );
-          })}
+              const Icon = item.icon;
+              const isActive = isActiveRoute(item.href);
+
+              return (
+                <Button
+                  key={item.href}
+                  variant={isActive ? 'default' : 'ghost'}
+                  className={`w-full justify-start h-10 px-3 ${
+                    isActive
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                  onClick={() => {
+                    router.push(item.href);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <Icon className="h-5 w-5 mr-3" />
+                  <span className="font-medium">{item.title}</span>
+                </Button>
+              );
+            })}
         </nav>
 
-        {/* Sidebar footer */}
-        <div className="p-3 border-t border-gray-200">
-          <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+        <div className="p-3 border-t border-border">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-muted">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user?.profilePhotoUrl} />
               <AvatarFallback>
@@ -214,17 +212,17 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">
+              <div className="text-sm font-medium text-foreground truncate">
                 {user?.name || 'Admin User'}
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Badge
                   className={`text-[10px] px-1.5 py-0 h-4 font-semibold ${
                     user?.role === 'super-admin'
-                      ? 'bg-purple-100 text-purple-700 border-purple-200'
+                      ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800'
                       : user?.role === 'admin'
-                      ? 'bg-blue-100 text-blue-700 border-blue-200'
-                      : 'bg-gray-100 text-gray-600 border-gray-200'
+                        ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800'
+                        : 'bg-muted text-muted-foreground border-border'
                   }`}
                   variant="outline"
                 >
@@ -236,12 +234,9 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 min-w-0">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 pt-[env(safe-area-inset-top)]">
+        <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm border-b border-border pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between h-14 px-4">
-            {/* Left side */}
             <div className="flex items-center gap-3 min-w-0">
               <Button
                 variant="ghost"
@@ -251,19 +246,16 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
               >
                 <Menu className="h-5 w-5" />
               </Button>
-              <h1 className="text-lg font-semibold text-gray-900 truncate">
+              <h1 className="text-lg font-semibold text-foreground truncate">
                 {getCurrentModuleName()}
               </h1>
             </div>
 
-            {/* Right side */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <AdminGlobalSearch user={user} />
-
-              {/* Notifications */}
+              <ThemeToggle />
               {user?.id && <NotificationDropdown userId={user.id} />}
 
-              {/* Profile dropdown - only render after mount to avoid hydration issues */}
               {mounted && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -277,32 +269,32 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user?.name || 'Admin User'}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={openProfile} className="cursor-pointer">
-                    <UserIcon className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user?.name || 'Admin User'}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={openProfile} className="cursor-pointer">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {!mounted && (
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
@@ -317,10 +309,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
           </div>
         </div>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto bg-background">{children}</main>
       </div>
     </div>
   );

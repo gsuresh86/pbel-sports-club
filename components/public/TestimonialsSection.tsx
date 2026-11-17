@@ -5,6 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Star } from 'lucide-react';
 import type { Testimonial } from '@/types';
+import { Reveal } from '@/components/public/Reveal';
 
 const FALLBACK: Testimonial[] = [
   {
@@ -13,7 +14,8 @@ const FALLBACK: Testimonial[] = [
     tournamentName: '',
     author: 'Amit Sharma',
     authorRole: 'Sports Secretary, PBEL City',
-    quote: 'TourneyCraft made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
+    quote:
+      'TourneyCraft made our annual sports day incredibly smooth. Registration, draws, scoring — everything in one place.',
     rating: 5,
     sport: 'Badminton',
     published: true,
@@ -27,12 +29,7 @@ export function TestimonialsSection() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    getDocs(
-      query(
-        collection(db, 'testimonials'),
-        where('published', '==', true),
-      ),
-    )
+    getDocs(query(collection(db, 'testimonials'), where('published', '==', true)))
       .then((snap) => {
         const docs = snap.docs
           .map((d) => ({ id: d.id, ...d.data() } as Testimonial))
@@ -51,52 +48,62 @@ export function TestimonialsSection() {
   const items = loaded ? testimonials : FALLBACK;
 
   return (
-    <section className="py-16 px-4">
+    <section className="py-16 px-4" aria-labelledby="testimonials-heading">
       <div className="max-w-5xl mx-auto">
-        <div className="text-center mb-12">
-          <p className="text-xs text-yellow-400 font-bold uppercase tracking-widest mb-3">What People Say</p>
-          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Trusted by Organisers</h2>
-          <p className="text-slate-200 text-base max-w-md mx-auto">
+        <Reveal className="text-center mb-12">
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest mb-3">
+            What People Say
+          </p>
+          <h2
+            id="testimonials-heading"
+            className="text-4xl sm:text-5xl font-black text-foreground mb-4"
+          >
+            Trusted by Organisers
+          </h2>
+          <p className="text-muted-foreground text-base max-w-md mx-auto">
             Hear from the admins and players who&apos;ve run their events on TourneyCraft.
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {items.map((t) => (
-            <div
-              key={t.id}
-              className="group bg-slate-800 border border-slate-600 hover:border-yellow-400/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col"
-            >
-              {/* Stars */}
-              <div className="flex gap-0.5 mb-4">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Star key={n} className={`h-3.5 w-3.5 ${n <= t.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-700'}`} />
-                ))}
-              </div>
-
-              {/* Quote */}
-              <p className="text-sm text-slate-100 italic leading-relaxed flex-1 mb-5">
-                &ldquo;{t.quote}&rdquo;
-              </p>
-
-              {/* Author */}
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-600">
-                <div className="w-9 h-9 rounded-full bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center text-yellow-400 font-black text-sm flex-shrink-0">
-                  {t.author.charAt(0).toUpperCase()}
+          {items.map((t, i) => (
+            <Reveal key={t.id} delay={i * 80}>
+              <div className="group h-full bg-card border border-border hover:border-amber-500/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl flex flex-col">
+                <div className="flex gap-0.5 mb-4">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={`h-3.5 w-3.5 ${
+                        n <= t.rating
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-muted-foreground/40'
+                      }`}
+                    />
+                  ))}
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{t.author}</p>
-                  {t.authorRole && (
-                    <p className="text-xs text-slate-200 truncate">{t.authorRole}</p>
+
+                <p className="text-sm text-muted-foreground italic leading-relaxed flex-1 mb-5">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+
+                <div className="flex items-center gap-3 pt-4 border-t border-border">
+                  <div className="w-9 h-9 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 font-black text-sm flex-shrink-0">
+                    {t.author.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">{t.author}</p>
+                    {t.authorRole && (
+                      <p className="text-xs text-muted-foreground truncate">{t.authorRole}</p>
+                    )}
+                  </div>
+                  {t.sport && (
+                    <span className="ml-auto text-xs bg-muted border border-border text-muted-foreground rounded-full px-2 py-0.5 flex-shrink-0">
+                      {t.sport}
+                    </span>
                   )}
                 </div>
-                {t.sport && (
-                  <span className="ml-auto text-xs bg-slate-800 border border-white/15 text-slate-300 rounded-full px-2 py-0.5 flex-shrink-0">
-                    {t.sport}
-                  </span>
-                )}
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>

@@ -244,7 +244,7 @@ export default function RegistrationReviewDrawer({
               {participant.partnerProfilePhotoUrl && (
                 <div className="sm:col-span-2 space-y-1">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Partner photo</p>
-                  <div className="relative h-24 w-24 overflow-hidden rounded-lg border bg-gray-50">
+                  <div className="relative h-24 w-24 overflow-hidden rounded-lg border bg-muted">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={participant.partnerProfilePhotoUrl}

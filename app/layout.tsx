@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { themeInitScript } from "@/lib/theme-script";
 import { Analytics } from "@vercel/analytics/next";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -14,16 +15,58 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#2563eb",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tourneycraft.app"),
-  title: "TourneyCraft",
-  description: "Your community's sports stage — run tournaments end to end from registration to podium.",
+  title: {
+    default: "TourneyCraft — Run Sports Tournaments End to End",
+    template: "%s | TourneyCraft",
+  },
+  description:
+    "TourneyCraft helps clubs, communities, and organisations run sports tournaments end to end — online registration, smart draws, live scoring, and results.",
+  keywords: [
+    "tournament management",
+    "sports tournament",
+    "badminton tournament",
+    "table tennis tournament",
+    "volleyball tournament",
+    "live scoring",
+    "TourneyCraft",
+    "Hyderabad sports",
+  ],
+  authors: [{ name: "TourneyCraft" }],
   openGraph: {
     siteName: "TourneyCraft",
     type: "website",
+    locale: "en_IN",
+    title: "TourneyCraft — Run Sports Tournaments End to End",
+    description:
+      "Run any sports tournament end-to-end — from the first registration to the final podium.",
+    url: "https://tourneycraft.app",
+    images: [
+      {
+        url: "/icons/icon-512.png",
+        width: 512,
+        height: 512,
+        alt: "TourneyCraft",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "TourneyCraft — Run Sports Tournaments End to End",
+    description:
+      "Run any sports tournament end-to-end — from the first registration to the final podium.",
+    images: ["/icons/icon-512.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
   appleWebApp: {
     capable: true,
@@ -49,7 +92,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body
         className={`${plusJakartaSans.variable} font-plus-jakarta-sans antialiased`}
       >

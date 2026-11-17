@@ -25,7 +25,7 @@ export default function TournamentUsersPage() {
     <div className="space-y-4 sm:space-y-6">
       <div>
         <h3 className="text-base font-semibold sm:text-lg">Users &amp; Roles</h3>
-        <p className="text-xs text-gray-600 sm:text-sm">
+        <p className="text-xs text-muted-foreground sm:text-sm">
           Assign staff to this tournament and configure role-based page access.
         </p>
       </div>
