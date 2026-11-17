@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tourneycraft.app"),
+  metadataBase: new URL("https://www.tourneycraft.app"),
   title: {
     default: "TourneyCraft — Run Sports Tournaments End to End",
     template: "%s | TourneyCraft",
@@ -47,22 +47,22 @@ export const metadata: Metadata = {
     title: "TourneyCraft — Run Sports Tournaments End to End",
     description:
       "Run any sports tournament end-to-end — from the first registration to the final podium.",
-    url: "https://tourneycraft.app",
+    url: "https://www.tourneycraft.app",
     images: [
       {
-        url: "/icons/icon-512.png",
-        width: 512,
-        height: 512,
-        alt: "TourneyCraft",
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "TourneyCraft — Run Sports Tournaments End to End",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "TourneyCraft — Run Sports Tournaments End to End",
     description:
       "Run any sports tournament end-to-end — from the first registration to the final podium.",
-    images: ["/icons/icon-512.png"],
+    images: ["/twitter-image"],
   },
   robots: {
     index: true,

@@ -31,12 +31,27 @@ export const metadata: Metadata = {
   },
   description:
     'Run any sports tournament end-to-end — from the first registration to the final podium — for clubs, communities, and organisations of any size.',
-  alternates: { canonical: '/' },
+  alternates: { canonical: 'https://www.tourneycraft.app/' },
   openGraph: {
     title: 'TourneyCraft — Run Sports Tournaments End to End',
     description:
       'Online registration, smart draws, live scoring, and results — all in one place.',
-    url: '/',
+    url: 'https://www.tourneycraft.app/',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'TourneyCraft — Run Sports Tournaments End to End',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'TourneyCraft — Run Sports Tournaments End to End',
+    description:
+      'Online registration, smart draws, live scoring, and results — all in one place.',
+    images: ['/twitter-image'],
   },
 };
 
