@@ -7,7 +7,7 @@ export const PERMISSIONS = {
   'tournament.players': { route: 'players' },
   'tournament.tshirt-distribution': { route: 'tshirt-distribution' },
   'tournament.teams': { route: 'teams' },
-  'tournament.spin-wheel': { route: 'spin-wheel' },
+  'tournament.spin-wheel': { route: 'assignments' },
   'tournament.matches': { route: 'matches' },
   'tournament.matches.write': { route: 'matches', write: true },
   'tournament.results': { route: 'results' },
@@ -24,7 +24,7 @@ export type TournamentRoute =
   | 'players'
   | 'tshirt-distribution'
   | 'teams'
-  | 'spin-wheel'
+  | 'assignments'
   | 'matches'
   | 'results'
   | 'finance'
@@ -93,7 +93,7 @@ export const ALL_TOURNAMENT_ROUTES: TournamentRoute[] = [
   'players',
   'tshirt-distribution',
   'teams',
-  'spin-wheel',
+  'assignments',
   'matches',
   'results',
   'finance',
@@ -107,7 +107,7 @@ export const NAV_ROUTE_ITEMS: { label: string; href: TournamentRoute; permission
   { label: 'Players', href: 'players', permission: 'tournament.players' },
   { label: 'T-Shirt Distribution', href: 'tshirt-distribution', permission: 'tournament.tshirt-distribution' },
   { label: 'Teams', href: 'teams', permission: 'tournament.teams' },
-  { label: 'Spin Wheel', href: 'spin-wheel', permission: 'tournament.spin-wheel' },
+  { label: 'Assignments', href: 'assignments', permission: 'tournament.spin-wheel' },
   { label: 'Matches', href: 'matches', permission: 'tournament.matches' },
   { label: 'Results', href: 'results', permission: 'tournament.results' },
   { label: 'Finance', href: 'finance', permission: 'tournament.finance' },
@@ -150,9 +150,9 @@ export const PERMISSION_GROUPS: {
     permissions: [{ key: 'tournament.teams', label: 'Manage teams' }],
   },
   {
-    label: 'Spin Wheel',
-    description: 'Random draw and team assignment',
-    permissions: [{ key: 'tournament.spin-wheel', label: 'Use spin wheel' }],
+    label: 'Assignments',
+    description: 'Spin-wheel draw and manual player assignment',
+    permissions: [{ key: 'tournament.spin-wheel', label: 'Assign players' }],
   },
   {
     label: 'Matches',

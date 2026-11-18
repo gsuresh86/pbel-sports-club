@@ -49,6 +49,28 @@ interface TeamManagementProps {
   user: { id: string; role: string; email: string };
 }
 
+const SKILL_BADGE: Record<string, string> = {
+  expert: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  advanced: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  intermediate: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  beginner: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+};
+
+const SKILL_LABEL: Record<string, string> = {
+  expert: 'Expert',
+  advanced: 'Advanced',
+  intermediate: 'Inter',
+  beginner: 'Beginner',
+};
+
+function SkillBadge({ level }: { level?: string }) {
+  return (
+    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${SKILL_BADGE[level ?? ''] ?? 'bg-muted text-muted-foreground'}`}>
+      {SKILL_LABEL[level ?? ''] ?? '—'}
+    </span>
+  );
+}
+
 export default function TeamManagement({ tournament, user }: TeamManagementProps) {
   const invalidateTournament = useInvalidateTournament();
   const { data: teams = [], isLoading: teamsLoading } = useTournamentTeams(tournament.id);
@@ -57,11 +79,12 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
     useTournamentRegistrations(tournament.id);
   const loading = teamsLoading || poolsLoading || registrationsLoading;
 
-  const [activeSubTab, setActiveSubTab] = useState<'teams' | 'pools' | 'mens-roster' | 'womens-roster'>('teams');
+  const [activeSubTab, setActiveSubTab] = useState('teams');
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [showCreatePool, setShowCreatePool] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [viewingPlayersTeamId, setViewingPlayersTeamId] = useState<string | null>(null);
   const [editingPool, setEditingPool] = useState<Pool | null>(null);
   const [assigningPool, setAssigningPool] = useState<Pool | null>(null);
   const [selectedTeamsForPool, setSelectedTeamsForPool] = useState<string[]>([]);
@@ -663,7 +686,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
   const SKILL_RANK: Record<string, number> = { expert: 0, advanced: 1, intermediate: 2, beginner: 3 };
 
-  const getRosterTeams = (category: 'mens-team' | 'womens-team') =>
+  const getRosterTeams = (category: string) =>
     teams
       .filter(t => categoriesMatch(t.category, category))
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -683,6 +706,8 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
 
   const formatCategory = (cat: string) =>
     cat.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  const teamRosterCategories = tournament.categories.filter(category => isTeamCategory(category));
 
   if (loading) {
     return (
@@ -726,7 +751,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
       </div>
 
       {/* Sub-tabs */}
-      <Tabs value={activeSubTab} onValueChange={v => setActiveSubTab(v as 'teams' | 'pools' | 'mens-roster' | 'womens-roster')}>
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList>
           <TabsTrigger value="teams">
             <Users className="h-4 w-4 mr-2" />
@@ -736,8 +761,11 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
             <Target className="h-4 w-4 mr-2" />
             Pools ({filteredPools.length})
           </TabsTrigger>
-          <TabsTrigger value="mens-roster">Men&apos;s</TabsTrigger>
-          <TabsTrigger value="womens-roster">Women&apos;s</TabsTrigger>
+          {teamRosterCategories.map(category => (
+            <TabsTrigger key={category} value={`roster:${category}`}>
+              {formatCategory(category)}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Teams Table */}
@@ -763,7 +791,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     <TableHead>Status</TableHead>
                     <TableHead>Captain</TableHead>
                     <TableHead>Pool</TableHead>
-                    <TableHead className="text-center">Players / Max</TableHead>
+                    <TableHead>Players</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -850,8 +878,22 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                             <span className="text-xs text-gray-400">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center text-sm">
-                          {teamPlayers.length}{team.maxPlayers != null ? ` / ${team.maxPlayers}` : ''}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm tabular-nums">
+                              {teamPlayers.length}{team.maxPlayers != null ? ` / ${team.maxPlayers}` : ''}
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setViewingPlayersTeamId(team.id)}
+                            >
+                              <Users className="h-3.5 w-3.5 mr-1" />
+                              View players
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
                           {new Date(team.createdAt).toLocaleDateString()}
@@ -1160,13 +1202,11 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           )}
         </TabsContent>
 
-        {/* Men's / Women's Roster */}
-        {(['mens-roster', 'womens-roster'] as const).map((tab) => {
-          const category = tab === 'mens-roster' ? 'mens-team' : 'womens-team';
-          const label = tab === 'mens-roster' ? "Men's" : "Women's";
+        {teamRosterCategories.map((category) => {
+          const label = formatCategory(category);
           const rosterTeams = getRosterTeams(category);
           return (
-            <TabsContent key={tab} value={tab} className="mt-4">
+            <TabsContent key={category} value={`roster:${category}`} className="mt-4">
               {rosterTeams.length === 0 ? (
                 <div className="text-center py-12 border rounded-lg">
                   <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1176,18 +1216,16 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {rosterTeams.map(({ team, players }, teamIdx) => (
-                    <div key={team.id} className="rounded-lg border bg-white shadow-sm">
-                      {/* Team header */}
-                      <div className="flex items-center justify-between rounded-t-lg bg-gray-50 px-4 py-2.5 border-b">
+                    <div key={team.id} className="rounded-lg border bg-card shadow-sm">
+                      <div className="flex items-center justify-between rounded-t-lg bg-muted/40 px-4 py-2.5 border-b">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-gray-400">#{teamIdx + 1}</span>
-                          <span className="font-semibold text-sm text-gray-900">{team.name}</span>
+                          <span className="text-xs font-semibold text-muted-foreground">#{teamIdx + 1}</span>
+                          <span className="font-semibold text-sm">{team.name}</span>
                         </div>
-                        <span className="text-xs text-gray-500">{players.length}{team.maxPlayers != null ? ` / ${team.maxPlayers}` : ''} players</span>
+                        <span className="text-xs text-muted-foreground">{players.length}{team.maxPlayers != null ? ` / ${team.maxPlayers}` : ''} players</span>
                       </div>
-                      {/* Players list */}
                       {players.length === 0 ? (
-                        <p className="px-4 py-3 text-xs text-gray-400">No players assigned yet.</p>
+                        <p className="px-4 py-3 text-xs text-muted-foreground">No players assigned yet.</p>
                       ) : (
                         <ul className="divide-y">
                           {players.map((p) => (
@@ -1195,12 +1233,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                               <div className="flex items-center gap-1.5 text-sm min-w-0">
                                 {p.isCaptain && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
                                 <span className={`truncate ${p.isCaptain ? 'font-medium' : ''}`}>{p.name}</span>
-                                <Badge variant="outline" className="text-[10px] px-1 py-0 shrink-0 font-semibold" title={p.level}>
-                                  {p.level?.[0]?.toUpperCase() ?? '?'}
-                                </Badge>
+                                <SkillBadge level={p.level} />
                               </div>
                               {p.phone && (
-                                <a href={`tel:${p.phone}`} className="text-xs text-gray-500 hover:text-gray-700 tabular-nums shrink-0">
+                                <a href={`tel:${p.phone}`} className="text-xs text-muted-foreground hover:text-foreground tabular-nums shrink-0">
                                   {p.phone}
                                 </a>
                               )}
@@ -1216,6 +1252,58 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           );
         })}
       </Tabs>
+
+      <Dialog
+        open={viewingPlayersTeamId != null}
+        onOpenChange={open => {
+          if (!open) setViewingPlayersTeamId(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          {(() => {
+            const team = teams.find(item => item.id === viewingPlayersTeamId);
+            if (!team) return null;
+            const players = [...getPlayersForTeam(team)].sort(
+              (a, b) =>
+                (SKILL_RANK[a.expertiseLevel] ?? 4) - (SKILL_RANK[b.expertiseLevel] ?? 4) ||
+                a.name.localeCompare(b.name),
+            );
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{team.name}</DialogTitle>
+                  <DialogDescription>
+                    {players.length}{team.maxPlayers != null ? ` of ${team.maxPlayers}` : ''} assigned
+                    {team.category ? ` · ${formatCategory(team.category)}` : ''}
+                  </DialogDescription>
+                </DialogHeader>
+                {players.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No players assigned yet.</p>
+                ) : (
+                  <ul className="max-h-96 divide-y overflow-y-auto rounded-lg border">
+                    {players.map(player => (
+                      <li key={player.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {player.id === team.captainId && (
+                            <Crown className="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{player.name}</p>
+                            {player.phone && (
+                              <p className="text-xs text-muted-foreground">{player.phone}</p>
+                            )}
+                          </div>
+                        </div>
+                        <SkillBadge level={player.expertiseLevel} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Team Modal */}
       {showCreateTeam && (

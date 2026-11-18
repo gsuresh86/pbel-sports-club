@@ -1,16 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, orderBy, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Team, Pool, Registration, Tournament, CategoryType } from '@/types';
-import { categoriesMatch } from '@/lib/categoryLabels';
-import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Trophy } from 'lucide-react';
+import { categoriesMatch, normalizeCategorySlug } from '@/lib/categoryLabels';
+import { isTeamPoolCategory, planManualPoolAssignment } from '@/lib/poolAssignment';
+import { Shuffle, Users, Target, Zap, RotateCcw, RefreshCw, Trophy, UserPlus, Search, X } from 'lucide-react';
 import Image from 'next/image';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
@@ -24,8 +26,6 @@ interface SpinWheelProps {
 interface SpinResult extends Registration {
   assignedTeam?: string;
 }
-
-const TEAM_CATEGORIES: CategoryType[] = ['mens-team', 'womens-team'];
 
 function isDoublesCategory(category: string | undefined): boolean {
   return !!category && category.includes('doubles');
@@ -64,6 +64,9 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   const [roundMode, setRoundMode] = useState(false);
   const [roundResults, setRoundResults] = useState<SpinResult[]>([]);
   const [showSpinDialog, setShowSpinDialog] = useState(false);
+  const [assignmentMode, setAssignmentMode] = useState<'spin' | 'manual'>('spin');
+  const [manualSearch, setManualSearch] = useState('');
+  const [assigningId, setAssigningId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -84,7 +87,8 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   }, []);
 
   const isTeamCategory = () =>
-    selectedCategory !== '' && TEAM_CATEGORIES.includes(selectedCategory as CategoryType);
+    selectedCategory !== '' &&
+    isTeamPoolCategory(normalizeCategorySlug(selectedCategory) ?? selectedCategory);
 
   const loadData = async () => {
     setLoading(true);
@@ -313,34 +317,126 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
   };
 
   const assignPlayerToTeam = async (registrationId: string, teamId: string) => {
+    const targetPreview = teams.find(t => t.id === teamId);
+    if (!targetPreview) return;
+    const related = teams.filter(t => categoriesMatch(t.category, targetPreview.category));
+    setAssigningId(registrationId);
     try {
-      const team = teams.find(t => t.id === teamId);
-      if (!team) return;
-      await updateDoc(doc(db, 'tournaments', tournament.id, 'teams', teamId), {
-        players: [...team.players, registrationId],
-        updatedAt: new Date(),
+      await runTransaction(db, async transaction => {
+        const refs = related.map(team => doc(db, 'tournaments', tournament.id, 'teams', team.id));
+        const snapshots = await Promise.all(refs.map(ref => transaction.get(ref)));
+        const current = snapshots.map((snapshot, index) => {
+          const data = snapshot.data() ?? {};
+          const players = Array.isArray(data.players)
+            ? data.players.filter((id): id is string => typeof id === 'string')
+            : related[index].players ?? [];
+          return {
+            id: related[index].id,
+            ref: refs[index],
+            name: typeof data.name === 'string' ? data.name : related[index].name,
+            maxPlayers: typeof data.maxPlayers === 'number' ? data.maxPlayers : related[index].maxPlayers,
+            players,
+          };
+        });
+        const target = current.find(team => team.id === teamId);
+        if (!target) throw new Error('TEAM_NOT_FOUND');
+        if (target.players.includes(registrationId)) return;
+        if (target.maxPlayers != null && target.players.length >= target.maxPlayers) {
+          throw new Error('TEAM_FULL');
+        }
+        for (const team of current) {
+          if (team.id === teamId) {
+            transaction.update(team.ref, {
+              players: [...team.players, registrationId],
+              updatedAt: new Date(),
+            });
+          } else if (team.players.includes(registrationId)) {
+            transaction.update(team.ref, {
+              players: team.players.filter(id => id !== registrationId),
+              updatedAt: new Date(),
+            });
+          }
+        }
       });
       await loadData();
       filterRegistrations();
       setSpinResult(null);
     } catch (error) {
       console.error('Error assigning player to team:', error);
+      const full = error instanceof Error && error.message === 'TEAM_FULL';
+      alert({
+        title: full ? 'Team is full' : 'Could not assign player',
+        description: full
+          ? `${targetPreview.name} already has the maximum number of players.`
+          : 'The player was not added. Please try again.',
+        variant: full ? 'warning' : 'error',
+      });
+    } finally {
+      setAssigningId(null);
     }
   };
 
   const assignPlayerToPool = async (registrationId: string, poolId: string) => {
+    const targetPreview = pools.find(p => p.id === poolId);
+    if (!targetPreview) return;
+    const relevant = pools.filter(
+      pool => pool.id === poolId || categoriesMatch(pool.category, targetPreview.category),
+    );
+    setAssigningId(registrationId);
     try {
-      const pool = pools.find(p => p.id === poolId);
-      if (!pool) return;
-      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId), {
-        teams: [...pool.teams, registrationId],
-        updatedAt: new Date(),
+      await runTransaction(db, async transaction => {
+        const refs = new Map(
+          relevant.map(pool => [pool.id, doc(db, 'tournaments', tournament.id, 'pools', pool.id)]),
+        );
+        const snapshots = await Promise.all(
+          relevant.map(pool => transaction.get(refs.get(pool.id)!)),
+        );
+        const currentPools = snapshots.flatMap((snapshot, index) => {
+          if (!snapshot.exists()) return [];
+          const data = snapshot.data();
+          const fallback = relevant[index];
+          return [{
+            id: snapshot.id,
+            category: typeof data.category === 'string' ? data.category : fallback.category,
+            teams: Array.isArray(data.teams)
+              ? data.teams.filter((id): id is string => typeof id === 'string')
+              : [],
+            maxTeams: typeof data.maxTeams === 'number' ? data.maxTeams : fallback.maxTeams,
+          }];
+        });
+        const plan = planManualPoolAssignment(
+          currentPools,
+          poolId,
+          registrationId,
+          category => normalizeCategorySlug(category) ?? category,
+        );
+        if (!plan.ok) {
+          throw new Error(plan.reason === 'pool-full' ? 'POOL_FULL' : 'POOL_NOT_FOUND');
+        }
+        for (const update of plan.updates) {
+          const poolRef = refs.get(update.poolId);
+          if (!poolRef) continue;
+          transaction.update(poolRef, {
+            teams: update.memberIds,
+            updatedAt: new Date(),
+          });
+        }
       });
       await loadData();
       filterRegistrations();
       setSpinResult(null);
     } catch (error) {
       console.error('Error assigning player to pool:', error);
+      const full = error instanceof Error && error.message === 'POOL_FULL';
+      alert({
+        title: full ? 'Pool is full' : 'Could not assign player',
+        description: full
+          ? `${targetPreview.name} already has the maximum number of players.`
+          : 'The player was not added. Please try again.',
+        variant: full ? 'warning' : 'error',
+      });
+    } finally {
+      setAssigningId(null);
     }
   };
 
@@ -362,6 +458,21 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
       filterRegistrations();
     } catch (error) {
       console.error('Error removing player from team:', error);
+    }
+  };
+
+  const removePlayerFromPool = async (registrationId: string, poolId: string) => {
+    try {
+      const pool = pools.find(p => p.id === poolId);
+      if (!pool) return;
+      await updateDoc(doc(db, 'tournaments', tournament.id, 'pools', poolId), {
+        teams: pool.teams.filter(id => id !== registrationId),
+        updatedAt: new Date(),
+      });
+      await loadData();
+      filterRegistrations();
+    } catch (error) {
+      console.error('Error removing player from pool:', error);
     }
   };
 
@@ -647,6 +758,28 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
 
             {/* Right: all controls */}
             <div className="flex items-center gap-2 flex-wrap justify-end">
+              <div className="inline-flex rounded-md border p-0.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={assignmentMode === 'spin' ? 'default' : 'ghost'}
+                  className="h-7"
+                  onClick={() => setAssignmentMode('spin')}
+                >
+                  <Shuffle className="h-3.5 w-3.5 mr-1" />
+                  Spin wheel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={assignmentMode === 'manual' ? 'default' : 'ghost'}
+                  className="h-7"
+                  onClick={() => setAssignmentMode('manual')}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-1" />
+                  Manual
+                </Button>
+              </div>
               <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
                 <SelectTrigger className="w-40 h-8 text-sm">
                   <SelectValue placeholder="Category" />
@@ -659,15 +792,17 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={roundMode}
-                  onChange={(e) => setRoundMode(e.target.checked)}
-                  className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Round mode</span>
-              </label>
+              {assignmentMode === 'spin' && (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={roundMode}
+                    onChange={(e) => setRoundMode(e.target.checked)}
+                    className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Round mode</span>
+                </label>
+              )}
               <Button size="sm" onClick={autoAssignAllPlayers} disabled={!selectedCategory || unassignedRegistrations.length === 0}>
                 <Zap className="h-4 w-4 mr-1.5" />
                 Auto Assign All
@@ -685,13 +820,38 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
             </div>
           </div>
           {/* Round mode info strip */}
-          {roundMode && selectedCategory && (
+          {assignmentMode === 'spin' && roundMode && selectedCategory && (
             <p className="text-xs text-blue-600 mt-1">
               Round — {Math.min(unassignedRegistrations.length, categoryTargets.length)} players → {categoryTargets.length} {bucketLabel}s
             </p>
           )}
         </CardHeader>
         <CardContent>
+          {assignmentMode === 'manual' ? (
+            <ManualAssignment
+              selectedCategory={selectedCategory}
+              isTeamCategory={isTeamCategory()}
+              registrations={registrations}
+              unassignedRegistrations={unassignedRegistrations}
+              teams={teams.filter(team => categoriesMatch(team.category, selectedCategory))}
+              pools={pools.filter(pool => categoriesMatch(pool.category, selectedCategory))}
+              search={manualSearch}
+              onSearchChange={setManualSearch}
+              assigningId={assigningId}
+              interactive
+              onAssign={(playerId, bucketId) =>
+                isTeamCategory()
+                  ? assignPlayerToTeam(playerId, bucketId)
+                  : assignPlayerToPool(playerId, bucketId)
+              }
+              onRemove={(playerId, bucketId) =>
+                isTeamCategory()
+                  ? removePlayerFromTeam(playerId, bucketId)
+                  : removePlayerFromPool(playerId, bucketId)
+              }
+            />
+          ) : (
+            <div className="space-y-6">
               {(() => {
                 /* ── Orbital bubble layout ── */
                 const HALF = 360;
@@ -887,6 +1047,31 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   </div>
                 );
               })()}
+              {selectedCategory && (
+                <ManualAssignment
+                  selectedCategory={selectedCategory}
+                  isTeamCategory={isTeamCategory()}
+                  registrations={registrations}
+                  unassignedRegistrations={unassignedRegistrations}
+                  teams={teams.filter(team => categoriesMatch(team.category, selectedCategory))}
+                  pools={pools.filter(pool => categoriesMatch(pool.category, selectedCategory))}
+                  search=""
+                  onSearchChange={() => {}}
+                  assigningId={assigningId}
+                  onAssign={(playerId, bucketId) =>
+                    isTeamCategory()
+                      ? assignPlayerToTeam(playerId, bucketId)
+                      : assignPlayerToPool(playerId, bucketId)
+                  }
+                  onRemove={(playerId, bucketId) =>
+                    isTeamCategory()
+                      ? removePlayerFromTeam(playerId, bucketId)
+                      : removePlayerFromPool(playerId, bucketId)
+                  }
+                />
+              )}
+            </div>
+          )}
             </CardContent>
         </Card>
 
@@ -1031,6 +1216,257 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ManualAssignment({
+  selectedCategory,
+  isTeamCategory,
+  registrations,
+  unassignedRegistrations,
+  teams,
+  pools,
+  search,
+  onSearchChange,
+  assigningId,
+  interactive = false,
+  onAssign,
+  onRemove,
+}: {
+  selectedCategory: string;
+  isTeamCategory: boolean;
+  registrations: Registration[];
+  unassignedRegistrations: Registration[];
+  teams: Team[];
+  pools: Pool[];
+  search: string;
+  onSearchChange: (value: string) => void;
+  assigningId: string | null;
+  interactive?: boolean;
+  onAssign: (playerId: string, bucketId: string) => void;
+  onRemove: (playerId: string, bucketId: string) => void;
+}) {
+  const [manualSelection, setManualSelection] = useState<Record<string, string>>({});
+  const [bucketSelection, setBucketSelection] = useState<Record<string, string>>({});
+  const bucketLabel = isTeamCategory ? 'team' : 'pool';
+  const registrationById = new Map(registrations.map(registration => [registration.id, registration]));
+  const query = search.trim().toLowerCase();
+  const matchesQuery = (registration: Registration) => {
+    if (!query) return true;
+    return (
+      pairLabel(registration).toLowerCase().includes(query) ||
+      registration.phone?.toLowerCase().includes(query) ||
+      registration.expertiseLevel?.toLowerCase().includes(query)
+    );
+  };
+
+  const buckets = (isTeamCategory ? teams : pools)
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+  const memberIds = (bucket: Team | Pool) =>
+    isTeamCategory ? (bucket as Team).players ?? [] : (bucket as Pool).teams ?? [];
+
+  const capacity = (bucket: Team | Pool) =>
+    isTeamCategory ? (bucket as Team).maxPlayers : (bucket as Pool).maxTeams;
+
+  const isFull = (bucket: Team | Pool) => {
+    const max = capacity(bucket);
+    return max != null && memberIds(bucket).length >= max;
+  };
+
+  const visibleUnassigned = unassignedRegistrations.filter(matchesQuery);
+
+  if (!selectedCategory) {
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        Select a category to assign players.
+      </p>
+    );
+  }
+
+  if (buckets.length === 0) {
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        No {bucketLabel}s in this category yet. Create {bucketLabel}s first, then assign players here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {interactive && (
+        <>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          value={search}
+          onChange={event => onSearchChange(event.target.value)}
+          placeholder="Search players by name, phone, or level"
+          className="pl-9"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">
+          Unassigned ({unassignedRegistrations.length})
+        </h3>
+        {visibleUnassigned.length === 0 ? (
+          <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+            {unassignedRegistrations.length === 0
+              ? 'Every player in this category is already assigned.'
+              : 'No unassigned players match that search.'}
+          </p>
+        ) : (
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {visibleUnassigned.map(registration => {
+              const selectedBucket = manualSelection[registration.id] || '';
+              return (
+                <div
+                  key={registration.id}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{pairLabel(registration)}</span>
+                      <Badge variant="outline" className="px-1 py-0 text-[10px] uppercase">
+                        {registration.expertiseLevel?.[0] ?? '?'}
+                      </Badge>
+                    </div>
+                    {registration.phone && (
+                      <p className="text-xs text-muted-foreground">{registration.phone}</p>
+                    )}
+                  </div>
+                  <Select
+                    value={selectedBucket || undefined}
+                    onValueChange={value => setManualSelection(prev => ({ ...prev, [registration.id]: value }))}
+                  >
+                    <SelectTrigger className="h-8 w-44 text-xs">
+                      <SelectValue placeholder={`Select ${bucketLabel}`} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {buckets.map(bucket => (
+                        <SelectItem key={bucket.id} value={bucket.id} disabled={isFull(bucket)}>
+                          {bucket.name} ({memberIds(bucket).length}
+                          {capacity(bucket) != null ? `/${capacity(bucket)}` : ''})
+                          {isFull(bucket) ? ' · full' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    className="h-8"
+                    disabled={!selectedBucket || assigningId === registration.id}
+                    onClick={() => onAssign(registration.id, selectedBucket)}
+                  >
+                    {assigningId === registration.id ? 'Adding…' : 'Add'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+        </>
+      )}
+      {!interactive && (
+        <h3 className="text-sm font-semibold text-foreground">Assigned players</h3>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {buckets.map(bucket => {
+          const ids = memberIds(bucket);
+          const players = ids
+            .map(id => registrationById.get(id))
+            .filter((registration): registration is Registration => !!registration)
+            .filter(matchesQuery);
+          const hiddenUnknown = query
+            ? 0
+            : ids.filter(id => !registrationById.has(id)).length;
+          const selectedPlayer = bucketSelection[bucket.id] || '';
+          const full = isFull(bucket);
+
+          return (
+            <div key={bucket.id} className="rounded-lg border">
+              <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-3 py-2">
+                <span className="truncate text-sm font-semibold">{bucket.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {ids.length}
+                  {capacity(bucket) != null ? ` / ${capacity(bucket)}` : ''} players
+                </span>
+              </div>
+              {players.length === 0 && hiddenUnknown === 0 ? (
+                <p className="px-3 py-3 text-xs text-muted-foreground">
+                  {query ? 'No matching players.' : 'No players yet.'}
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {players.map(player => (
+                    <li key={player.id} className="flex items-center gap-2 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-sm">{pairLabel(player)}</span>
+                      <Badge variant="outline" className="px-1 py-0 text-[10px] uppercase">
+                        {player.expertiseLevel?.[0] ?? '?'}
+                      </Badge>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-muted-foreground"
+                        aria-label={`Remove ${pairLabel(player)} from ${bucket.name}`}
+                        onClick={() => onRemove(player.id, bucket.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  ))}
+                  {hiddenUnknown > 0 && (
+                    <li className="px-3 py-2 text-xs text-muted-foreground">
+                      {hiddenUnknown} player{hiddenUnknown === 1 ? '' : 's'} without a registration record
+                    </li>
+                  )}
+                </ul>
+              )}
+              {interactive && (
+              <div className="flex items-center gap-2 border-t px-3 py-2">
+                {full ? (
+                  <p className="text-xs text-muted-foreground">This {bucketLabel} is full.</p>
+                ) : unassignedRegistrations.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No unassigned players left.</p>
+                ) : (
+                  <>
+                    <Select
+                      value={selectedPlayer || undefined}
+                      onValueChange={value => setBucketSelection(prev => ({ ...prev, [bucket.id]: value }))}
+                    >
+                      <SelectTrigger className="h-8 flex-1 text-xs">
+                        <SelectValue placeholder="Add a player" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unassignedRegistrations.map(registration => (
+                          <SelectItem key={registration.id} value={registration.id}>
+                            {pairLabel(registration)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="h-8"
+                      disabled={!selectedPlayer || assigningId === selectedPlayer}
+                      onClick={() => onAssign(selectedPlayer, bucket.id)}
+                    >
+                      Add
+                    </Button>
+                  </>
+                )}
+              </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
