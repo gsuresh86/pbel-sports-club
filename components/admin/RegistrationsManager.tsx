@@ -44,6 +44,7 @@ import {
 } from '@/lib/permissions';
 
 const STICKY_HEAD = 'sticky top-0 z-30 bg-inherit';
+// Photo column is w-20 (fits the 20px edge padding + paired avatars); Name sticks at left-20.
 const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-inherit shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
 const STICKY_CELL = 'sticky z-20 bg-inherit shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]';
 const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-inherit shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
@@ -1120,8 +1121,8 @@ export function RegistrationsManager({
               <table className={`w-max min-w-full caption-bottom text-sm ${dataTableClass}`}>
                 <TableHeader className="bg-transparent shadow-none">
                   <TableRow className={dataTableHeadRowClass}>
-                    <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
-                    <TableHead className={`${STICKY_HEAD_CORNER} left-14 min-w-[140px]`}>Name</TableHead>
+                    <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-20 min-w-20 max-w-20`}>Photo</TableHead>
+                    <TableHead className={`${STICKY_HEAD_CORNER} left-20 min-w-[160px]`}>Name</TableHead>
                     <TableHead className={STICKY_HEAD}>Email</TableHead>
                     <TableHead className={STICKY_HEAD}>Phone</TableHead>
                     <TableHead className={STICKY_HEAD}>Age</TableHead>
@@ -1135,7 +1136,7 @@ export function RegistrationsManager({
                     <TableHead className={`${STICKY_HEAD} min-w-[90px]`}>Paid Amount</TableHead>
                     <TableHead className={`${STICKY_HEAD} min-w-[120px]`}>Paid To</TableHead>
                     <TableHead className={STICKY_HEAD}>Registration Date</TableHead>
-                    <TableHead className={`${STICKY_HEAD_RIGHT} min-w-[150px]`}>Actions</TableHead>
+                    <TableHead className={`${STICKY_HEAD_RIGHT} min-w-[150px] text-right`}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1144,9 +1145,9 @@ export function RegistrationsManager({
 
                     return (
                       <TableRow key={participant.id} className={dataTableRowClass(index)}>
-                        <TableCell className={`${STICKY_CELL} left-0 w-14`}>
+                        <TableCell className={`${STICKY_CELL} left-0 w-20 min-w-20 max-w-20`}>
                           {participant.partnerName?.trim() ? (
-                            <div className="relative h-8 w-11">
+                            <div className="relative h-8 w-12">
                               {participant.profilePhotoUrl ? (
                                 <div className="absolute left-0 top-0 h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[1]">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1162,7 +1163,7 @@ export function RegistrationsManager({
                                 </div>
                               )}
                               {participant.partnerProfilePhotoUrl ? (
-                                <div className="absolute left-3 top-0 h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[2]">
+                                <div className="absolute left-4 top-0 h-8 w-8 overflow-hidden rounded-full bg-gray-100 ring-2 ring-white z-[2]">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={participant.partnerProfilePhotoUrl}
@@ -1171,7 +1172,7 @@ export function RegistrationsManager({
                                   />
                                 </div>
                               ) : (
-                                <div className="absolute left-3 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-medium text-indigo-700 ring-2 ring-white z-[2]">
+                                <div className="absolute left-4 top-0 flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-[10px] font-medium text-indigo-700 ring-2 ring-white z-[2]">
                                   {getInitials(participant.partnerName) || '—'}
                                 </div>
                               )}
@@ -1191,7 +1192,7 @@ export function RegistrationsManager({
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className={`${STICKY_CELL} left-14 min-w-[140px] max-w-[200px] font-medium`}>
+                        <TableCell className={`${STICKY_CELL} left-20 min-w-[160px] max-w-[220px] font-medium text-foreground`}>
                           <span className="block truncate" title={participant.name}>{participant.name}</span>
                           {participant.partnerName?.trim() && (
                             <span
@@ -1202,7 +1203,7 @@ export function RegistrationsManager({
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={participant.email}>{participant.email}</TableCell>
+                        <TableCell className="max-w-[220px] truncate text-foreground/80" title={participant.email}>{participant.email}</TableCell>
                         <TableCell>{participant.phone}</TableCell>
                         <TableCell>{participant.age}</TableCell>
                         <TableCell className="capitalize">{participant.gender}</TableCell>
@@ -1212,12 +1213,12 @@ export function RegistrationsManager({
                             : '—'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="capitalize shrink-0">
+                          <Badge variant="outline" className="rounded-full capitalize shrink-0">
                             {participant.expertiseLevel}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="capitalize shrink-0">
+                          <Badge className={dataTableBadgeClass('sky', 'shrink-0')}>
                             {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
                           </Badge>
                         </TableCell>
@@ -1240,7 +1241,7 @@ export function RegistrationsManager({
                             }
                             disabled={updatingPaymentId === participant.id}
                           >
-                            <SelectTrigger className="h-8 w-[88px] shrink-0 capitalize">
+                            <SelectTrigger className="h-8 w-[100px] shrink-0 rounded-lg border-border capitalize">
                               <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1284,7 +1285,7 @@ export function RegistrationsManager({
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
                         <TableCell className={`${STICKY_CELL_RIGHT} min-w-[150px]`}>
-                          <div className="flex flex-nowrap items-center gap-0.5">
+                          <div className="flex flex-nowrap items-center justify-end gap-0.5">
                             <Button
                               size="sm"
                               variant="ghost"
