@@ -509,7 +509,7 @@ export default function UserManagementPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/40">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto" />
           <p className="mt-4 text-muted-foreground text-sm">Loading users...</p>
@@ -520,7 +520,7 @@ export default function UserManagementPage() {
 
   return (
     <AdminLayout moduleName="User Management">
-      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
+      <div className="min-h-full bg-gray-50 p-6 lg:p-8 dark:bg-background">
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card className="rounded-2xl border-border bg-muted shadow-none gap-0 py-3">
             <CardContent className="px-5">
@@ -639,7 +639,7 @@ export default function UserManagementPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                  <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
                     <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">
                       Name
                     </TableHead>
@@ -664,12 +664,10 @@ export default function UserManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user, index) => (
+                  {filteredUsers.map((user) => (
                     <TableRow
                       key={user.id}
-                      className={`border-border/60 ${
-                        index % 2 === 1 ? 'bg-muted/40' : 'bg-white'
-                      } hover:bg-muted`}
+                      className="border-border/60 hover:bg-gray-50"
                     >
                       <TableCell className="pl-5 py-3.5">
                         <div className="font-medium text-foreground">{user.name}</div>

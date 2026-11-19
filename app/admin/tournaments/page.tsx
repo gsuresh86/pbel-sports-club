@@ -506,7 +506,7 @@ export default function ManageTournamentsPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/40">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-800 mx-auto" />
           <p className="mt-4 text-muted-foreground text-sm">Loading tournaments...</p>
@@ -517,7 +517,7 @@ export default function ManageTournamentsPage() {
 
   return (
     <AdminLayout moduleName="Tournaments">
-      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
+      <div className="min-h-full bg-gray-50 p-6 lg:p-8 dark:bg-background">
         {(user?.role === 'admin' || user?.role === 'super-admin') && (
           <div className="mb-4 flex justify-end">
             <Button
@@ -728,7 +728,7 @@ export default function ManageTournamentsPage() {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-border">
+                    <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
                       <TableHead className="h-10 pl-5 text-xs font-medium text-muted-foreground">
                         Tournament
                       </TableHead>
@@ -744,7 +744,7 @@ export default function ManageTournamentsPage() {
                     {attentionTournaments.map((tournament) => (
                       <TableRow
                         key={tournament.id}
-                        className="border-border/60 cursor-pointer hover:bg-muted/80"
+                        className="border-border/60 cursor-pointer hover:bg-gray-50"
                         onClick={() =>
                           router.push(`/admin/tournaments/${tournament.id}/overview`)
                         }
@@ -896,69 +896,67 @@ export default function ManageTournamentsPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
-                    <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">
+                  <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
+                    <TableHead className="h-9 pl-5 text-xs font-medium text-muted-foreground">
                       Tournament
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Sport</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">Sport</TableHead>
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">
                       Dates
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">Venue</TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">Venue</TableHead>
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">
                       Status
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">
                       Players
                     </TableHead>
-                    <TableHead className="h-11 text-xs font-medium text-muted-foreground">
+                    <TableHead className="h-9 text-xs font-medium text-muted-foreground">
                       Registration
                     </TableHead>
-                    <TableHead className="h-11 pr-5 text-right text-xs font-medium text-muted-foreground">
+                    <TableHead className="h-9 pr-5 text-right text-xs font-medium text-muted-foreground">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTournaments.map((tournament, index) => (
+                  {filteredTournaments.map((tournament) => (
                     <TableRow
                       key={tournament.id}
-                      className={`border-border/60 ${
-                        index % 2 === 1 ? 'bg-muted/40' : 'bg-white'
-                      } hover:bg-muted`}
+                      className="border-border/60 hover:bg-gray-50"
                     >
-                      <TableCell className="pl-5 py-3.5">
+                      <TableCell className="pl-5 py-2">
                         <div className="font-medium text-foreground">{tournament.name}</div>
                         <div className="text-xs text-muted-foreground capitalize">
                           {tournament.tournamentType?.replace('-', ' ')}
                         </div>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <span className="text-sm capitalize text-foreground/80">
                           {tournament.sport.replace('-', ' ')}
                         </span>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <div className="flex items-center gap-1.5 text-sm text-foreground/80 whitespace-nowrap">
                           <span>{formatDate(tournament.startDate)}</span>
                           <ArrowRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                           <span>{formatDate(tournament.endDate)}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground max-w-[160px]">
                           <MapPin className="h-3 w-3 text-muted-foreground/60 shrink-0" />
                           <span className="truncate">{tournament.venue}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <Badge
                           className={`rounded-full border capitalize ${getStatusBadgeClass(tournament.status)}`}
                         >
                           {tournament.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <div className="text-sm text-foreground/80">
                           {tournamentStats[tournament.id]?.players ?? 0}
                           {tournament.maxParticipants ? (
@@ -972,14 +970,14 @@ export default function ManageTournamentsPage() {
                           {tournamentStats[tournament.id]?.registrations ?? 0} regs
                         </div>
                       </TableCell>
-                      <TableCell className="py-3.5">
+                      <TableCell className="py-2">
                         <Badge
                           className={`rounded-full border ${getRegistrationBadgeClass(tournament.registrationOpen)}`}
                         >
                           {tournament.registrationOpen ? 'Open' : 'Closed'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="pr-5 py-3.5 text-right">
+                      <TableCell className="pr-5 py-2 text-right">
                         <div className="flex items-center justify-end gap-0.5">
                           <Button
                             size="sm"

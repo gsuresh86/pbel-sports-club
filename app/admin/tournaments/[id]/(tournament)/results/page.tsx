@@ -1,8 +1,17 @@
 'use client';
 
 import { useTournament, useTournamentMatches } from '@/hooks/use-tournament-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AdminListCard,
+  adminTableClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
+import { cn } from '@/lib/utils';
 import { Trophy } from 'lucide-react';
 import { Match } from '@/types';
 import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
@@ -82,41 +91,39 @@ export default function ResultsPage() {
             const isTeam = groupIsTeam.get(round) ?? false;
             const rows = Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.pd - a.pd);
             return (
-              <Card key={round} className="rounded-none">
-                <CardHeader className="p-4 pb-2 sm:p-6">
-                  <CardTitle className="text-sm font-semibold sm:text-base">
-                    {tournamentShort ? `${tournamentShort} - ${round}` : round}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto -mx-4 sm:mx-0">
-                    <Table className="min-w-[520px]">
+              <AdminListCard
+                key={round}
+                title={tournamentShort ? `${tournamentShort} - ${round}` : round}
+                subtitle={`Showing ${rows.length} ${isTeam ? 'teams' : 'players'}`}
+              >
+                  <div className="overflow-x-auto">
+                    <Table className={cn(adminTableClass, 'min-w-[520px]')}>
                       <TableHeader>
-                        <TableRow className="bg-muted/60">
-                          <TableHead className="font-semibold text-xs sm:text-sm">TEAM</TableHead>
+                        <TableRow className={adminTableHeadRowClass}>
+                          <TableHead className={adminTableHeadFirstClass}>{isTeam ? 'Team' : 'Player'}</TableHead>
                           {(isTeam ? ['MP', 'W', 'L', 'PTS', 'GW', 'GL', 'GD', 'PW', 'PL', 'PD'] : ['MP', 'W', 'L', 'PTS', 'PW', 'PL', 'PD']).map((h) => (
-                            <TableHead key={h} className="text-center w-8 sm:w-12 font-semibold text-xs sm:text-sm">{h}</TableHead>
+                            <TableHead key={h} className={cn(adminTableHeadClass, 'text-center w-8 sm:w-12')}>{h}</TableHead>
                           ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {rows.map((row) => (
-                          <TableRow key={row.name}>
-                            <TableCell className="font-medium text-primary text-xs sm:text-sm py-2">{row.name}</TableCell>
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.played}</TableCell>
-                            <TableCell className="text-center font-semibold text-green-600 text-xs sm:text-sm py-2">{row.won}</TableCell>
-                            <TableCell className="text-center font-semibold text-red-600 text-xs sm:text-sm py-2">{row.lost}</TableCell>
-                            <TableCell className="text-center font-semibold text-amber-600 text-xs sm:text-sm py-2">{row.pts}</TableCell>
+                          <TableRow key={row.name} className={adminTableRowClass()}>
+                            <TableCell className="font-medium text-foreground">{row.name}</TableCell>
+                            <TableCell className="text-center">{row.played}</TableCell>
+                            <TableCell className="text-center font-semibold text-emerald-600">{row.won}</TableCell>
+                            <TableCell className="text-center font-semibold text-rose-600">{row.lost}</TableCell>
+                            <TableCell className="text-center font-semibold text-amber-600">{row.pts}</TableCell>
                             {isTeam && (
                               <>
-                                <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-2">{row.gw}</TableCell>
-                                <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-2">{row.gl}</TableCell>
-                                <TableCell className="text-center text-xs sm:text-sm py-2">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                                <TableCell className="text-center text-purple-600">{row.gw}</TableCell>
+                                <TableCell className="text-center text-orange-600">{row.gl}</TableCell>
+                                <TableCell className="text-center">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
                               </>
                             )}
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.pw}</TableCell>
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.pl}</TableCell>
-                            <TableCell className={`text-center font-medium text-xs sm:text-sm py-2 ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
+                            <TableCell className="text-center">{row.pw}</TableCell>
+                            <TableCell className="text-center">{row.pl}</TableCell>
+                            <TableCell className={`text-center font-medium ${row.pd >= 0 ? 'text-sky-600' : 'text-rose-600'}`}>
                               {row.pd >= 0 ? `+${row.pd}` : row.pd}
                             </TableCell>
                           </TableRow>
@@ -124,8 +131,7 @@ export default function ResultsPage() {
                       </TableBody>
                     </Table>
                   </div>
-                </CardContent>
-              </Card>
+              </AdminListCard>
             );
           })}
         </div>

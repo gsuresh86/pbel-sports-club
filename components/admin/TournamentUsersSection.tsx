@@ -301,7 +301,7 @@ export function TournamentUsersSection({
           <div className="overflow-x-auto">
             <Table className="min-w-[560px]">
               <TableHeader>
-                <TableRow className="bg-muted/60">
+                <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
                   <TableHead className="text-xs sm:text-sm">Name</TableHead>
                   <TableHead className="text-xs sm:text-sm">Email</TableHead>
                   <TableHead className="text-xs sm:text-sm">Status</TableHead>

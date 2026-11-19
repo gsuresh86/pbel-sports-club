@@ -10,7 +10,19 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AdminListCard,
+  adminDangerIconButtonClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -371,28 +383,25 @@ export function TournamentStaffSection({
 
   return (
     <>
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm font-semibold sm:text-base">
-              Tournament Staff ({inTournament.length})
-            </CardTitle>
-            <Button onClick={openAdd} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1.5" />
-              Add Staff
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+      <AdminListCard
+        title="Tournament Staff"
+        subtitle={`Showing ${inTournament.length} ${inTournament.length === 1 ? 'person' : 'people'}`}
+        toolbar={
+          <Button onClick={openAdd} size="sm" variant="outline" className="h-9 rounded-xl">
+            <Plus className="h-4 w-4 mr-1.5" />
+            Add Staff
+          </Button>
+        }
+      >
           <div className="overflow-x-auto">
-            <Table className="min-w-[640px]">
+            <Table className={cn(adminTableClass, 'min-w-[640px]')}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
-                  <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Email</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Roles</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Actions</TableHead>
+                <TableRow className={adminTableHeadRowClass}>
+                  <TableHead className={adminTableHeadFirstClass}>Name</TableHead>
+                  <TableHead className={adminTableHeadClass}>Email</TableHead>
+                  <TableHead className={adminTableHeadClass}>Roles</TableHead>
+                  <TableHead className={adminTableHeadClass}>Status</TableHead>
+                  <TableHead className={adminTableHeadLastClass}>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -413,15 +422,15 @@ export function TournamentStaffSection({
                   inTournament.map((u) => {
                     const slugs = getRoleSlugsDisplay(u, tournamentId);
                     return (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-medium text-xs sm:text-sm py-2">
+                      <TableRow key={u.id} className={adminTableRowClass()}>
+                        <TableCell className="font-medium">
                           {u.name}
                           {u.id === currentUserId && (
                             <Badge variant="outline" className="ml-2 text-[10px]">You</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm py-2">{u.email}</TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                        <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {slugs.map((slug) => (
                               <Badge key={slug} variant="secondary" className="text-[10px]">
@@ -430,23 +439,24 @@ export function TournamentStaffSection({
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell className="py-2">
+                        <TableCell>
                           <Badge
-                            className={
+                            className={cn(
+                              adminPillBadgeClass,
                               u.isActive !== false
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-100',
+                            )}
                           >
                             {u.isActive !== false ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex justify-end gap-1">
+                        <TableCell>
+                          <div className="flex justify-end gap-0.5">
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-xs"
+                              variant="ghost"
+                              className="h-8 rounded-xl px-2 text-muted-foreground hover:text-foreground"
                               onClick={() => openEditRoles(u)}
                             >
                               <UserCog className="h-3.5 w-3.5 mr-1" />
@@ -454,8 +464,8 @@ export function TournamentStaffSection({
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0"
+                              variant="ghost"
+                              className={adminIconButtonClass}
                               title={u.isActive !== false ? 'Deactivate' : 'Activate'}
                               onClick={() => toggleActive(u)}
                               disabled={u.id === currentUserId}
@@ -468,8 +478,8 @@ export function TournamentStaffSection({
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                              variant="ghost"
+                              className={adminDangerIconButtonClass}
                               title="Remove from tournament"
                               onClick={() => removeFromTournament(u)}
                               disabled={u.id === currentUserId}
@@ -485,8 +495,7 @@ export function TournamentStaffSection({
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </AdminListCard>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">

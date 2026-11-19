@@ -303,7 +303,7 @@ export default function UserActivityPage() {
 
   return (
     <AdminLayout moduleName="User Activity">
-      <div className="min-h-full bg-muted/40 p-6 lg:p-8">
+      <div className="min-h-full bg-gray-50 p-6 lg:p-8 dark:bg-background">
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card className="rounded-2xl border-border bg-muted shadow-none gap-0 py-3">
             <CardContent className="px-5">
@@ -456,7 +456,7 @@ export default function UserActivityPage() {
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-border bg-muted/60">
+                  <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
                     <TableHead className="h-11 pl-5 text-xs font-medium text-muted-foreground">User</TableHead>
                     <TableHead className="h-11 text-xs font-medium text-muted-foreground">Role</TableHead>
                     <TableHead className="h-11 text-xs font-medium text-muted-foreground">Last login</TableHead>
@@ -466,19 +466,15 @@ export default function UserActivityPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRows.map((row, index) => {
+                  {filteredRows.map((row) => {
                     const roleCfg = ROLE_CFG[row.user.role] ?? ROLE_CFG.public;
                     const selected = selectedUserId === row.user.id;
                     return (
                       <TableRow
                         key={row.user.id}
-                        className={`cursor-pointer border-border/60 ${
-                          selected
-                            ? 'bg-sky-50 dark:bg-sky-950/40'
-                            : index % 2 === 1
-                              ? 'bg-muted/40'
-                              : 'bg-card'
-                        } hover:bg-muted`}
+                        className={`cursor-pointer border-border/60 hover:bg-gray-50 ${
+                          selected ? 'bg-sky-50 dark:bg-sky-950/40' : ''
+                        }`}
                         onClick={() => setSelectedUserId(selected ? null : row.user.id)}
                       >
                         <TableCell className="pl-5 py-3.5">

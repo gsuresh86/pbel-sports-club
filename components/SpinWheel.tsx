@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, doc, query, orderBy, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -734,55 +734,39 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
         </div>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Left: Stats KPIs */}
-            {stats ? (
-              <div className="flex gap-2 shrink-0">
-                {[
-                  { value: stats.totalPlayers,    label: 'Total',           bg: 'bg-blue-50',   fg: 'text-blue-600'   },
-                  { value: stats.totalAssigned,   label: 'Assigned',        bg: 'bg-green-50',  fg: 'text-green-600'  },
-                  { value: stats.totalUnassigned, label: 'Unassigned',      bg: 'bg-orange-50', fg: 'text-orange-600' },
-                  { value: stats.averagePerBucket,label: `Avg/${stats.bucketLabel}`, bg: 'bg-purple-50', fg: 'text-purple-600' },
-                ].map(({ value, label, bg, fg }) => (
-                  <div key={label} className={`text-center px-3 py-2 rounded-lg ${bg}`}>
-                    <div className={`text-xl font-bold ${fg}`}>{value}</div>
-                    <div className="text-[10px] text-gray-500 leading-tight">{label}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div />
-            )}
-
-            {/* Right: all controls */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              <div className="inline-flex rounded-md border p-0.5">
-                <Button
+      <Card className="rounded-2xl border-border shadow-none gap-0 py-0 overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-xl border border-border bg-muted p-1">
+                <button
                   type="button"
-                  size="sm"
-                  variant={assignmentMode === 'spin' ? 'default' : 'ghost'}
-                  className="h-7"
                   onClick={() => setAssignmentMode('spin')}
+                  className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    assignmentMode === 'spin'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <Shuffle className="h-3.5 w-3.5 mr-1" />
+                  <Shuffle className="mr-1.5 h-3.5 w-3.5" />
                   Spin wheel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="button"
-                  size="sm"
-                  variant={assignmentMode === 'manual' ? 'default' : 'ghost'}
-                  className="h-7"
                   onClick={() => setAssignmentMode('manual')}
+                  className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    assignmentMode === 'manual'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <UserPlus className="h-3.5 w-3.5 mr-1" />
+                  <UserPlus className="mr-1.5 h-3.5 w-3.5" />
                   Manual
-                </Button>
+                </button>
               </div>
               <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as CategoryType)}>
-                <SelectTrigger className="w-40 h-8 text-sm">
-                  <SelectValue placeholder="Category" />
+                <SelectTrigger className="h-9 w-full rounded-xl sm:w-48" aria-label="Category">
+                  <SelectValue placeholder="Choose a category" />
                 </SelectTrigger>
                 <SelectContent>
                   {tournament.categories.map(category => (
@@ -793,40 +777,78 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                 </SelectContent>
               </Select>
               {assignmentMode === 'spin' && (
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={roundMode}
-                    onChange={(e) => setRoundMode(e.target.checked)}
-                    className="w-3.5 h-3.5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Round mode</span>
-                </label>
+                <div className="inline-flex rounded-xl border border-border bg-muted p-1">
+                  <button
+                    type="button"
+                    onClick={() => setRoundMode(false)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      !roundMode
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    One player
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoundMode(true)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      roundMode
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Full round
+                  </button>
+                </div>
               )}
-              <Button size="sm" onClick={autoAssignAllPlayers} disabled={!selectedCategory || unassignedRegistrations.length === 0}>
-                <Zap className="h-4 w-4 mr-1.5" />
-                Auto Assign All
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                className="h-9 rounded-xl"
+                onClick={autoAssignAllPlayers}
+                disabled={!selectedCategory || unassignedRegistrations.length === 0}
+              >
+                <Zap className="mr-1.5 h-4 w-4" />
+                Auto assign
               </Button>
               <Button
                 size="sm"
                 onClick={handleUnassignAll}
-                disabled={!selectedCategory}
+                disabled={!selectedCategory || (stats?.totalAssigned ?? 0) === 0}
                 variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400"
+                className="h-9 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
               >
-                <RotateCcw className="h-4 w-4 mr-1.5" />
-                Unassign All
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                Unassign all
               </Button>
             </div>
           </div>
-          {/* Round mode info strip */}
+
+          {stats && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { value: stats.totalPlayers, label: 'Players', tone: 'text-foreground' },
+                { value: stats.totalAssigned, label: 'Assigned', tone: 'text-emerald-700' },
+                { value: stats.totalUnassigned, label: 'Still to place', tone: 'text-amber-700' },
+                { value: stats.averagePerBucket, label: `Avg / ${stats.bucketLabel.toLowerCase()}`, tone: 'text-foreground' },
+              ].map(({ value, label, tone }) => (
+                <div key={label} className="rounded-xl border border-border bg-gray-50 px-3 py-2 dark:bg-muted/40">
+                  <div className={`text-lg font-semibold tabular-nums leading-none ${tone}`}>{value}</div>
+                  <div className="mt-1 text-[11px] text-muted-foreground">{label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {assignmentMode === 'spin' && roundMode && selectedCategory && (
-            <p className="text-xs text-blue-600 mt-1">
-              Round — {Math.min(unassignedRegistrations.length, categoryTargets.length)} players → {categoryTargets.length} {bucketLabel}s
+            <p className="text-xs text-muted-foreground">
+              One spin places {Math.min(unassignedRegistrations.length, categoryTargets.length)} players, one on each {bucketLabel}.
             </p>
           )}
-        </CardHeader>
-        <CardContent>
+        </div>
+        <CardContent className="px-4 py-4 sm:px-5">
           {assignmentMode === 'manual' ? (
             <ManualAssignment
               selectedCategory={selectedCategory}
@@ -854,7 +876,6 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
             <div className="space-y-6">
               {(() => {
                 /* ── Orbital bubble layout ── */
-                const HALF = 360;
                 const AVATAR = 46;
                 const PAIR_W = 68;
                 const showDoublesFaces = isDoublesCategory(selectedCategory || undefined);
@@ -879,21 +900,44 @@ export default function SpinWheel({ tournament, user }: SpinWheelProps) {
                   'from-orange-600 to-orange-400',
                 ];
 
+                if (!selectedCategory) {
+                  return (
+                    <div className="flex flex-col items-center px-6 py-16 text-center">
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-50 text-muted-foreground">
+                        <Shuffle className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">Choose a category</h3>
+                      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                        Pick a category to draw players onto teams, or switch to manual and place them yourself.
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (unassignedRegistrations.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center px-6 py-12 text-center">
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white">
+                        <Trophy className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-base font-semibold text-foreground">Everyone is assigned</h3>
+                      <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                        {stats?.totalAssigned ?? 0} players in this category are already on a {bucketLabel}. The groups are listed below. Unassign all if you want to draw again.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const outer = positions.reduce((max, p) => Math.max(max, Math.hypot(p.x, p.y)), 120);
+                const HALF = Math.ceil(outer + slotW / 2 + 40);
+
                 return (
                   <div className="flex flex-col items-center gap-2 py-2">
-                    {roundMode && (
-                      <div className="text-xs text-blue-600 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 text-center">
-                        <span className="font-semibold">Round Mode — </span>
-                        {Math.min(unassignedRegistrations.length, categoryTargets.length)} players → {categoryTargets.length} {bucketLabel}s
-                      </div>
-                    )}
-
-                    {/* Orbital canvas */}
-                    <div className="relative overflow-x-auto w-full">
+                    <div className="relative w-full overflow-x-auto">
                       <div className="relative mx-auto" style={{ width: HALF * 2, height: HALF * 2, minWidth: HALF * 2 }}>
 
                         {/* Faint orbit rings */}
-                        {RADII.slice(0, Math.ceil(unassignedRegistrations.length / 5) || 1).map(r => (
+                        {RADII.filter((r) => r < HALF - 16).map(r => (
                           <div key={r} className="absolute rounded-full border border-dashed border-gray-200 pointer-events-none"
                             style={{ width: r * 2, height: r * 2, left: HALF - r, top: HALF - r }} />
                         ))}

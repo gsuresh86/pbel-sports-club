@@ -10,18 +10,32 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AdminListCard,
+  adminDangerIconButtonClass,
+  adminFilterInputClass,
+  adminFilterSelectClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableCellClass,
+  adminTableCellFirstClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2, Filter } from 'lucide-react';
 import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawer';
 import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import { parsePaymentRecipient, getInitials } from '@/lib/utils';
+import { parsePaymentRecipient, getInitials, cn } from '@/lib/utils';
 import { categoriesMatch, normalizeCategorySlug, countPublicListedPlayers } from '@/lib/categoryLabels';
 import {
   canAccessTournamentConsole,
@@ -30,11 +44,21 @@ import {
   isTournamentStaff,
 } from '@/lib/permissions';
 
-const STICKY_HEAD = 'sticky top-0 z-30 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL = 'sticky z-20 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
-const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
+const STICKY_HEAD = cn('sticky top-0 z-30 bg-gray-100 dark:bg-muted', adminTableHeadClass);
+const STICKY_HEAD_CORNER = cn('sticky top-0 z-40 bg-gray-100 dark:bg-muted', adminTableHeadClass);
+const STICKY_HEAD_RIGHT = cn(
+  'sticky top-0 right-0 z-40 bg-gray-100 shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] dark:bg-muted',
+  adminTableHeadLastClass,
+);
+
+function stickyCell(side: 'left' | 'right') {
+  return cn(
+    'sticky z-20 bg-card group-hover:bg-gray-50',
+    side === 'right'
+      ? 'right-0 shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)]'
+      : 'shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]',
+  );
+}
 
 interface RegistrationsManagerProps {
   /** When set, scope all data and filters to this tournament only. */
@@ -622,20 +646,24 @@ export function RegistrationsManager({
   const publicListedCount = statsScope.filter((p) => p.registrationStatus !== 'rejected').length;
   const publicPlayerCount = countPublicListedPlayers(statsScope);
 
+  const scopedCount = registrations.filter(
+    (participant) => selectedTournament === 'all' || participant.tournamentId === selectedTournament,
+  ).length;
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'approved': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      case 'rejected': return 'bg-rose-50 text-rose-700 border-rose-100';
+      case 'pending': return 'bg-amber-50 text-amber-700 border-amber-100';
+      default: return 'bg-slate-100 text-muted-foreground border-border';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />;
-      case 'rejected': return <XCircle className="h-4 w-4" />;
-      case 'pending': return <Clock className="h-4 w-4" />;
+      case 'approved': return <CheckCircle className="h-3 w-3" />;
+      case 'rejected': return <XCircle className="h-3 w-3" />;
+      case 'pending': return <Clock className="h-3 w-3" />;
       default: return null;
     }
   };
@@ -1000,16 +1028,16 @@ export function RegistrationsManager({
           </div>
         </div>
 
-        {/* Registrations Table */}
-        <Card className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden py-3">
-          <CardHeader className="shrink-0 pb-0">
-            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-              <CardTitle className="shrink-0 whitespace-nowrap text-base">
-                Registrations ({filteredParticipants.length})
-              </CardTitle>
+        <AdminListCard
+          className="flex min-h-0 flex-1 flex-col"
+          bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+          title="Registrations"
+          subtitle={`Showing ${filteredParticipants.length} of ${scopedCount}`}
+          toolbar={
+            <>
               {!fixedTournamentId && (
                 <Select value={selectedTournament} onValueChange={setSelectedTournament}>
-                  <SelectTrigger className="h-9 w-[min(200px,28vw)] shrink-0" aria-label="Filter by tournament">
+                  <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-44')} aria-label="Filter by tournament">
                     <SelectValue placeholder="Tournament" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1023,7 +1051,8 @@ export function RegistrationsManager({
                 </Select>
               )}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-[130px] shrink-0" aria-label="Filter by status">
+                <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-36')} aria-label="Filter by status">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1034,7 +1063,7 @@ export function RegistrationsManager({
                 </SelectContent>
               </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 w-[min(180px,28vw)] shrink-0 capitalize" aria-label="Filter by category">
+                <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-40 capitalize')} aria-label="Filter by category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1046,18 +1075,18 @@ export function RegistrationsManager({
                   ))}
                 </SelectContent>
               </Select>
-              <div className="relative min-w-[200px] flex-1">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search name, email, phone..."
+                  placeholder="Search name, email, phone"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9 pl-9"
+                  className={cn(adminFilterInputClass, 'pl-9')}
                   aria-label="Search registrations"
                 />
               </div>
-              <Button onClick={exportParticipants} variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
+              <Button onClick={exportParticipants} variant="outline" size="sm" className="h-9 rounded-xl">
                 <Download className="h-4 w-4 mr-1.5" />
                 Export
               </Button>
@@ -1068,14 +1097,14 @@ export function RegistrationsManager({
                 }}
                 variant="outline"
                 size="sm"
-                className="h-9 shrink-0 whitespace-nowrap"
+                className="h-9 rounded-xl"
               >
                 <Upload className="h-4 w-4 mr-1.5" />
                 Import
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1 pb-4">
+            </>
+          }
+        >
             {filteredParticipants.length === 0 ? (
               <div className="flex flex-1 items-center justify-center text-center">
                 <div>
@@ -1085,12 +1114,12 @@ export function RegistrationsManager({
                 </div>
               </div>
             ) : (
-            <div className="registrations-table-scroll min-h-0 flex-1 border">
-              <table className="w-max min-w-full caption-bottom text-sm [&_td]:py-1 [&_th]:h-8">
+            <div className="registrations-table-scroll min-h-0 flex-1">
+              <table className="w-max min-w-full caption-bottom text-sm">
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
-                    <TableHead className={`${STICKY_HEAD_CORNER} left-14 min-w-[140px]`}>Name</TableHead>
+                  <TableRow className={adminTableHeadRowClass}>
+                    <TableHead className={cn(STICKY_HEAD_CORNER, adminTableHeadFirstClass, 'left-0 w-14')}>Photo</TableHead>
+                    <TableHead className={cn(STICKY_HEAD_CORNER, 'left-14 min-w-[140px]')}>Name</TableHead>
                     <TableHead className={STICKY_HEAD}>Email</TableHead>
                     <TableHead className={STICKY_HEAD}>Phone</TableHead>
                     <TableHead className={STICKY_HEAD}>Age</TableHead>
@@ -1100,11 +1129,11 @@ export function RegistrationsManager({
                     <TableHead className={STICKY_HEAD}>Category</TableHead>
                     <TableHead className={STICKY_HEAD}>Status</TableHead>
                     <TableHead className={STICKY_HEAD}>Payment</TableHead>
-                    <TableHead className={`${STICKY_HEAD} min-w-[100px]`}>Ref No</TableHead>
-                    <TableHead className={`${STICKY_HEAD} min-w-[90px]`}>Paid Amount</TableHead>
-                    <TableHead className={`${STICKY_HEAD} min-w-[120px]`}>Paid To</TableHead>
+                    <TableHead className={cn(STICKY_HEAD, 'min-w-[100px]')}>Ref No</TableHead>
+                    <TableHead className={cn(STICKY_HEAD, 'min-w-[90px]')}>Paid Amount</TableHead>
+                    <TableHead className={cn(STICKY_HEAD, 'min-w-[120px]')}>Paid To</TableHead>
                     <TableHead className={STICKY_HEAD}>Registration Date</TableHead>
-                    <TableHead className={`${STICKY_HEAD_RIGHT} min-w-[150px]`}>Actions</TableHead>
+                    <TableHead className={cn(STICKY_HEAD_RIGHT, 'min-w-[150px]')}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1112,8 +1141,8 @@ export function RegistrationsManager({
                     const paymentRecipient = parsePaymentRecipient(participant.selectedPaymentAccount);
 
                     return (
-                      <TableRow key={participant.id} className="group">
-                        <TableCell className={`${STICKY_CELL} left-0 w-14`}>
+                      <TableRow key={participant.id} className={adminTableRowClass('group')}>
+                        <TableCell className={cn(stickyCell('left'), adminTableCellFirstClass, 'left-0 w-14')}>
                           {participant.partnerName?.trim() ? (
                             <div className="relative h-8 w-11">
                               {participant.profilePhotoUrl ? (
@@ -1160,7 +1189,7 @@ export function RegistrationsManager({
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className={`${STICKY_CELL} left-14 min-w-[140px] max-w-[200px] font-medium`}>
+                        <TableCell className={cn(stickyCell('left'), adminTableCellClass, 'left-14 min-w-[140px] max-w-[200px] font-medium')}>
                           <span className="block truncate" title={participant.name}>{participant.name}</span>
                           {participant.partnerName?.trim() && (
                             <span
@@ -1171,34 +1200,34 @@ export function RegistrationsManager({
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={participant.email}>{participant.email}</TableCell>
-                        <TableCell>{participant.phone}</TableCell>
-                        <TableCell>{participant.age}</TableCell>
-                        <TableCell className="capitalize">{participant.gender}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className={cn(adminTableCellClass, 'max-w-[200px] truncate')} title={participant.email}>{participant.email}</TableCell>
+                        <TableCell className={adminTableCellClass}>{participant.phone}</TableCell>
+                        <TableCell className={adminTableCellClass}>{participant.age}</TableCell>
+                        <TableCell className={cn(adminTableCellClass, 'capitalize')}>{participant.gender}</TableCell>
+                        <TableCell className={cn(adminTableCellClass, 'text-muted-foreground')}>
                           {participant.tower || participant.flatNumber
                             ? [participant.tower, participant.flatNumber].filter(Boolean).join(' ')
                             : '—'}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize shrink-0">
+                        <TableCell className={adminTableCellClass}>
+                          <Badge variant="outline" className={cn(adminPillBadgeClass, 'capitalize shrink-0')}>
                             {participant.expertiseLevel}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="capitalize shrink-0">
+                        <TableCell className={adminTableCellClass}>
+                          <Badge variant="outline" className={cn(adminPillBadgeClass, 'capitalize shrink-0')}>
                             {participant.selectedCategory?.replace(/-/g, ' ') || 'N/A'}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          <Badge className={`${getStatusColor(participant.registrationStatus)} shrink-0 capitalize`}>
+                        <TableCell className={adminTableCellClass}>
+                          <Badge className={cn(adminPillBadgeClass, getStatusColor(participant.registrationStatus), 'shrink-0 capitalize')}>
                             <span className="inline-flex items-center gap-1">
                               {getStatusIcon(participant.registrationStatus)}
                               {participant.registrationStatus}
                             </span>
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={adminTableCellClass}>
                           <Select
                             value={participant.paymentStatus || 'pending'}
                             onValueChange={(value) =>
@@ -1209,7 +1238,7 @@ export function RegistrationsManager({
                             }
                             disabled={updatingPaymentId === participant.id}
                           >
-                            <SelectTrigger className="h-8 w-[88px] shrink-0 capitalize">
+                            <SelectTrigger className="h-8 w-[100px] shrink-0 capitalize rounded-xl">
                               <SelectValue placeholder="Status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1219,7 +1248,7 @@ export function RegistrationsManager({
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="min-w-[100px] max-w-[140px]">
+                        <TableCell className={cn(adminTableCellClass, 'min-w-[100px] max-w-[140px]')}>
                           {participant.paymentReference ? (
                             <span className="block truncate font-mono text-xs" title={participant.paymentReference}>
                               {participant.paymentReference}
@@ -1228,14 +1257,14 @@ export function RegistrationsManager({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="min-w-[90px] tabular-nums">
+                        <TableCell className={cn(adminTableCellClass, 'min-w-[90px] tabular-nums')}>
                           {participant.paymentAmount != null ? (
                             <span>₹{participant.paymentAmount.toLocaleString('en-IN')}</span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="min-w-[120px] max-w-[160px]">
+                        <TableCell className={cn(adminTableCellClass, 'min-w-[120px] max-w-[160px]')}>
                           {paymentRecipient?.name ? (
                             <span
                               className="block truncate font-medium"
@@ -1251,23 +1280,23 @@ export function RegistrationsManager({
                             <span className="text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
-                        <TableCell className={`${STICKY_CELL_RIGHT} min-w-[150px]`}>
-                          <div className="flex flex-nowrap items-center gap-1">
+                        <TableCell className={adminTableCellClass}>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
+                        <TableCell className={cn(stickyCell('right'), 'min-w-[150px] py-2 pr-5')}>
+                          <div className="flex flex-nowrap items-center justify-end gap-0.5">
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => openReviewDrawer(participant.id)}
-                              className="h-8 shrink-0 px-2"
+                              className={adminIconButtonClass}
                               title="View registration"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => openEditDrawer(participant.id)}
-                              className="h-8 shrink-0 px-2"
+                              className={adminIconButtonClass}
                               title="Edit registration"
                             >
                               <Pencil className="h-4 w-4" />
@@ -1276,18 +1305,18 @@ export function RegistrationsManager({
                               <>
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={() => handleStatusChange(participant.id, 'approved')}
-                                  className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                  className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                   title="Approve"
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                  className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                  className={adminDangerIconButtonClass}
                                   title="Reject"
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -1297,9 +1326,9 @@ export function RegistrationsManager({
                             {participant.registrationStatus === 'approved' && (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                className={adminDangerIconButtonClass}
                                 title="Reject"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -1308,9 +1337,9 @@ export function RegistrationsManager({
                             {participant.registrationStatus === 'rejected' && (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => handleStatusChange(participant.id, 'approved')}
-                                className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                                 title="Approve"
                               >
                                 <CheckCircle className="h-4 w-4" />
@@ -1318,10 +1347,10 @@ export function RegistrationsManager({
                             )}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => requestDelete(participant.id)}
                               disabled={deletingId === participant.id}
-                              className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                              className={adminDangerIconButtonClass}
                               title="Delete registration"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1335,8 +1364,7 @@ export function RegistrationsManager({
               </table>
             </div>
             )}
-          </CardContent>
-        </Card>
+        </AdminListCard>
 
         {/* Import Modal */}
         {showImportModal && (

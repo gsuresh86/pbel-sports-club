@@ -155,7 +155,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
   };
 
   return (
-    <div className="min-h-dvh bg-background text-foreground flex">
+    <div className="min-h-dvh bg-gray-50 text-foreground flex dark:bg-background">
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -317,7 +317,7 @@ export default function AdminLayout({ children, moduleName }: AdminLayoutProps) 
           </div>
         </div>
 
-        <main className="flex-1 overflow-auto bg-background">{children}</main>
+        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-background">{children}</main>
       </div>
     </div>
   );

@@ -243,7 +243,7 @@ export default function TournamentSidebarLayout({ children }: { children: React.
   }
 
   return (
-    <div className="min-h-dvh bg-background text-foreground flex">
+    <div className="min-h-dvh bg-gray-50 text-foreground flex dark:bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div

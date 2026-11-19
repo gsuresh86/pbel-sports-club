@@ -12,9 +12,23 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AdminListCard,
+  adminFilterInputClass,
+  adminFilterSelectClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableCellClass,
+  adminTableCellFirstClass,
+  adminTableCellLastClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
 import { categoriesMatch } from '@/lib/categoryLabels';
 import {
   buildUniquePlayersFromRegistrations,
@@ -27,7 +41,7 @@ import {
   type UniquePlayerRow,
 } from '@/lib/tournament-players';
 import { PlayerEditPane } from '@/components/admin/PlayerEditPane';
-import { Download, Edit, Loader2, Users, X } from 'lucide-react';
+import { Download, Edit, Loader2, Search, Users, X } from 'lucide-react';
 import Image from 'next/image';
 import { useTournamentPageGate } from '@/hooks/use-tournament-page-gate';
 import { cn } from '@/lib/utils';
@@ -161,68 +175,58 @@ export default function PlayersPage() {
   if (!tournament) return null;
 
   return (
-    <div className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col gap-3 overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <h3 className="text-base font-semibold sm:text-lg">
-            Players (
-            {playerSearch || playerCategoryFilter !== 'all'
-              ? `${filteredPlayers.length} of ${uniquePlayers.length}`
-              : uniquePlayers.length}
-            )
-          </h3>
-          <p className="text-xs text-muted-foreground sm:text-sm">
-            Unique players — click a row or <Edit className="inline h-3 w-3" /> to edit name and details
-          </p>
-        </div>
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-          <Select value={playerCategoryFilter} onValueChange={setPlayerCategoryFilter}>
-            <SelectTrigger className="hidden h-8 w-36 text-xs sm:flex">
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">
-                All categories
-              </SelectItem>
-              {allPlayerCategories.map((cat) => (
-                <SelectItem key={cat} value={cat} className="text-xs capitalize">
-                  {formatCategoryLabel(cat)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="relative w-full sm:w-52">
-            <Input
-              placeholder="Search players…"
-              value={playerSearch}
-              onChange={(e) => setPlayerSearch(e.target.value)}
-              className="h-8 pr-8 text-xs"
-            />
-            {playerSearch && (
-              <button
-                type="button"
-                onClick={() => setPlayerSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden h-8 gap-1.5 text-xs sm:flex"
-            onClick={() => exportPlayersCsv(filteredPlayers)}
-            disabled={filteredPlayers.length === 0}
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-none">
-        <CardContent className="flex min-h-0 flex-1 overflow-hidden p-0">
+    <div className="flex h-[calc(100dvh-14rem)] min-h-[280px] flex-col overflow-hidden">
+      <AdminListCard
+        className="flex min-h-0 flex-1 flex-col"
+        bodyClassName="flex min-h-0 flex-1 overflow-hidden"
+        title="Players"
+        subtitle={`Showing ${filteredPlayers.length} of ${uniquePlayers.length}`}
+        toolbar={
+          <>
+            <Select value={playerCategoryFilter} onValueChange={setPlayerCategoryFilter}>
+              <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-40')}>
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {allPlayerCategories.map((cat) => (
+                  <SelectItem key={cat} value={cat} className="capitalize">
+                    {formatCategoryLabel(cat)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search players"
+                value={playerSearch}
+                onChange={(e) => setPlayerSearch(e.target.value)}
+                className={cn(adminFilterInputClass, 'pl-9 pr-8')}
+              />
+              {playerSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPlayerSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-xl"
+              onClick={() => exportPlayersCsv(filteredPlayers)}
+              disabled={filteredPlayers.length === 0}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </Button>
+          </>
+        }
+      >
           {uniquePlayers.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-8 text-center">
               <div>
@@ -241,15 +245,15 @@ export default function PlayersPage() {
               >
                 <Table className="min-w-[700px]">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10 text-xs sm:text-sm" />
-                      <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Phone</TableHead>
-                      <TableHead className="text-xs sm:text-sm">T-Shirt Size</TableHead>
-                      <TableHead className="text-xs sm:text-sm">T-Shirt Taken</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Level</TableHead>
-                      <TableHead className="text-xs sm:text-sm">Categories</TableHead>
-                      <TableHead className="w-20 text-xs sm:text-sm">Actions</TableHead>
+                    <TableRow className={adminTableHeadRowClass}>
+                      <TableHead className={cn(adminTableHeadFirstClass, 'w-14')} />
+                      <TableHead className={adminTableHeadClass}>Name</TableHead>
+                      <TableHead className={adminTableHeadClass}>Phone</TableHead>
+                      <TableHead className={adminTableHeadClass}>T-Shirt Size</TableHead>
+                      <TableHead className={adminTableHeadClass}>T-Shirt Taken</TableHead>
+                      <TableHead className={adminTableHeadClass}>Level</TableHead>
+                      <TableHead className={adminTableHeadClass}>Categories</TableHead>
+                      <TableHead className={cn(adminTableHeadLastClass, 'w-20')}>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -260,12 +264,12 @@ export default function PlayersPage() {
                       return (
                         <TableRow
                           key={key}
-                          className={cn('cursor-pointer', isSelected && 'bg-blue-50')}
+                          className={adminTableRowClass(cn('cursor-pointer', isSelected && 'bg-sky-50'))}
                           onClick={() => openPlayerPane(player)}
                         >
-                          <TableCell className="py-1.5 pr-0">
+                          <TableCell className={cn(adminTableCellFirstClass, 'pr-0')}>
                             {player.profilePhotoUrl ? (
-                              <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full">
+                              <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full">
                                 <Image
                                   src={player.profilePhotoUrl}
                                   alt={player.name}
@@ -275,15 +279,15 @@ export default function PlayersPage() {
                                 />
                               </div>
                             ) : (
-                              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-white">
+                              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-800 text-[10px] font-bold text-white">
                                 {initials}
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="py-1.5 text-xs font-medium sm:text-sm">{player.name}</TableCell>
-                          <TableCell className="py-1.5 text-xs sm:text-sm">{player.phone || '—'}</TableCell>
-                          <TableCell className="py-1.5 text-xs sm:text-sm">{player.tshirtSize || '—'}</TableCell>
-                          <TableCell className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <TableCell className={cn(adminTableCellClass, 'font-medium')}>{player.name}</TableCell>
+                          <TableCell className={cn(adminTableCellClass, 'text-muted-foreground')}>{player.phone || '—'}</TableCell>
+                          <TableCell className={adminTableCellClass}>{player.tshirtSize || '—'}</TableCell>
+                          <TableCell className={adminTableCellClass} onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-2">
                               <Checkbox
                                 id={`tshirt-taken-${key}`}
@@ -306,26 +310,26 @@ export default function PlayersPage() {
                               </label>
                             </div>
                           </TableCell>
-                          <TableCell className="py-1.5">
-                            <Badge variant="outline" className="text-[10px] capitalize sm:text-xs">
+                          <TableCell className={adminTableCellClass}>
+                            <Badge variant="outline" className={cn(adminPillBadgeClass, 'capitalize')}>
                               {player.expertiseLevel || '—'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="py-1.5">
+                          <TableCell className={adminTableCellClass}>
                             <div className="flex flex-wrap gap-1">
                               {player.categories.map((cat) => (
-                                <Badge key={cat} variant="outline" className="text-[10px] capitalize sm:text-xs">
+                                <Badge key={cat} variant="outline" className={cn(adminPillBadgeClass, 'capitalize')}>
                                   {formatCategoryLabel(cat)}
                                 </Badge>
                               ))}
                             </div>
                           </TableCell>
-                          <TableCell className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <TableCell className={adminTableCellLastClass} onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openPlayerPane(player)}
-                              className="h-7 w-7 p-0 touch-manipulation"
+                              className={adminIconButtonClass}
                               title="Edit"
                             >
                               <Edit className="h-3.5 w-3.5" />
@@ -350,8 +354,7 @@ export default function PlayersPage() {
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+      </AdminListCard>
     </div>
   );
 }

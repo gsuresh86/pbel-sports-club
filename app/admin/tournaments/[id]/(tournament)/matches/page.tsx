@@ -26,7 +26,22 @@ import { Label } from '@/components/ui/label';
 import { DatePickerInput, DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+  AdminListCard,
+  adminDangerIconButtonClass,
+  adminFilterInputClass,
+  adminFilterSelectClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableCellClass,
+  adminTableCellFirstClass,
+  adminTableCellLastClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -94,13 +109,13 @@ const fromISTLocal = (value: string) => new Date(new Date(value + ':00Z').getTim
 
 function getMatchStatusColor(status: string) {
   switch (status) {
-    case 'completed': return 'bg-green-100 text-green-800';
-    case 'live': return 'bg-red-100 text-red-800';
-    case 'scheduled': return 'bg-blue-100 text-blue-800';
-    case 'not-scheduled': return 'bg-gray-100 text-muted-foreground';
-    case 'cancelled': return 'bg-gray-100 text-gray-800';
-    case 'postponed': return 'bg-yellow-100 text-yellow-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'completed': return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    case 'live': return 'bg-rose-50 text-rose-700 border-rose-100';
+    case 'scheduled': return 'bg-sky-50 text-sky-700 border-sky-100';
+    case 'not-scheduled': return 'bg-slate-100 text-muted-foreground border-border';
+    case 'cancelled': return 'bg-slate-100 text-muted-foreground border-border';
+    case 'postponed': return 'bg-amber-50 text-amber-700 border-amber-100';
+    default: return 'bg-slate-100 text-muted-foreground border-border';
   }
 }
 
@@ -706,132 +721,128 @@ export default function MatchesPage() {
     <div className="space-y-4 sm:space-y-6">
       {AlertDialogComponent}
 
-      {/* Title row */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold sm:text-lg">
-            Matches ({filteredMatches.length}{filteredMatches.length !== totalMatches ? ` of ${totalMatches}` : ''})
-          </h3>
-          <p className="text-xs text-muted-foreground sm:text-sm">Start matches and enter scores below.</p>
-        </div>
-        {isFullAdmin && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button size="sm" className="h-8 text-xs" onClick={() => setGenDrawerOpen(true)}>
-              <Swords className="h-3.5 w-3.5 mr-1" />
-              Generate
-            </Button>
-            {totalMatches > 0 && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                onClick={async () => {
-                  if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-                  try {
-                    await Promise.all(matches.map((m) => deleteDoc(tournamentMatchRef(tournamentId, m.id))));
-                    invalidateTournament(tournamentId);
-                  } catch (e) {
-                    console.error(e);
-                    alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-                  }
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Clear All
-              </Button>
+      <AdminListCard
+        title="Matches"
+        subtitle={`Showing ${filteredMatches.length} of ${totalMatches}`}
+        toolbar={
+          <>
+            <div className="relative w-full sm:w-56">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search players, rounds"
+                className={cn(adminFilterInputClass, 'w-full pl-9 pr-3')}
+              />
+            </div>
+
+            <Select value={roundFilter} onValueChange={setRoundFilter}>
+              <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-36')}>
+                <SelectValue placeholder="Round / Pool" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Rounds</SelectItem>
+                {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {distinctCategories.length > 0 && (
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-40')}>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {distinctCategories.map(c => (
+                    <SelectItem key={c} value={c}>
+                      {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* Search + filters */}
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <div className="relative col-span-2 min-w-0 sm:min-w-[140px] sm:flex-none sm:w-48">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search players, rounds…"
-            className="h-10 sm:h-8 pl-7 pr-3 w-full text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
+            {distinctFormats.length > 0 && (
+              <Select value={formatFilter} onValueChange={setFormatFilter}>
+                <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-40')}>
+                  <SelectValue placeholder="Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Formats</SelectItem>
+                  {distinctFormats.map(format => (
+                    <SelectItem key={format} value={format}>
+                      {getFormatLabel(format)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-        <Select value={roundFilter} onValueChange={setRoundFilter}>
-          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
-            <SelectValue placeholder="Round / Pool" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rounds</SelectItem>
-            {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-          </SelectContent>
-        </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className={cn(adminFilterSelectClass, 'w-full sm:w-36')}>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="not-scheduled">Not scheduled</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="live">Live</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="postponed">Postponed</SelectItem>
+              </SelectContent>
+            </Select>
 
-        {distinctCategories.length > 0 && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {distinctCategories.map(c => (
-                <SelectItem key={c} value={c}>
-                  {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+            <DatePickerInput
+              value={dateFilter}
+              onChange={setDateFilter}
+              placeholder="Filter by date"
+              className="w-full sm:w-auto space-y-0"
+              triggerClassName="h-9 w-full sm:w-auto rounded-xl px-3 text-sm"
+            />
 
-        {distinctFormats.length > 0 && (
-          <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[150px] text-xs">
-              <SelectValue placeholder="Format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Formats</SelectItem>
-              {distinctFormats.map(format => (
-                <SelectItem key={format} value={format}>
-                  {getFormatLabel(format)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+            {anyFilterActive && (
+              <button
+                onClick={clearFilters}
+                title="Clear all filters"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <FilterX className="h-3.5 w-3.5" />
+              </button>
+            )}
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[120px] text-xs">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="not-scheduled">Not scheduled</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="live">Live</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-            <SelectItem value="postponed">Postponed</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <DatePickerInput
-          value={dateFilter}
-          onChange={setDateFilter}
-          placeholder="Filter by date"
-          className="col-span-2 sm:col-auto w-full sm:w-auto space-y-0"
-          triggerClassName="h-10 sm:h-8 w-full sm:w-auto px-2 text-xs"
-        />
-
-        {anyFilterActive && (
-          <button
-            onClick={clearFilters}
-            title="Clear all filters"
-            className="h-10 w-10 sm:h-8 sm:w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-gray-800 transition-colors"
-          >
-            <FilterX className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+            {isFullAdmin && (
+              <>
+                <Button size="sm" className="h-9 rounded-xl bg-slate-900 text-white hover:bg-slate-800" onClick={() => setGenDrawerOpen(true)}>
+                  <Swords className="h-3.5 w-3.5 mr-1" />
+                  Generate
+                </Button>
+                {totalMatches > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 rounded-xl text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                    onClick={async () => {
+                      if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                      try {
+                        await Promise.all(matches.map((m) => deleteDoc(tournamentMatchRef(tournamentId, m.id))));
+                        invalidateTournament(tournamentId);
+                      } catch (e) {
+                        console.error(e);
+                        alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Clear All
+                  </Button>
+                )}
+              </>
+            )}
+          </>
+        }
+      >
 
       {/* Bulk action bar */}
       {isFullAdmin && selectedVisible.length > 0 && (
@@ -871,9 +882,6 @@ export default function MatchesPage() {
         </div>
       )}
 
-      <Card className="rounded-none">
-        <CardContent className="p-0">
-
           {/* ── Mobile card list (hidden md+) ── */}
           <div className="md:hidden divide-y divide-gray-100">
             {sortedMatches.map((match) => (
@@ -899,7 +907,7 @@ export default function MatchesPage() {
                       <span className="text-xs text-muted-foreground font-medium">
                         #{match.matchNumber} · {match.round}
                       </span>
-                      <Badge className={`text-[10px] px-1.5 ${getMatchStatusColor(match.status)}`}>
+                      <Badge className={cn(adminPillBadgeClass, 'capitalize', getMatchStatusColor(match.status))}>
                         {getMatchStatusLabel(match.status)}
                       </Badge>
                     </div>
@@ -990,9 +998,9 @@ export default function MatchesPage() {
           <div className="hidden md:block overflow-auto max-h-[calc(100vh-16rem)]">
             <Table className="min-w-[720px]">
               <TableHeader>
-                <TableRow>
+                <TableRow className={adminTableHeadRowClass}>
                   {isFullAdmin && (
-                    <TableHead className="w-8">
+                    <TableHead className={cn(adminTableHeadFirstClass, 'w-10')}>
                       <Checkbox
                         checked={allVisibleSelected}
                         onCheckedChange={toggleSelectAll}
@@ -1001,40 +1009,43 @@ export default function MatchesPage() {
                     </TableHead>
                   )}
                   <TableHead
-                    className="text-xs cursor-pointer select-none whitespace-nowrap"
+                    className={cn(adminTableHeadClass, 'cursor-pointer select-none whitespace-nowrap', !isFullAdmin && 'pl-5')}
                     onClick={() => toggleSort('matchNumber')}
                   >
                     Match # <SortIcon col="matchNumber" />
                   </TableHead>
                   <TableHead
-                    className="text-xs cursor-pointer select-none"
+                    className={cn(adminTableHeadClass, 'cursor-pointer select-none')}
                     onClick={() => toggleSort('round')}
                   >
                     Round <SortIcon col="round" />
                   </TableHead>
-                  <TableHead className="text-xs">Player 1</TableHead>
-                  <TableHead className="text-xs">Player 2</TableHead>
-                  <TableHead className="text-xs">Score</TableHead>
+                  <TableHead className={adminTableHeadClass}>Player 1</TableHead>
+                  <TableHead className={adminTableHeadClass}>Player 2</TableHead>
+                  <TableHead className={adminTableHeadClass}>Score</TableHead>
                   <TableHead
-                    className="text-xs cursor-pointer select-none"
+                    className={cn(adminTableHeadClass, 'cursor-pointer select-none')}
                     onClick={() => toggleSort('status')}
                   >
                     Status <SortIcon col="status" />
                   </TableHead>
                   <TableHead
-                    className="text-xs cursor-pointer select-none whitespace-nowrap"
+                    className={cn(adminTableHeadClass, 'cursor-pointer select-none whitespace-nowrap')}
                     onClick={() => toggleSort('scheduledTime')}
                   >
                     Time <SortIcon col="scheduledTime" />
                   </TableHead>
-                  <TableHead className="text-right text-xs w-28">Actions</TableHead>
+                  <TableHead className={adminTableHeadLastClass}>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedMatches.map((match) => (
-                  <TableRow key={match.id} data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
+                  <TableRow
+                    key={match.id}
+                    className={adminTableRowClass(selectedIds.has(match.id) ? 'bg-sky-50' : undefined)}
+                  >
                     {isFullAdmin && (
-                      <TableCell className="py-2">
+                      <TableCell className={adminTableCellFirstClass}>
                         <Checkbox
                           checked={selectedIds.has(match.id)}
                           onCheckedChange={() => toggleSelect(match.id)}
@@ -1042,7 +1053,7 @@ export default function MatchesPage() {
                         />
                       </TableCell>
                     )}
-                    <TableCell className="font-medium text-xs py-2">
+                    <TableCell className={cn(adminTableCellClass, 'font-medium', !isFullAdmin && 'pl-5')}>
                       <Link
                         href={`/admin/tournaments/${tournamentId}/matches/${match.id}`}
                         className="hover:underline hover:text-blue-600"
@@ -1053,17 +1064,17 @@ export default function MatchesPage() {
                         <Badge variant="outline" className="ml-1 text-[10px]">Team</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</TableCell>
-                    <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
-                    <TableCell className="py-2">
-                      <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>
+                    <TableCell className={adminTableCellClass}>{match.round}</TableCell>
+                    <TableCell className={cn(adminTableCellClass, 'max-w-[160px] truncate')}>{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</TableCell>
+                    <TableCell className={cn(adminTableCellClass, 'max-w-[160px] truncate')}>{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</TableCell>
+                    <TableCell className={adminTableCellClass}>{renderScore(match)}</TableCell>
+                    <TableCell className={adminTableCellClass}>
+                      <Badge className={cn(adminPillBadgeClass, 'capitalize', getMatchStatusColor(match.status))}>
                         {getMatchStatusLabel(match.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs py-2 whitespace-nowrap">{formatDate(new Date(match.scheduledTime))}</TableCell>
-                    <TableCell className="text-right py-2">
+                    <TableCell className={cn(adminTableCellClass, 'whitespace-nowrap text-muted-foreground')}>{formatDate(new Date(match.scheduledTime))}</TableCell>
+                    <TableCell className={adminTableCellLastClass}>
                       <div className="flex items-center justify-end gap-1">
                         {canRunMatches && match.status === 'scheduled' && (
                           <Button
@@ -1088,7 +1099,7 @@ export default function MatchesPage() {
                         {canRunMatches && match.status !== 'completed' && renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={adminMatchScorePath(match.id, tournamentId)} className="inline-block">
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
+                            <Button size="sm" variant="outline" className="h-8 rounded-xl px-2 text-xs touch-manipulation">
                               <Swords className="h-3 w-3 mr-1" />
                               {match.status === 'scheduled' ? 'Score' : 'Update'}
                             </Button>
@@ -1096,20 +1107,20 @@ export default function MatchesPage() {
                         )}
                         {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
                           <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer" className="inline-block">
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation" title="Open TV scoreboard">
+                            <Button size="sm" variant="ghost" className={adminIconButtonClass} title="Open TV scoreboard">
                               <Monitor className="h-3 w-3" />
                             </Button>
                           </Link>
                         )}
                         <Link href={`/admin/tournaments/${tournamentId}/matches/${match.id}`} className="inline-block">
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 touch-manipulation" title="View match details">
+                          <Button size="sm" variant="ghost" className={adminIconButtonClass} title="View match details">
                             <ExternalLink className="h-3 w-3" />
                           </Button>
                         </Link>
                         {canRunMatches && (
                           <Button
                             size="sm" variant="ghost"
-                            className="h-7 w-7 p-0 text-xs touch-manipulation"
+                            className={adminIconButtonClass}
                             onClick={() => openEditMatch(match)}
                             title="Edit match"
                           >
@@ -1119,7 +1130,7 @@ export default function MatchesPage() {
                         {isFullAdmin && (
                           <Button
                             size="sm" variant="ghost"
-                            className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                            className={adminDangerIconButtonClass}
                             onClick={() => handleDeleteMatch(match.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1154,8 +1165,7 @@ export default function MatchesPage() {
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </AdminListCard>
 
       {/* Generate Matches Panel */}
       {isFullAdmin && genDrawerOpen && (

@@ -331,7 +331,7 @@ export default function OverviewPage() {
     : null;
 
   return (
-    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 min-h-full bg-muted/40 p-4 sm:p-6 lg:p-8 space-y-6">
+    <div className="-mx-4 -my-4 sm:-mx-6 sm:-my-6 min-h-full bg-gray-50 p-4 sm:p-6 lg:p-8 space-y-6 dark:bg-background">
       {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

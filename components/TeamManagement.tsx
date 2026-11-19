@@ -22,6 +22,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  adminDangerIconButtonClass,
+  adminFilterSelectClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -727,7 +737,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         </div>
         <div className="flex items-center gap-2">
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className={cn(adminFilterSelectClass, 'w-44')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -781,10 +791,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               </Button>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <Table className={adminTableClass}>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className={adminTableHeadRowClass}>
                     <TableHead>#</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
@@ -805,7 +815,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                       p => p.category === team.category && isTeamCategory(team.category)
                     );
                     return (
-                      <TableRow key={team.id}>
+                      <TableRow key={team.id} className={adminTableRowClass()}>
                         <TableCell className="text-gray-500 text-sm">{idx + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -819,10 +829,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{formatCategory(team.category)}</Badge>
+                          <Badge variant="outline" className={adminPillBadgeClass}>{formatCategory(team.category)}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge className={team.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                          <Badge className={cn(adminPillBadgeClass, 'capitalize', team.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-muted-foreground border-border')}>
                             {team.status}
                           </Badge>
                         </TableCell>
@@ -900,10 +910,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handleEditTeam(team)}>
+                            <Button size="sm" variant="ghost" className={adminIconButtonClass} onClick={() => handleEditTeam(team)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDeleteTeam(team.id)}>
+                            <Button size="sm" variant="ghost" className={adminDangerIconButtonClass} onClick={() => handleDeleteTeam(team.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -1097,10 +1107,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               </Button>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <Table className={adminTableClass}>
                 <TableHeader>
-                  <TableRow className="text-xs">
+                  <TableRow className={adminTableHeadRowClass}>
                     <TableHead className="py-2 w-8">#</TableHead>
                     <TableHead className="py-2">Name</TableHead>
                     <TableHead className="py-2">Category</TableHead>
@@ -1117,14 +1127,14 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     const poolPlayers = teamPool ? [] : getPlayersForPool(pool);
                     const members = teamPool ? poolTeams : poolPlayers;
                     return (
-                      <TableRow key={pool.id} className="text-sm">
+                      <TableRow key={pool.id} className={adminTableRowClass()}>
                         <TableCell className="py-1.5 text-gray-400 text-xs">{idx + 1}</TableCell>
                         <TableCell className="py-1.5 font-medium">{pool.name}</TableCell>
                         <TableCell className="py-1.5">
-                          <Badge variant="outline" className="text-xs py-0">{formatCategory(pool.category)}</Badge>
+                          <Badge variant="outline" className={adminPillBadgeClass}>{formatCategory(pool.category)}</Badge>
                         </TableCell>
-                        <TableCell className="py-1.5">
-                          <Badge className={`text-xs py-0 ${pool.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        <TableCell>
+                          <Badge className={cn(adminPillBadgeClass, 'capitalize', pool.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-100 text-muted-foreground border-border')}>
                             {pool.status}
                           </Badge>
                         </TableCell>
@@ -1179,16 +1189,16 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0"
+                              className={adminIconButtonClass}
                               title={teamPool ? 'Assign teams' : 'Assign players'}
                               onClick={() => openAssignTeamsToPool(pool)}
                             >
                               <UserPlus className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEditPool(pool)}>
+                            <Button size="sm" variant="ghost" className={adminIconButtonClass} onClick={() => handleEditPool(pool)}>
                               <Edit className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-600" onClick={() => handleDeletePool(pool.id)}>
+                            <Button size="sm" variant="ghost" className={adminDangerIconButtonClass} onClick={() => handleDeletePool(pool.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>

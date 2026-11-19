@@ -35,6 +35,14 @@ import { DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import {
+  adminTableClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
 import { Match, MatchSet } from '@/types';
 import {
   isTeamTieMatch,
@@ -966,21 +974,21 @@ export default function MatchDetailPage() {
                   })}
                 </div>
                 <div className="hidden sm:block">
-                  <Table>
+                  <Table className={adminTableClass}>
                     <TableHeader>
-                      <TableRow className="bg-muted/80">
-                        <TableHead className="text-xs w-14 pl-4">Set</TableHead>
-                        <TableHead className="text-xs">{side1}</TableHead>
-                        <TableHead className="text-xs">{side2}</TableHead>
-                        <TableHead className="text-xs">Winner</TableHead>
+                      <TableRow className={adminTableHeadRowClass}>
+                        <TableHead className={cn(adminTableHeadFirstClass, 'w-14')}>Set</TableHead>
+                        <TableHead className={adminTableHeadClass}>{side1}</TableHead>
+                        <TableHead className={adminTableHeadClass}>{side2}</TableHead>
+                        <TableHead className={adminTableHeadClass}>Winner</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {match.sets.map(s => {
+                      {match.sets.map((s) => {
                         const s1Won = s.player1Score > s.player2Score;
                         const s2Won = s.player2Score > s.player1Score;
                         return (
-                          <TableRow key={s.setNumber}>
+                          <TableRow key={s.setNumber} className={adminTableRowClass()}>
                             <TableCell className="text-xs py-2.5 pl-4 font-medium text-muted-foreground">Set {s.setNumber}</TableCell>
                             <TableCell className={cn('text-sm py-2.5 font-bold tabular-nums', s1Won ? 'text-green-700' : 'text-muted-foreground')}>
                               {s.player1Score}
@@ -1026,20 +1034,20 @@ export default function MatchDetailPage() {
                   <>
                     {/* Desktop */}
                     <div className="hidden sm:block overflow-x-auto">
-                      <Table>
+                      <Table className={adminTableClass}>
                         <TableHeader>
-                          <TableRow className="bg-muted/80">
-                            <TableHead className="text-xs w-8 pl-4">#</TableHead>
-                            <TableHead className="text-xs w-16">Type</TableHead>
-                            <TableHead className="text-xs text-indigo-700 min-w-[130px]">{side1}</TableHead>
-                            <TableHead className="text-xs text-amber-700 min-w-[130px]">{side2}</TableHead>
-                            <TableHead className="text-xs w-32">Score</TableHead>
-                            <TableHead className="text-xs min-w-[100px]">Winner</TableHead>
-                            <TableHead className="text-right text-xs pr-4 w-28">Actions</TableHead>
+                          <TableRow className={adminTableHeadRowClass}>
+                            <TableHead className={cn(adminTableHeadFirstClass, 'w-8')}>#</TableHead>
+                            <TableHead className={cn(adminTableHeadClass, 'w-16')}>Type</TableHead>
+                            <TableHead className={cn(adminTableHeadClass, 'text-indigo-700 min-w-[130px]')}>{side1}</TableHead>
+                            <TableHead className={cn(adminTableHeadClass, 'text-amber-700 min-w-[130px]')}>{side2}</TableHead>
+                            <TableHead className={cn(adminTableHeadClass, 'w-32')}>Score</TableHead>
+                            <TableHead className={cn(adminTableHeadClass, 'min-w-[100px]')}>Winner</TableHead>
+                            <TableHead className={cn(adminTableHeadLastClass, 'w-28')}>Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {rubbers.map(rubber => {
+                          {rubbers.map((rubber) => {
                             const r1 = formatMatchSideLabel(rubber, 1, regById);
                             const r2 = formatMatchSideLabel(rubber, 2, regById);
                             const ws = rubberWinnerSide(rubber);
@@ -1048,7 +1056,7 @@ export default function MatchDetailPage() {
                             return (
                               <TableRow
                                 key={rubber.id}
-                                className={cn(ws !== null && 'bg-green-50/50')}
+                                className={adminTableRowClass(ws !== null ? 'bg-emerald-50/70' : undefined)}
                               >
                                 <TableCell className="text-xs py-3 pl-4 font-semibold text-muted-foreground">
                                   {rubber.rubberNumber}

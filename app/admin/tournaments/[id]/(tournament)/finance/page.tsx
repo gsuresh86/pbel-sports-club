@@ -11,7 +11,17 @@ import {
   useUpdateFinanceEntry,
   useDeleteFinanceEntry,
 } from '@/hooks/use-finance-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  AdminListCard,
+  adminDangerIconButtonClass,
+  adminIconButtonClass,
+  adminPillBadgeClass,
+  adminTableClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -250,34 +260,34 @@ export default function FinancePage() {
       );
     }
     return entries.map((entry) => (
-      <TableRow key={entry.id}>
-        <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">
+      <TableRow key={entry.id} className={adminTableRowClass()}>
+        <TableCell className="whitespace-nowrap text-muted-foreground">
           {formatDisplayDate(entry.date)}
         </TableCell>
-        <TableCell className="py-2">
-          <Badge variant="outline" className="text-xs">
+        <TableCell>
+          <Badge variant="outline" className={adminPillBadgeClass}>
             {categoryLabel(entry.type, entry.category)}
           </Badge>
         </TableCell>
-        <TableCell className="text-xs sm:text-sm py-2">
-          <div className="font-medium">{entry.description}</div>
+        <TableCell>
+          <div className="font-medium text-foreground">{entry.description}</div>
           {entry.note && <div className="text-xs text-muted-foreground">{entry.note}</div>}
         </TableCell>
-        <TableCell className="text-right font-semibold text-xs sm:text-sm py-2 whitespace-nowrap">
+        <TableCell className="text-right font-semibold whitespace-nowrap">
           {formatCurrency(entry.amount)}
         </TableCell>
-        <TableCell className="py-2">
-          <div className="flex justify-end gap-1">
-            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => openEdit(entry)}>
-              <Pencil className="h-3.5 w-3.5" />
+        <TableCell>
+          <div className="flex justify-end gap-0.5">
+            <Button size="sm" variant="ghost" className={adminIconButtonClass} onClick={() => openEdit(entry)}>
+              <Pencil className="h-4 w-4" />
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+              variant="ghost"
+              className={adminDangerIconButtonClass}
               onClick={() => handleDelete(entry)}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </TableCell>
@@ -305,7 +315,7 @@ export default function FinancePage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <Card className="rounded-none">
+        <Card className="rounded-2xl border-border shadow-none">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="rounded-full bg-green-100 p-2.5">
               <TrendingUp className="h-5 w-5 text-green-600" />
@@ -316,7 +326,7 @@ export default function FinancePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none">
+        <Card className="rounded-2xl border-border shadow-none">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="rounded-full bg-red-100 p-2.5">
               <TrendingDown className="h-5 w-5 text-red-600" />
@@ -327,7 +337,7 @@ export default function FinancePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none">
+        <Card className="rounded-2xl border-border shadow-none">
           <CardContent className="p-4 flex items-center gap-3">
             <div className={`rounded-full p-2.5 ${net >= 0 ? 'bg-blue-100' : 'bg-amber-100'}`}>
               <Wallet className={`h-5 w-5 ${net >= 0 ? 'text-blue-600' : 'text-amber-600'}`} />
@@ -342,12 +352,10 @@ export default function FinancePage() {
         </Card>
       </div>
 
-      {/* Income */}
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <CardTitle className="text-sm font-semibold sm:text-base">Income</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <AdminListCard
+        title="Income"
+        subtitle={`Showing ${incomeEntries.length} manual ${incomeEntries.length === 1 ? 'entry' : 'entries'}`}
+      >
           {/* Auto registration income */}
           <div className="flex items-center justify-between gap-3 border-y bg-green-50/60 px-4 py-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -368,9 +376,9 @@ export default function FinancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table className="min-w-[560px]">
+            <Table className={cn(adminTableClass, 'min-w-[560px]')}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
+                <TableRow className={adminTableHeadRowClass}>
                   <TableHead className="text-xs sm:text-sm">Date</TableHead>
                   <TableHead className="text-xs sm:text-sm">Category</TableHead>
                   <TableHead className="text-xs sm:text-sm">Description</TableHead>
@@ -385,15 +393,12 @@ export default function FinancePage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </AdminListCard>
 
-      {/* Expenses */}
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <CardTitle className="text-sm font-semibold sm:text-base">Expenses</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <AdminListCard
+        title="Expenses"
+        subtitle={`Showing ${expenseEntries.length} ${expenseEntries.length === 1 ? 'entry' : 'entries'}`}
+      >
           {expenseByCategory.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 py-3 border-b">
               {expenseByCategory.map(([cat, amt]) => (
@@ -404,9 +409,9 @@ export default function FinancePage() {
             </div>
           )}
           <div className="overflow-x-auto">
-            <Table className="min-w-[560px]">
+            <Table className={cn(adminTableClass, 'min-w-[560px]')}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
+                <TableRow className={adminTableHeadRowClass}>
                   <TableHead className="text-xs sm:text-sm">Date</TableHead>
                   <TableHead className="text-xs sm:text-sm">Category</TableHead>
                   <TableHead className="text-xs sm:text-sm">Description</TableHead>
@@ -424,8 +429,7 @@ export default function FinancePage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </AdminListCard>
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

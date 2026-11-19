@@ -481,7 +481,7 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout moduleName="Dashboard">
-      <div className="min-h-full bg-muted/40 p-4 lg:p-6">
+      <div className="min-h-full bg-gray-50 p-4 lg:p-6 dark:bg-background">
         {isSuperAdmin && (
           <div className="mb-4">
             <div className="mb-2 flex items-center justify-between">
@@ -593,7 +593,7 @@ export default function AdminDashboard() {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-border">
+                    <TableRow className="hover:bg-transparent border-border bg-gray-100 dark:bg-muted">
                       <TableHead className="h-9 pl-4 text-xs font-medium text-muted-foreground">Tournament</TableHead>
                       <TableHead className="h-9 text-xs font-medium text-muted-foreground">Dates</TableHead>
                       <TableHead className="h-9 text-xs font-medium text-muted-foreground">Status</TableHead>
@@ -604,7 +604,7 @@ export default function AdminDashboard() {
                     {activeTournaments.map((tournament) => (
                       <TableRow
                         key={tournament.id}
-                        className="border-border/60 cursor-pointer hover:bg-muted/80"
+                        className="border-border/60 cursor-pointer hover:bg-gray-50"
                         onClick={() => router.push(`/admin/tournaments/${tournament.id}/overview`)}
                       >
                         <TableCell className="pl-4 py-2.5">

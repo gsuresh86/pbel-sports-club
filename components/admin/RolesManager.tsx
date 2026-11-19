@@ -5,9 +5,19 @@ import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoles } from '@/hooks/use-roles';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AdminListCard,
+  adminDangerIconButtonClass,
+  adminPillBadgeClass,
+  adminTableClass,
+  adminTableHeadClass,
+  adminTableHeadFirstClass,
+  adminTableHeadLastClass,
+  adminTableHeadRowClass,
+  adminTableRowClass,
+} from '@/components/admin/admin-list-table';
 import {
   Table,
   TableBody,
@@ -105,43 +115,40 @@ export function RolesManager({
 
   return (
     <>
-      <Card className={embedded ? 'rounded-none mb-0' : 'mb-6'}>
-        <CardHeader className={embedded ? 'p-4 pb-2 sm:p-6 sm:pb-3' : undefined}>
-          <div className="flex flex-wrap justify-between items-start gap-2">
-            <div>
-              <CardTitle className={`flex items-center gap-2 ${embedded ? 'text-sm font-semibold sm:text-base' : ''}`}>
-                <Shield className="h-5 w-5" />
-                Roles
-              </CardTitle>
-              <CardDescription className={embedded ? 'text-xs sm:text-sm' : undefined}>
-                Create roles and map which tournament pages each role can access.
-              </CardDescription>
-            </div>
-            {canManage && (
-              <Button onClick={openCreate} size={embedded ? 'sm' : 'default'} variant={embedded ? 'outline' : 'default'}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Role
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className={embedded ? 'p-0' : undefined}>
+      <AdminListCard
+        className={embedded ? undefined : 'mb-6'}
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Roles
+          </span>
+        }
+        subtitle="Create roles and map which tournament pages each role can access."
+        toolbar={
+          canManage ? (
+            <Button onClick={openCreate} size="sm" variant="outline" className="h-9 rounded-xl">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Create Role
+            </Button>
+          ) : null
+        }
+      >
           {loading ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Loading roles...</p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className={adminTableClass}>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Access</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className={adminTableHeadRowClass}>
+                    <TableHead className={adminTableHeadFirstClass}>Role</TableHead>
+                    <TableHead className={adminTableHeadClass}>Access</TableHead>
+                    <TableHead className={adminTableHeadClass}>Type</TableHead>
+                    <TableHead className={adminTableHeadLastClass}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {roles.map((role) => (
-                    <TableRow key={role.slug}>
+                    <TableRow key={role.slug} className={adminTableRowClass()}>
                       <TableCell>
                         <div className="font-medium">{role.name}</div>
                         {role.description && (
@@ -152,7 +159,7 @@ export function RolesManager({
                         {accessSummary(role)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={role.isSystem ? 'secondary' : 'outline'}>
+                        <Badge variant={role.isSystem ? 'secondary' : 'outline'} className={adminPillBadgeClass}>
                           {role.isSystem ? 'System' : 'Custom'}
                         </Badge>
                       </TableCell>
@@ -160,8 +167,8 @@ export function RolesManager({
                         <div className="flex justify-end gap-1">
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="h-8 px-2"
+                            variant="ghost"
+                            className="h-8 rounded-xl px-2 text-muted-foreground hover:text-foreground"
                             onClick={() => openEdit(role)}
                           >
                             {role.isSystem || !canManage ? (
@@ -179,8 +186,8 @@ export function RolesManager({
                           {canManage && !role.isSystem && (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-8 w-8 p-0 text-red-600"
+                              variant="ghost"
+                              className={adminDangerIconButtonClass}
                               onClick={() => handleDelete(role)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -194,8 +201,7 @@ export function RolesManager({
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </AdminListCard>
 
       <RoleFormDialog
         open={dialogOpen}
