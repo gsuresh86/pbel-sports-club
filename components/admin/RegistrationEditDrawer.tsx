@@ -54,7 +54,36 @@ export interface RegistrationEditValues {
   paymentMethod: 'qr_code' | 'phone_number' | '';
 }
 
-function toFormValues(p: RegistrationWithTournament): RegistrationEditValues {
+function emptyEditValues(): RegistrationEditValues {
+  return {
+    name: '',
+    email: '',
+    phone: '',
+    age: '',
+    gender: '',
+    tower: '',
+    flatNumber: '',
+    emergencyContact: '',
+    isResident: true,
+    selectedCategory: '',
+    expertiseLevel: 'beginner',
+    previousExperience: '',
+    tshirtSize: '',
+    isVolunteer: false,
+    partnerName: '',
+    partnerPhone: '',
+    partnerEmail: '',
+    partnerAge: '',
+    partnerTower: '',
+    partnerFlatNumber: '',
+    partnerTshirtSize: '',
+    paymentReference: '',
+    paymentAmount: '',
+    paymentMethod: '',
+  };
+}
+
+function toFormValues(p: Registration): RegistrationEditValues {
   return {
     name: p.name ?? '',
     email: p.email ?? '',
@@ -83,6 +112,12 @@ function toFormValues(p: RegistrationWithTournament): RegistrationEditValues {
   };
 }
 
+/** Prefill a new registration from an existing one, leaving the name blank. */
+export function buildManualRegistrationDraft(source?: Registration | null): RegistrationEditValues {
+  if (!source) return emptyEditValues();
+  return { ...toFormValues(source), name: '' };
+}
+
 function formatCategory(category: string) {
   return category.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -90,7 +125,10 @@ function formatCategory(category: string) {
 interface RegistrationEditDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: 'edit' | 'create';
   participant: RegistrationWithTournament | null;
+  /** Used in create mode. Name should already be blank. */
+  initialValues?: RegistrationEditValues | null;
   /** Categories available for the participant's tournament. */
   availableCategories?: CategoryType[];
   onSave: (participantId: string, values: RegistrationEditValues) => Promise<boolean> | boolean;
@@ -100,7 +138,9 @@ interface RegistrationEditDrawerProps {
 export default function RegistrationEditDrawer({
   open,
   onOpenChange,
+  mode = 'edit',
   participant,
+  initialValues = null,
   availableCategories = [],
   onSave,
   saving = false,
@@ -108,15 +148,21 @@ export default function RegistrationEditDrawer({
   const [values, setValues] = useState<RegistrationEditValues | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Reset the form whenever a different participant is opened.
+  // Reset the form whenever a different participant (or create draft) is opened.
   useEffect(() => {
-    if (open && participant) {
+    if (!open) return;
+    if (mode === 'create') {
+      setValues(initialValues ?? emptyEditValues());
+      setErrors({});
+      return;
+    }
+    if (participant) {
       setValues(toFormValues(participant));
       setErrors({});
     }
-  }, [open, participant]);
+  }, [open, mode, participant, initialValues]);
 
-  if (!participant || !values) {
+  if ((mode === 'edit' && !participant) || !values) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent side="right" className="max-w-xl" />
@@ -163,8 +209,14 @@ export default function RegistrationEditDrawer({
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    const ok = await onSave(participant.id, values);
-    if (ok) onOpenChange(false);
+    const ok = await onSave(mode === 'create' ? '' : participant!.id, values);
+    if (!ok) return;
+    if (mode === 'create') {
+      setValues((prev) => (prev ? { ...prev, name: '' } : prev));
+      setErrors({});
+      return;
+    }
+    onOpenChange(false);
   };
 
   const err = (key: string) => errors[key];
@@ -175,9 +227,13 @@ export default function RegistrationEditDrawer({
         <DrawerHeader className="flex-shrink-0 border-b text-left">
           <div className="flex items-start justify-between gap-3 pr-8">
             <div className="min-w-0">
-              <DrawerTitle className="truncate">Edit registration</DrawerTitle>
+              <DrawerTitle className="truncate">
+                {mode === 'create' ? 'Add registration' : 'Edit registration'}
+              </DrawerTitle>
               <DrawerDescription className="mt-1">
-                {participant.tournamentName} · {participant.registrationCode}
+                {mode === 'create'
+                  ? 'Other fields are copied from the latest registration. Enter a new name, then add another if needed.'
+                  : `${participant!.tournamentName} · ${participant!.registrationCode}`}
               </DrawerDescription>
             </div>
             <DrawerClose asChild>
@@ -195,7 +251,12 @@ export default function RegistrationEditDrawer({
             <h3 className="border-b pb-2 text-sm font-semibold text-foreground">Personal details</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Full name" error={err('name')}>
-                <Input value={values.name} onChange={(e) => setField('name', e.target.value)} />
+                <Input
+                  autoFocus={mode === 'create'}
+                  value={values.name}
+                  onChange={(e) => setField('name', e.target.value)}
+                  placeholder={mode === 'create' ? 'Enter the new player name' : undefined}
+                />
               </Field>
               <Field label="Email" error={err('email')}>
                 <Input type="email" value={values.email} onChange={(e) => setField('email', e.target.value)} />
@@ -384,7 +445,7 @@ export default function RegistrationEditDrawer({
             </DrawerClose>
             <Button onClick={handleSubmit} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? 'Saving…' : mode === 'create' ? 'Add registration' : 'Save changes'}
             </Button>
           </div>
         </DrawerFooter>
