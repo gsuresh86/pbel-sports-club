@@ -37,7 +37,7 @@ import { getMatchSideDisplay, getInitials, firstName, toTitleCase, formatMatchSi
 import {
   Calendar, MapPin, Users, Trophy, Clock, Target,
   Shield, Users2, ScrollText, ChevronRight, ChevronDown,
-  Flame, Star, Activity, ArrowLeft, GitBranch,
+  Flame, Star, Activity, ArrowLeft, GitBranch, Medal,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -50,6 +50,8 @@ import { scoreboardPath } from '@/lib/tournament-banner';
 import { isRubberMatch, isTeamTieMatch, rubberTypeLabel } from '@/lib/teamMatchRubbers';
 import { getMatchCardDisplayScores } from '@/lib/match-scoring';
 import { tournamentTabPath, type TournamentPublicTab } from '@/lib/tournament-public-tabs';
+import { buildCategoryPodiums } from '@/lib/categoryPodium';
+import CategoryWinners from '@/components/public/CategoryWinners';
 
 export default function TournamentDetailView({ activeTab }: { activeTab: TournamentPublicTab }) {
   const params = useParams();
@@ -204,11 +206,19 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
     ? knockoutCat
     : knockoutCats[0] ?? '';
 
+  // Registration lookup so doubles matches can show both partners + avatars
+  const regById = new Map(participants.map(p => [p.id, p]));
+  const teamsById = new Map(teams.map(t => [t.id, { logoUrl: t.logoUrl, name: t.name }]));
+
+  const categoryPodiums = buildCategoryPodiums(tournament?.categories, displayMatches);
+  const decidedPodiums = categoryPodiums.filter(podium => podium.winner).length;
+
   const tabs = [
     { id: 'matches',  label: `Fixtures (${fixtureMatches.length})`, icon: Activity },
     { id: 'results',  label: `Results (${resultMatches.length})`, icon: Target },
     { id: 'pools',   label: `Points (${pools.length})`, icon: Users2 },
     { id: 'knockout', label: 'Knockout', icon: GitBranch },
+    { id: 'winners', label: decidedPodiums > 0 ? `Winners (${decidedPodiums})` : 'Winners', icon: Medal },
     { id: 'overview', label: 'Overview', icon: Trophy },
     { id: 'teams',   label: `Teams (${teams.length})`, icon: Shield },
   ] as const;
@@ -218,10 +228,6 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
   const matchDistinctCategories = Array.from(
     new Set(displayMatches.map(getMatchCategory).filter((c): c is string => !!c))
   ).sort();
-
-  // Registration lookup so doubles matches can show both partners + avatars
-  const regById = new Map(participants.map(p => [p.id, p]));
-  const teamsById = new Map(teams.map(t => [t.id, { logoUrl: t.logoUrl, name: t.name }]));
 
   // Unfiltered — used by overview tab
   const allScheduledMatches = displayMatches.filter(m => m.status === 'scheduled');
@@ -505,6 +511,14 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
                           View all results →
                         </Link>
                       )}
+                      {categoryPodiums.length > 0 && (
+                        <Link
+                          href={tournamentTabPath(tournamentId, 'winners')}
+                          className="mt-3 block text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+                        >
+                          View winners →
+                        </Link>
+                      )}
                     </div>
                   )}
               </div>
@@ -746,6 +760,15 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
               teams={teams}
               participants={participants}
               showFullPageLink
+            />
+          )}
+
+          {/* WINNERS ──────────────────────────────────────────── */}
+          {activeTab === 'winners' && (
+            <CategoryWinners
+              podiums={categoryPodiums}
+              regById={regById}
+              teamsById={teamsById}
             />
           )}
 

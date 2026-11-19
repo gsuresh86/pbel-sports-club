@@ -4,7 +4,8 @@ export type TournamentPublicTab =
   | 'results'
   | 'teams'
   | 'pools'
-  | 'knockout';
+  | 'knockout'
+  | 'winners';
 
 export const TOURNAMENT_TAB_SLUGS: Record<TournamentPublicTab, string | null> = {
   overview: null,
@@ -12,6 +13,7 @@ export const TOURNAMENT_TAB_SLUGS: Record<TournamentPublicTab, string | null> = 
   results: 'results',
   pools: 'points',
   knockout: 'knockout',
+  winners: 'winners',
   teams: 'teams',
 };
 

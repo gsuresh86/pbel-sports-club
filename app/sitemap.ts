@@ -37,6 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       `/tournament/${t.id}/rules`,
       `/tournament/${t.id}/fixtures`,
       `/tournament/${t.id}/results`,
+      `/tournament/${t.id}/winners`,
     ];
     return paths.map((path) => ({
       url: `${base}${path}`,
