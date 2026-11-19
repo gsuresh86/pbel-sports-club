@@ -49,6 +49,8 @@ export interface User {
   isActive?: boolean;
   fcmToken?: string;
   fcmTokenUpdatedAt?: Date;
+  /** How this account was created. */
+  authProvider?: 'password' | 'google';
 }
 
 export interface Notification {
@@ -99,6 +101,13 @@ export interface Tournament {
   rules: string;
   status: 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
   registrationOpen: boolean;
+  /** Organizer self-serve submissions stay pending until a platform admin approves them. */
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  /** Account that submitted this tournament for review. */
+  ownerId?: string;
+  ownerPhone?: string;
+  organisation?: string;
+  rejectionReason?: string;
   isPublic?: boolean; // Tournament visibility for public page
   banner?: string; // URL to the uploaded banner image
   /** Whether the tournament name is overlaid on the registration-page banner (default: true). */

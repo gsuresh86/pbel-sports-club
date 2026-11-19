@@ -6,7 +6,11 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -16,6 +20,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (email: string, password: string, name: string, role?: UserRole) => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -25,66 +30,130 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
+function googleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
+async function ensureUserProfile(
+  firebaseUser: FirebaseUser,
+  provider: 'password' | 'google',
+  name?: string,
+) {
+  const userRef = doc(db, 'users', firebaseUser.uid);
+  const existing = await getDoc(userRef);
+  const displayName =
+    name?.trim() ||
+    firebaseUser.displayName ||
+    firebaseUser.email?.split('@')[0] ||
+    'Organizer';
+
+  if (!existing.exists()) {
+    await setDoc(userRef, {
+      email: firebaseUser.email || '',
+      name: displayName,
+      role: 'public' as UserRole,
+      isActive: true,
+      authProvider: provider,
+      ...(firebaseUser.photoURL ? { profilePhotoUrl: firebaseUser.photoURL } : {}),
+      createdAt: new Date(),
+      lastLoginAt: new Date(),
+    });
+    return;
+  }
+
+  const profile = existing.data();
+  const patch: Record<string, unknown> = {
+    lastLoginAt: new Date(),
+    updatedAt: new Date(),
+  };
+  if (!profile.name && displayName) patch.name = displayName;
+  if (!profile.profilePhotoUrl && firebaseUser.photoURL) patch.profilePhotoUrl = firebaseUser.photoURL;
+  if (!profile.authProvider) patch.authProvider = provider;
+  if (!profile.email && firebaseUser.email) patch.email = firebaseUser.email;
+  await updateDoc(userRef, patch);
+}
+
+async function recordLogin(firebaseUser: FirebaseUser, fallbackEmail = '') {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    const profile = userDoc.exists() ? userDoc.data() : {};
+    const { logUserActivity } = await import('@/lib/user-activity');
+    await logUserActivity({
+      userId: firebaseUser.uid,
+      userName: (profile.name as string) || firebaseUser.displayName || '',
+      userEmail: (profile.email as string) || firebaseUser.email || fallbackEmail,
+      type: 'login',
+      title: 'Logged in',
+    });
+  } catch (error) {
+    console.warn('Failed to record login activity:', error);
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const hydrateUser = async (firebaseUser: FirebaseUser) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (userDoc.exists()) {
+        const userDataWithId = {
+          id: firebaseUser.uid,
+          ...userDoc.data(),
+        } as User;
+        setUser(userDataWithId);
+
+        if (
+          userDataWithId.role === 'admin' ||
+          userDataWithId.role === 'super-admin' ||
+          userDataWithId.role === 'tournament-admin' ||
+          userDataWithId.role === 'staff'
+        ) {
+          try {
+            const { initializeNotifications } = await import('@/lib/notifications');
+            await initializeNotifications(userDataWithId);
+          } catch (error) {
+            console.error('Error initializing notifications:', error);
+          }
+        }
+        return;
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+
+    setUser({
+      id: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || '',
+      role: 'public' as UserRole,
+      createdAt: new Date(),
+    } as User);
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
       if (firebaseUser) {
-        try {
-          console.log('Fetching user document for UID:', firebaseUser.uid);
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            console.log('User data from Firestore:', userData);
-            console.log('User role:', userData.role);
-          const userDataWithId = {
-            id: firebaseUser.uid,
-            ...userData
-          } as User;
-          
-          setUser(userDataWithId);
-          
-          // Initialize notifications for authenticated users
-          if (userDataWithId.role === 'admin' || userDataWithId.role === 'super-admin' || userDataWithId.role === 'tournament-admin' || userDataWithId.role === 'staff') {
-            try {
-              const { initializeNotifications } = await import('@/lib/notifications');
-              await initializeNotifications(userDataWithId);
-            } catch (error) {
-              console.error('Error initializing notifications:', error);
-            }
-          }
-          } else {
-            console.log('User document not found in Firestore');
-            // Don't set user to null immediately - keep Firebase user info
-            // This prevents redirect loops when Firestore document is missing
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || '',
-              role: 'public' as UserRole,
-              createdAt: new Date(),
-            } as User);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          // Don't set user to null on error - keep Firebase user info
-          setUser({
-            id: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || '',
-            role: 'public' as UserRole,
-            createdAt: new Date(),
-          } as User);
-        }
+        await hydrateUser(firebaseUser);
       } else {
-        console.log('No Firebase user - setting user to null');
         setUser(null);
       }
       setLoading(false);
     });
+
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (!result?.user) return;
+        await ensureUserProfile(result.user, 'google');
+        await recordLogin(result.user);
+        await hydrateUser(result.user);
+      })
+      .catch((error) => {
+        console.error('Google redirect sign-in failed:', error);
+      });
 
     return unsubscribe;
   }, []);
@@ -96,30 +165,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastLoginAt: new Date(),
         updatedAt: new Date(),
       });
-      const { logUserActivity } = await import('@/lib/user-activity');
-      const userDoc = await getDoc(doc(db, 'users', credential.user.uid));
-      const profile = userDoc.exists() ? userDoc.data() : {};
-      await logUserActivity({
-        userId: credential.user.uid,
-        userName: (profile.name as string) || credential.user.displayName || '',
-        userEmail: (profile.email as string) || credential.user.email || email,
-        type: 'login',
-        title: 'Logged in',
-      });
     } catch (error) {
-      console.warn('Failed to record login activity:', error);
+      console.warn('Failed to record last login:', error);
+    }
+    await recordLogin(credential.user, email);
+  };
+
+  const signInWithGoogle = async () => {
+    const provider = googleProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      await ensureUserProfile(result.user, 'google');
+      await recordLogin(result.user);
+      await hydrateUser(result.user);
+    } catch (error) {
+      const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      throw error;
     }
   };
 
   const signUp = async (email: string, password: string, name: string, _role?: UserRole) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      email,
-      name,
-      role: 'public' as UserRole,
-      isActive: true,
-      createdAt: new Date(),
-    });
+    await ensureUserProfile(userCredential.user, 'password', name);
+    await hydrateUser(userCredential.user);
   };
 
   const signOut = async () => {
@@ -129,14 +201,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    if (userDoc.exists()) {
-      setUser({ id: firebaseUser.uid, ...userDoc.data() } as User);
-    }
+    await hydrateUser(firebaseUser);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signInWithGoogle, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

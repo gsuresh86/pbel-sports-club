@@ -1,179 +1,70 @@
 'use client';
 
 import { useState } from 'react';
-import { addDoc, collection } from 'firebase/firestore';
-import { CheckCircle2, Send, Loader2 } from 'lucide-react';
-import { db } from '@/lib/firebase';
-
-const SPORTS_OPTIONS = ['Badminton', 'Table Tennis', 'Volleyball', 'Throw Ball', 'Chess', 'Pickleball', 'Multiple Sports', 'Other'];
-const SIZE_OPTIONS = ['< 20 participants', '20–50', '50–100', '100–200', '200+'];
-
-const EMPTY_FORM = {
-  name: '',
-  email: '',
-  phone: '',
-  organisation: '',
-  sport: '',
-  size: '',
-  message: '',
-};
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { authErrorMessage } from '@/lib/auth-errors';
 
 export function HostTournamentForm() {
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { user, loading, signInWithGoogle } = useAuth();
+  const router = useRouter();
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  function set(field: string, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  async function handleGoogle() {
     setError('');
-
+    setGoogleLoading(true);
     try {
-      await addDoc(collection(db, 'tournamentLeads'), {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        sport: form.sport,
-        organisation: form.organisation.trim(),
-        expectedParticipants: form.size,
-        message: form.message.trim(),
-        registeredAt: new Date(),
-        status: 'pending',
-        source: 'public-host-enquiry',
-      });
-      setSubmitted(true);
+      await signInWithGoogle();
+      router.push('/host');
     } catch (err) {
-      console.error('Error submitting host enquiry:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(`Failed to submit enquiry: ${errorMessage}. Please try again.`);
-    } finally {
-      setLoading(false);
+      setError(authErrorMessage(err, 'Google sign-in failed. Please try again.'));
+      setGoogleLoading(false);
     }
   }
 
-  if (submitted) {
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+
+  if (user) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-5">
-          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-        </div>
-        <h3 className="text-xl font-black text-foreground mb-2">We&apos;re on it!</h3>
-        <p className="text-muted-foreground text-sm max-w-sm">
-          Thanks for your enquiry. Our team will review it and get back to you within 24 hours.
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Signed in as {user.name || user.email}. Submit a tournament and we&apos;ll review it before it goes live.
         </p>
-        <button
-          onClick={() => { setSubmitted(false); setError(''); setForm(EMPTY_FORM); }}
-          className="mt-6 text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+        <Link
+          href="/host"
+          className="w-full inline-flex items-center justify-center bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-black px-8 py-4 rounded-xl text-sm"
         >
-          Submit another inquiry
-        </button>
+          {user.role === 'public' ? 'Create a tournament' : 'Go to your tournaments'}
+        </Link>
       </div>
     );
   }
 
-  const inputCls = "w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all outline-none";
-  const selectCls = "w-full bg-card border border-border rounded-xl px-4 py-3 text-sm text-foreground focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all outline-none appearance-none cursor-pointer";
-  const labelCls = "block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Your Name *</label>
-          <input
-            required
-            value={form.name}
-            onChange={e => set('name', e.target.value)}
-            placeholder="Rajesh Kumar"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Email *</label>
-          <input
-            required
-            type="email"
-            value={form.email}
-            onChange={e => set('email', e.target.value)}
-            placeholder="you@example.com"
-            className={inputCls}
-          />
-        </div>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Phone Number</label>
-          <input
-            value={form.phone}
-            onChange={e => set('phone', e.target.value)}
-            placeholder="+91 9000236824"
-            className={inputCls}
-          />
-        </div>
-        <div>
-          <label className={labelCls}>Club / Organisation</label>
-          <input
-            value={form.organisation}
-            onChange={e => set('organisation', e.target.value)}
-            placeholder="City Sports Club"
-            className={inputCls}
-          />
-        </div>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Sport *</label>
-          <select
-            required
-            value={form.sport}
-            onChange={e => set('sport', e.target.value)}
-            className={selectCls}
-          >
-            <option value="" disabled>Select sport…</option>
-            {SPORTS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className={labelCls}>Expected Participants</label>
-          <select
-            value={form.size}
-            onChange={e => set('size', e.target.value)}
-            className={selectCls}
-          >
-            <option value="" disabled>Select size…</option>
-            {SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className={labelCls}>Tell Us More</label>
-        <textarea
-          rows={3}
-          value={form.message}
-          onChange={e => set('message', e.target.value)}
-          placeholder="Dates you have in mind, format, anything specific you need…"
-          className={`${inputCls} resize-none`}
-        />
-      </div>
-      {error && (
-        <p className="text-sm text-red-400">{error}</p>
-      )}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-yellow-400 hover:bg-yellow-300 disabled:opacity-60 text-slate-950 font-black px-8 py-4 rounded-xl text-sm shadow-lg shadow-amber-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.99]"
+    <div className="space-y-4">
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      <GoogleSignInButton
+        onClick={handleGoogle}
+        disabled={googleLoading}
+        label={googleLoading ? 'Opening Google…' : 'Continue with Google'}
+      />
+      <Link
+        href="/signup"
+        className="w-full inline-flex items-center justify-center border border-border rounded-xl px-8 py-3 text-sm font-semibold hover:bg-muted"
       >
-        {loading ? (
-          <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
-        ) : (
-          <><Send className="h-4 w-4" /> Send Hosting Inquiry</>
-        )}
-      </button>
-    </form>
+        Sign up with email
+      </Link>
+      <p className="text-xs text-muted-foreground">
+        Already registered?{' '}
+        <Link href="/login" className="underline underline-offset-4">
+          Sign in
+        </Link>
+      </p>
+    </div>
   );
 }

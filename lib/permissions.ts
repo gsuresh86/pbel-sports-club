@@ -371,6 +371,7 @@ export function canReviewTestimonials(user: User | null | undefined): boolean {
 export function getLoginRedirect(user: User): string {
   if (isSystemAdmin(user.role)) return '/admin';
   if (user.role === 'tournament-admin') return '/admin/tournaments';
+  if (user.role === 'public') return '/host';
 
   const firstTournament = user.assignedTournaments?.[0];
   if (!firstTournament) return '/login';

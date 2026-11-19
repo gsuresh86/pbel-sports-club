@@ -276,7 +276,7 @@ export default function TournamentDetailView({ activeTab }: { activeTab: Tournam
     );
   }
 
-  if (!tournament) {
+  if (!tournament || tournament.isPublic === false || tournament.approvalStatus === 'pending' || tournament.approvalStatus === 'rejected') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

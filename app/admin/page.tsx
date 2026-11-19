@@ -362,6 +362,18 @@ export default function AdminDashboard() {
       });
     }
 
+    for (const tournament of data.tournaments) {
+      if (tournament.approvalStatus !== 'pending') continue;
+      items.push({
+        id: `review-${tournament.id}`,
+        tone: 'amber',
+        label: 'Review',
+        title: tournament.name,
+        detail: 'Organizer submission',
+        href: '/admin/reviews',
+      });
+    }
+
     for (const lead of data.pendingLeads.slice(0, 4)) {
       items.push({
         id: `lead-${lead.id}`,
@@ -416,7 +428,11 @@ export default function AdminDashboard() {
   const activeTournaments = useMemo(
     () =>
       data.tournaments
-        .filter((tournament) => tournament.status === 'upcoming' || tournament.status === 'ongoing')
+        .filter((tournament) =>
+          (tournament.status === 'upcoming' || tournament.status === 'ongoing')
+          && tournament.approvalStatus !== 'pending'
+          && tournament.approvalStatus !== 'rejected',
+        )
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
     [data.tournaments]
   );

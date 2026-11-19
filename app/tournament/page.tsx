@@ -231,7 +231,9 @@ export default function TournamentsPage() {
         updatedAt: d.data().updatedAt?.toDate(),
       })) as Tournament[];
 
-      const visible = all.filter((t) => t.isPublic !== false);
+      const visible = all.filter(
+        (t) => t.isPublic !== false && t.approvalStatus !== 'pending' && t.approvalStatus !== 'rejected',
+      );
       setTournaments(visible);
 
       const counts: Record<string, number> = {};

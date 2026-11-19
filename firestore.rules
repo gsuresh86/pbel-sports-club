@@ -149,11 +149,52 @@ service cloud.firestore {
       );
     }
 
-    // Tournaments - public read, role-based write
+    // Missing approvalStatus on older tournaments is treated as already approved.
+    function approvalStatusOf(data) {
+      return 'approvalStatus' in data ? data.approvalStatus : 'approved';
+    }
+
+    function reviewDecisionAllowed() {
+      return isAdmin()
+        || approvalStatusOf(request.resource.data) == approvalStatusOf(resource.data)
+        || (
+          resource.data.ownerId == request.auth.uid
+          && resource.data.approvalStatus == 'rejected'
+          && request.resource.data.approvalStatus == 'pending'
+        );
+    }
+
+    function ownerCanEditDraft() {
+      return resource.data.ownerId == request.auth.uid
+        && resource.data.approvalStatus in ['pending', 'rejected']
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.isPublic == false
+        && request.resource.data.registrationOpen == false;
+    }
+
+    function ownerCanSubmitTournament() {
+      return request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.approvalStatus == 'pending'
+        && request.resource.data.isPublic == false
+        && request.resource.data.registrationOpen == false
+        && request.resource.data.status == 'upcoming'
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() < 160;
+    }
+
+    // Tournaments - public read, role-based write.
+    // Any signed-in account may submit a private draft. Only platform admins can approve it.
     match /tournaments/{tournamentId} {
       allow read: if true; // Public read for tournament listings
-      allow create: if request.auth != null && isTournamentAdmin();
-      allow update: if request.auth != null && canManageTournamentDocument(tournamentId);
+      allow create: if request.auth != null && (
+        isTournamentAdmin() || ownerCanSubmitTournament()
+      );
+      allow update: if request.auth != null
+        && reviewDecisionAllowed()
+        && (canManageTournamentDocument(tournamentId) || ownerCanEditDraft());
       allow delete: if request.auth != null && isAdmin();
     }
 

@@ -32,6 +32,9 @@ export async function fetchTournamentMeta(id: string): Promise<TournamentMeta | 
     const doc = await res.json();
     if (doc.error) return null;
     const f = (doc.fields ?? {}) as Record<string, unknown>;
+    const isPublic = bool(f, 'isPublic', true);
+    const approval = str(f, 'approvalStatus');
+    if (!isPublic || approval === 'pending' || approval === 'rejected') return null;
     return {
       id,
       name: str(f, 'name'),
@@ -40,7 +43,7 @@ export async function fetchTournamentMeta(id: string): Promise<TournamentMeta | 
       venue: str(f, 'venue'),
       banner: str(f, 'banner'),
       status: str(f, 'status'),
-      isPublic: bool(f, 'isPublic', true),
+      isPublic,
     };
   } catch {
     return null;
@@ -70,9 +73,10 @@ export async function listPublicTournamentIds(): Promise<
         const id = doc.name.split('/').pop() ?? '';
         const f = doc.fields ?? {};
         const isPublic = bool(f, 'isPublic', true);
-        return { id, isPublic, updatedAt: doc.updateTime };
+        const approval = str(f, 'approvalStatus');
+        return { id, isPublic, approval, updatedAt: doc.updateTime };
       })
-      .filter((t) => t.id && t.isPublic)
+      .filter((t) => t.id && t.isPublic && t.approval !== 'pending' && t.approval !== 'rejected')
       .map(({ id, updatedAt }) => ({ id, updatedAt }));
   } catch {
     return [];

@@ -41,6 +41,9 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
               <Link href="/tournament" className="text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors duration-300">
                 Tournaments
               </Link>
+              <Link href="/host" className="text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors duration-300">
+                Host
+              </Link>
               <Link href="/schedules" className="text-muted-foreground hover:text-yellow-500 dark:hover:text-yellow-400 transition-colors duration-300">
                 Schedules
               </Link>
@@ -56,11 +59,16 @@ export function Navbar({ hideAuth = false }: NavbarProps) {
               <>
                 {user ? (
                   <>
-                    {user.role === 'admin' && (
+                    {(user.role === 'admin' || user.role === 'super-admin') && (
                       <Button asChild variant="outline" className="hidden sm:inline-flex">
                         <Link href="/admin">
                           Admin Dashboard
                         </Link>
+                      </Button>
+                    )}
+                    {user.role === 'public' && (
+                      <Button asChild variant="outline" className="hidden sm:inline-flex">
+                        <Link href="/host">My tournaments</Link>
                       </Button>
                     )}
                     <DropdownMenu>

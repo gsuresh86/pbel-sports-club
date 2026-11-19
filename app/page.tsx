@@ -566,9 +566,9 @@ export default function Home() {
                 </div>
 
                 <div className="bg-surface lg:border-l border-border p-10 sm:p-14 lg:pl-8 rounded-b-3xl lg:rounded-bl-none lg:rounded-r-3xl">
-                  <p className="text-sm font-black text-foreground mb-1">Register Your Interest</p>
+                  <p className="text-sm font-black text-foreground mb-1">Create your account</p>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Fill in the form and our team will get back to you within 24 hours.
+                    Sign up, submit your tournament, and we review it before you can run it.
                   </p>
                   <HostTournamentForm />
                 </div>

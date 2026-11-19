@@ -10,13 +10,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Link from 'next/link';
 import Image from 'next/image';
 import { getLoginRedirect } from '@/lib/permissions';
+import { authErrorMessage } from '@/lib/auth-errors';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, user, loading } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const { signIn, signInWithGoogle, user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -46,8 +49,20 @@ export default function LoginPage() {
       // Don't redirect here - let the useEffect handle it after user state is updated
     } catch (err: unknown) {
       console.error('Sign in error:', err);
-      setError('Failed to sign in. Please check your credentials.');
+      setError(authErrorMessage(err, 'Failed to sign in. Please check your credentials.'));
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (err: unknown) {
+      console.error('Google sign in error:', err);
+      setError(authErrorMessage(err, 'Google sign-in failed. Please try again.'));
+      setGoogleLoading(false);
     }
   };
 
@@ -135,6 +150,16 @@ export default function LoginPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <GoogleSignInButton
+                onClick={handleGoogle}
+                disabled={isLoading || googleLoading || loading}
+                label={googleLoading ? 'Opening Google…' : 'Continue with Google'}
+              />
+              <div className="my-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-700" />
+                <span className="text-xs uppercase tracking-wide text-slate-500">or</span>
+                <div className="h-px flex-1 bg-slate-700" />
+              </div>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {error && (
                   <div className="p-3 text-sm text-red-200 bg-red-950/60 border border-red-500/30 rounded-md">

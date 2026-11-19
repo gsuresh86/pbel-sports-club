@@ -28,6 +28,7 @@ import {
   UserPlus,
   MessageSquareQuote,
   Activity,
+  ClipboardCheck,
 } from 'lucide-react';
 import { NotificationDropdown } from '@/components/NotificationDropdown';
 import { AdminGlobalSearch } from '@/components/admin/AdminGlobalSearch';
@@ -93,6 +94,13 @@ const adminMenuItems: AdminMenuItem[] = [
     href: '/admin/leads',
     icon: UserPlus,
     description: 'Review and manage tournament leads',
+    roles: ['admin', 'super-admin'],
+  },
+  {
+    title: 'Organizer reviews',
+    href: '/admin/reviews',
+    icon: ClipboardCheck,
+    description: 'Approve tournaments submitted by new organizers',
     roles: ['admin', 'super-admin'],
   },
   {
