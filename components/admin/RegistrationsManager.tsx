@@ -16,9 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawer';
-import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
+import RegistrationEditDrawer, { buildManualRegistrationDraft, RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { parsePaymentRecipient, getInitials } from '@/lib/utils';
@@ -64,6 +64,10 @@ export function RegistrationsManager({
   const [statusActionLoading, setStatusActionLoading] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [editParticipantId, setEditParticipantId] = useState<string | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'edit' | 'create'>('edit');
+  const [addDraft, setAddDraft] = useState<RegistrationEditValues | null>(null);
+  const [addTournamentId, setAddTournamentId] = useState<string | null>(null);
+  const [addPaymentAccount, setAddPaymentAccount] = useState<string | undefined>(undefined);
   const [editSaving, setEditSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
@@ -271,17 +275,141 @@ export function RegistrationsManager({
     : null;
 
   const openEditDrawer = (participantId: string) => {
+    setDrawerMode('edit');
     setEditParticipantId(participantId);
     setEditDrawerOpen(true);
+  };
+
+  const openAddRegistration = () => {
+    const scopedTournamentId =
+      fixedTournamentId ?? (selectedTournament !== 'all' ? selectedTournament : null);
+    const scoped = registrations.filter(
+      (registration) => !scopedTournamentId || registration.tournamentId === scopedTournamentId,
+    );
+    const template = scoped[0];
+    const tournamentId =
+      scopedTournamentId ?? template?.tournamentId ?? (tournaments.length === 1 ? tournaments[0].id : null);
+
+    if (!tournamentId) {
+      alert({
+        title: 'Select a tournament',
+        description: 'Choose a tournament before adding a registration.',
+        variant: 'error',
+      });
+      return;
+    }
+
+    const source = scoped.find((registration) => registration.tournamentId === tournamentId) ?? null;
+    const tournament = tournaments.find((item) => item.id === tournamentId);
+    const draft = buildManualRegistrationDraft(source);
+    if (!draft.selectedCategory && tournament?.categories?.[0]) {
+      draft.selectedCategory = tournament.categories[0];
+    }
+
+    setAddTournamentId(tournamentId);
+    setAddPaymentAccount(source?.selectedPaymentAccount);
+    setAddDraft(draft);
+    setDrawerMode('create');
+    setEditParticipantId(null);
+    setEditDrawerOpen(true);
+  };
+
+  const handleCreateRegistration = async (
+    _participantId: string,
+    values: RegistrationEditValues,
+  ): Promise<boolean> => {
+    if (!addTournamentId) {
+      alert({ title: 'Error', description: 'Tournament not found.', variant: 'error' });
+      return false;
+    }
+
+    setEditSaving(true);
+    try {
+      const opt = (value: string) => (value.trim() === '' ? undefined : value.trim());
+      const tournament = tournaments.find((item) => item.id === addTournamentId);
+      const registrationData: Record<string, unknown> = {
+        tournamentId: addTournamentId,
+        name: values.name.trim(),
+        email: values.email.trim(),
+        phone: values.phone.trim(),
+        age: Number(values.age),
+        gender: values.gender,
+        tower: opt(values.tower),
+        flatNumber: opt(values.flatNumber),
+        emergencyContact: opt(values.emergencyContact),
+        isResident: values.isResident,
+        selectedCategory: values.selectedCategory,
+        expertiseLevel: values.expertiseLevel,
+        previousExperience: opt(values.previousExperience),
+        tshirtSize: opt(values.tshirtSize),
+        isVolunteer: values.isVolunteer,
+        partnerName: opt(values.partnerName),
+        partnerPhone: opt(values.partnerPhone),
+        partnerEmail: opt(values.partnerEmail),
+        partnerAge: values.partnerAge.trim() === '' ? undefined : Number(values.partnerAge),
+        partnerTower: opt(values.partnerTower),
+        partnerFlatNumber: opt(values.partnerFlatNumber),
+        partnerTshirtSize: opt(values.partnerTshirtSize),
+        paymentReference: opt(values.paymentReference),
+        paymentAmount: values.paymentAmount.trim() === '' ? undefined : Number(values.paymentAmount),
+        paymentMethod: values.paymentMethod === '' ? undefined : values.paymentMethod,
+        selectedPaymentAccount: addPaymentAccount,
+        registrationStatus: 'pending',
+        paymentStatus: 'pending',
+        registrationCode: `MAN-${Date.now().toString(36).toUpperCase()}`,
+        registeredAt: new Date(),
+      };
+
+      const cleaned = Object.fromEntries(
+        Object.entries(registrationData).filter(([, value]) => value !== undefined),
+      );
+      const regRef = await addDoc(
+        collection(db, 'tournaments', addTournamentId, 'registrations'),
+        cleaned,
+      );
+
+      const { upsertPublicPlayer } = await import('@/lib/public-players');
+      await upsertPublicPlayer(db, addTournamentId, regRef.id, {
+        name: values.name.trim(),
+        partnerName: opt(values.partnerName),
+        selectedCategory: values.selectedCategory as Registration['selectedCategory'],
+      });
+
+      setRegistrations((prev) => [
+        {
+          ...(cleaned as unknown as Registration),
+          id: regRef.id,
+          tournamentId: addTournamentId,
+          tournamentName: tournament?.name ?? '',
+          registeredAt: new Date(),
+        },
+        ...prev,
+      ]);
+
+      alert({
+        title: 'Registration added',
+        description: `${values.name.trim()} was added. Enter the next name to add another.`,
+        variant: 'success',
+      });
+      return true;
+    } catch (error) {
+      console.error('Error adding registration:', error);
+      alert({ title: 'Error', description: 'Failed to add registration. Please try again.', variant: 'error' });
+      return false;
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const editParticipant = editParticipantId
     ? registrations.find((p) => p.id === editParticipantId) ?? null
     : null;
 
-  const editTournamentCategories = editParticipant
-    ? tournaments.find((t) => t.id === editParticipant.tournamentId)?.categories ?? []
-    : [];
+  const editTournamentCategories = (() => {
+    const tournamentId = drawerMode === 'create' ? addTournamentId : editParticipant?.tournamentId;
+    if (!tournamentId) return [];
+    return tournaments.find((t) => t.id === tournamentId)?.categories ?? [];
+  })();
 
   // Update the registration and keep linked player records in sync.
   const handleSaveEdit = async (participantId: string, values: RegistrationEditValues): Promise<boolean> => {
@@ -1057,6 +1185,10 @@ export function RegistrationsManager({
                   aria-label="Search registrations"
                 />
               </div>
+              <Button onClick={openAddRegistration} size="sm" className="h-9 shrink-0 whitespace-nowrap">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add
+              </Button>
               <Button onClick={exportParticipants} variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
                 <Download className="h-4 w-4 mr-1.5" />
                 Export
@@ -1601,14 +1733,19 @@ export function RegistrationsManager({
       />
 
       <RegistrationEditDrawer
+        mode={drawerMode}
         open={editDrawerOpen}
         onOpenChange={(open) => {
           setEditDrawerOpen(open);
-          if (!open) setEditParticipantId(null);
+          if (!open) {
+            setEditParticipantId(null);
+            setDrawerMode('edit');
+          }
         }}
-        participant={editParticipant}
+        participant={drawerMode === 'edit' ? editParticipant : null}
+        initialValues={drawerMode === 'create' ? addDraft : null}
         availableCategories={editTournamentCategories}
-        onSave={handleSaveEdit}
+        onSave={drawerMode === 'create' ? handleCreateRegistration : handleSaveEdit}
         saving={editSaving}
       />
 
