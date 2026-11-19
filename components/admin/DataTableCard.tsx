@@ -18,7 +18,17 @@ export const dataTableCardClass = 'rounded-2xl border-border shadow-none gap-0 p
 /** Apply to `<Table>` (or a raw `<table>`) — edge padding + header typography. */
 export const dataTableClass =
   '[&_th]:h-11 [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground ' +
+  '[&_td]:py-3.5 [&_td]:text-sm ' +
   '[&_th:first-child]:pl-5 [&_td:first-child]:pl-5 [&_th:last-child]:pr-5 [&_td:last-child]:pr-5';
+
+/** Icon-only row action button (Eye / Edit / Copy …), as in All Tournaments. */
+export const dataTableActionClass = 'h-8 w-8 p-0 text-muted-foreground hover:text-foreground';
+
+/** Destructive icon-only row action button. */
+export const dataTableDangerActionClass = 'h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50';
+
+/** Positive icon-only row action button (Approve …). */
+export const dataTableSuccessActionClass = 'h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50';
 
 /** Apply to the header `<TableRow>` (opaque so sticky headers stay solid). */
 export const dataTableHeadRowClass =
@@ -30,6 +40,19 @@ const ZEBRA_BG = 'bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))]';
 /** Apply to each body `<TableRow>`. */
 export function dataTableRowClass(index: number, className?: string) {
   return cn('border-border/60 hover:bg-muted', index % 2 === 1 ? ZEBRA_BG : 'bg-card', className);
+}
+
+/** Soft pill badges, as used for status/registration in All Tournaments. */
+export const dataTableBadgeTones = {
+  sky: 'bg-sky-50 text-sky-700 border-sky-100',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  amber: 'bg-amber-50 text-amber-700 border-amber-100',
+  rose: 'bg-rose-50 text-rose-700 border-rose-100',
+  slate: 'bg-slate-100 text-muted-foreground border-border',
+} as const;
+
+export function dataTableBadgeClass(tone: keyof typeof dataTableBadgeTones, className?: string) {
+  return cn('rounded-full border capitalize', dataTableBadgeTones[tone], className);
 }
 
 /** Select trigger used in the toolbar. Override width per filter if needed. */

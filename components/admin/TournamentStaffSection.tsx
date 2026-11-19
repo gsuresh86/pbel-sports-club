@@ -14,6 +14,7 @@ import {
   DataTableCard,
   DataTableEmpty,
   DataTableSearch,
+  dataTableBadgeClass,
   dataTableButtonClass,
   dataTableClass,
   dataTableHeadRowClass,
@@ -453,7 +454,7 @@ export function TournamentStaffSection({
                         <TableCell className="py-3">
                           <div className="flex flex-wrap gap-1">
                             {slugs.map((slug) => (
-                              <Badge key={slug} variant="secondary" className="text-[10px]">
+                              <Badge key={slug} variant="outline" className="rounded-full text-xs">
                                 {getRoleLabel(slug)}
                               </Badge>
                             ))}
@@ -461,11 +462,7 @@ export function TournamentStaffSection({
                         </TableCell>
                         <TableCell className="py-3">
                           <Badge
-                            className={
-                              u.isActive !== false
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }
+                            className={dataTableBadgeClass(u.isActive !== false ? 'emerald' : 'rose')}
                           >
                             {u.isActive !== false ? 'Active' : 'Inactive'}
                           </Badge>

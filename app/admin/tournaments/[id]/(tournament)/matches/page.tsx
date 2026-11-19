@@ -75,7 +75,10 @@ import {
   DataTableCard,
   DataTableEmpty,
   DataTableSearch,
+  dataTableActionClass,
+  dataTableBadgeClass,
   dataTableButtonClass,
+  dataTableDangerActionClass,
   dataTableClass,
   dataTableHeadRowClass,
   dataTableRowClass,
@@ -103,13 +106,13 @@ const fromISTLocal = (value: string) => new Date(new Date(value + ':00Z').getTim
 
 function getMatchStatusColor(status: string) {
   switch (status) {
-    case 'completed': return 'bg-green-100 text-green-800';
-    case 'live': return 'bg-red-100 text-red-800';
-    case 'scheduled': return 'bg-blue-100 text-blue-800';
-    case 'not-scheduled': return 'bg-gray-100 text-muted-foreground';
-    case 'cancelled': return 'bg-gray-100 text-gray-800';
-    case 'postponed': return 'bg-yellow-100 text-yellow-800';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'completed': return dataTableBadgeClass('slate');
+    case 'live': return dataTableBadgeClass('emerald');
+    case 'scheduled': return dataTableBadgeClass('sky');
+    case 'not-scheduled': return dataTableBadgeClass('slate');
+    case 'cancelled': return dataTableBadgeClass('rose');
+    case 'postponed': return dataTableBadgeClass('amber');
+    default: return dataTableBadgeClass('slate');
   }
 }
 
@@ -1032,7 +1035,7 @@ export default function MatchesPage() {
                     className={dataTableRowClass(index, 'data-[state=selected]:bg-blue-50')}
                   >
                     {isFullAdmin && (
-                      <TableCell className="py-2">
+                      <TableCell>
                         <Checkbox
                           checked={selectedIds.has(match.id)}
                           onCheckedChange={() => toggleSelect(match.id)}
@@ -1040,7 +1043,7 @@ export default function MatchesPage() {
                         />
                       </TableCell>
                     )}
-                    <TableCell className="font-medium text-xs py-2">
+                    <TableCell className="font-medium">
                       <Link
                         href={`/admin/tournaments/${tournamentId}/matches/${match.id}`}
                         className="hover:underline hover:text-blue-600"
@@ -1051,22 +1054,22 @@ export default function MatchesPage() {
                         <Badge variant="outline" className="ml-1 text-[10px]">Team</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-xs py-2">{match.round}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</TableCell>
-                    <TableCell className="text-xs py-2 max-w-[120px] truncate">{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</TableCell>
-                    <TableCell className="text-xs py-2">{renderScore(match)}</TableCell>
-                    <TableCell className="py-2">
-                      <Badge className={`text-[10px] ${getMatchStatusColor(match.status)}`}>
+                    <TableCell>{match.round}</TableCell>
+                    <TableCell className="max-w-[160px] truncate">{formatAdminMatchSideLabel(match, 1, topLevelMatches, regById)}</TableCell>
+                    <TableCell className="max-w-[160px] truncate">{formatAdminMatchSideLabel(match, 2, topLevelMatches, regById)}</TableCell>
+                    <TableCell>{renderScore(match)}</TableCell>
+                    <TableCell>
+                      <Badge className={getMatchStatusColor(match.status)}>
                         {getMatchStatusLabel(match.status)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs py-2 whitespace-nowrap">{formatDate(new Date(match.scheduledTime))}</TableCell>
-                    <TableCell className="text-right py-2">
-                      <div className="flex items-center justify-end gap-1">
+                    <TableCell className="whitespace-nowrap">{formatDate(new Date(match.scheduledTime))}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-0.5">
                         {canRunMatches && match.status === 'scheduled' && (
                           <Button
                             size="sm"
-                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                            className="mr-1 h-8 rounded-lg px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 touch-manipulation"
                             onClick={() => handleStartMatch(match)}
                           >
                             <Play className="h-3 w-3 mr-1" />
@@ -1076,7 +1079,7 @@ export default function MatchesPage() {
                         {canRunMatches && match.status === 'live' && (
                           <Button
                             size="sm"
-                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 touch-manipulation"
+                            className="mr-1 h-8 rounded-lg px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 touch-manipulation"
                             onClick={() => handleCompleteMatch(match)}
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -1086,7 +1089,7 @@ export default function MatchesPage() {
                         {canRunMatches && match.status !== 'completed' && renderLineupButton(match)}
                         {(match.status === 'scheduled' || match.status === 'live') && !isTeamTieMatch(match, teamIds) && (
                           <Link href={adminMatchScorePath(match.id, tournamentId)} className="inline-block">
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation">
+                            <Button size="sm" variant="outline" className="mr-1 h-8 rounded-lg px-2.5 text-xs touch-manipulation">
                               <Swords className="h-3 w-3 mr-1" />
                               {match.status === 'scheduled' ? 'Score' : 'Update'}
                             </Button>
@@ -1094,33 +1097,34 @@ export default function MatchesPage() {
                         )}
                         {match.status === 'live' && !isTeamTieMatch(match, teamIds) && (
                           <Link href={scoreboardPath(match.id, tournamentId)} target="_blank" rel="noopener noreferrer" className="inline-block">
-                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs touch-manipulation" title="Open TV scoreboard">
-                              <Monitor className="h-3 w-3" />
+                            <Button size="sm" variant="ghost" className={dataTableActionClass} title="Open TV scoreboard">
+                              <Monitor className="h-4 w-4" />
                             </Button>
                           </Link>
                         )}
                         <Link href={`/admin/tournaments/${tournamentId}/matches/${match.id}`} className="inline-block">
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 touch-manipulation" title="View match details">
-                            <ExternalLink className="h-3 w-3" />
+                          <Button size="sm" variant="ghost" className={dataTableActionClass} title="View match details">
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
                         </Link>
                         {canRunMatches && (
                           <Button
                             size="sm" variant="ghost"
-                            className="h-7 w-7 p-0 text-xs touch-manipulation"
+                            className={dataTableActionClass}
                             onClick={() => openEditMatch(match)}
                             title="Edit match"
                           >
-                            <Edit className="h-3.5 w-3.5" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                         )}
                         {isFullAdmin && (
                           <Button
                             size="sm" variant="ghost"
-                            className="h-7 w-7 p-0 text-xs touch-manipulation text-red-400 hover:text-red-600 hover:bg-red-50"
+                            className={dataTableDangerActionClass}
                             onClick={() => handleDeleteMatch(match.id)}
+                            title="Delete match"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>

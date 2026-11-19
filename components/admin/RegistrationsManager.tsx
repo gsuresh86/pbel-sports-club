@@ -14,7 +14,11 @@ import {
   DataTableCard,
   DataTableEmpty,
   DataTableSearch,
+  dataTableActionClass,
+  dataTableBadgeClass,
   dataTableButtonClass,
+  dataTableDangerActionClass,
+  dataTableSuccessActionClass,
   dataTableClass,
   dataTableHeadRowClass,
   dataTableRowClass,
@@ -638,10 +642,10 @@ export function RegistrationsManager({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'approved': return dataTableBadgeClass('emerald');
+      case 'rejected': return dataTableBadgeClass('rose');
+      case 'pending': return dataTableBadgeClass('amber');
+      default: return dataTableBadgeClass('slate');
     }
   };
 
@@ -1113,7 +1117,7 @@ export function RegistrationsManager({
               />
             ) : (
             <div className="registrations-table-scroll min-h-0 flex-1">
-              <table className={`w-max min-w-full caption-bottom text-sm [&_td]:py-2 ${dataTableClass}`}>
+              <table className={`w-max min-w-full caption-bottom text-sm ${dataTableClass}`}>
                 <TableHeader className="bg-transparent shadow-none">
                   <TableRow className={dataTableHeadRowClass}>
                     <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
@@ -1280,21 +1284,21 @@ export function RegistrationsManager({
                         </TableCell>
                         <TableCell>{new Date(participant.registeredAt).toLocaleDateString()}</TableCell>
                         <TableCell className={`${STICKY_CELL_RIGHT} min-w-[150px]`}>
-                          <div className="flex flex-nowrap items-center gap-1">
+                          <div className="flex flex-nowrap items-center gap-0.5">
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => openReviewDrawer(participant.id)}
-                              className="h-8 shrink-0 px-2"
+                              className={`${dataTableActionClass} shrink-0`}
                               title="View registration"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => openEditDrawer(participant.id)}
-                              className="h-8 shrink-0 px-2"
+                              className={`${dataTableActionClass} shrink-0`}
                               title="Edit registration"
                             >
                               <Pencil className="h-4 w-4" />
@@ -1303,18 +1307,18 @@ export function RegistrationsManager({
                               <>
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={() => handleStatusChange(participant.id, 'approved')}
-                                  className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                  className={`${dataTableSuccessActionClass} shrink-0`}
                                   title="Approve"
                                 >
                                   <CheckCircle className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                  className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                  className={`${dataTableDangerActionClass} shrink-0`}
                                   title="Reject"
                                 >
                                   <XCircle className="h-4 w-4" />
@@ -1324,9 +1328,9 @@ export function RegistrationsManager({
                             {participant.registrationStatus === 'approved' && (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => handleStatusChange(participant.id, 'rejected')}
-                                className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                                className={`${dataTableDangerActionClass} shrink-0`}
                                 title="Reject"
                               >
                                 <XCircle className="h-4 w-4" />
@@ -1335,9 +1339,9 @@ export function RegistrationsManager({
                             {participant.registrationStatus === 'rejected' && (
                               <Button
                                 size="sm"
-                                variant="outline"
+                                variant="ghost"
                                 onClick={() => handleStatusChange(participant.id, 'approved')}
-                                className="h-8 shrink-0 px-2 text-green-600 hover:text-green-700"
+                                className={`${dataTableSuccessActionClass} shrink-0`}
                                 title="Approve"
                               >
                                 <CheckCircle className="h-4 w-4" />
@@ -1345,10 +1349,10 @@ export function RegistrationsManager({
                             )}
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() => requestDelete(participant.id)}
                               disabled={deletingId === participant.id}
-                              className="h-8 shrink-0 px-2 text-red-600 hover:text-red-700"
+                              className={`${dataTableDangerActionClass} shrink-0`}
                               title="Delete registration"
                             >
                               <Trash2 className="h-4 w-4" />
