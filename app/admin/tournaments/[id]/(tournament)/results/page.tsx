@@ -1,7 +1,15 @@
 'use client';
 
 import { useTournament, useTournamentMatches } from '@/hooks/use-tournament-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import {
+  DataTableCard,
+  DataTableEmpty,
+  dataTableCardClass,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+} from '@/components/admin/DataTableCard';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy } from 'lucide-react';
 import { Match } from '@/types';
@@ -68,12 +76,12 @@ export default function ResultsPage() {
       </div>
 
       {groups.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No results yet</h3>
-            <p className="text-muted-foreground">Completed match results will show group standings here.</p>
-          </CardContent>
+        <Card className={dataTableCardClass}>
+          <DataTableEmpty
+            icon={Trophy}
+            title="No results yet"
+            description="Completed match results will show group standings here."
+          />
         </Card>
       ) : (
         <div className="space-y-4 sm:space-y-6">
@@ -82,41 +90,39 @@ export default function ResultsPage() {
             const isTeam = groupIsTeam.get(round) ?? false;
             const rows = Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.pd - a.pd);
             return (
-              <Card key={round} className="rounded-none">
-                <CardHeader className="p-4 pb-2 sm:p-6">
-                  <CardTitle className="text-sm font-semibold sm:text-base">
-                    {tournamentShort ? `${tournamentShort} - ${round}` : round}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto -mx-4 sm:mx-0">
-                    <Table className="min-w-[520px]">
+              <DataTableCard
+                key={round}
+                title={tournamentShort ? `${tournamentShort} - ${round}` : round}
+                description={`${rows.length} ${isTeam ? 'team' : 'player'}${rows.length === 1 ? '' : 's'}`}
+              >
+                  <div className="overflow-x-auto">
+                    <Table className={`min-w-[520px] ${dataTableClass}`}>
                       <TableHeader>
-                        <TableRow className="bg-muted/60">
-                          <TableHead className="font-semibold text-xs sm:text-sm">TEAM</TableHead>
+                        <TableRow className={dataTableHeadRowClass}>
+                          <TableHead>{isTeam ? 'Team' : 'Player'}</TableHead>
                           {(isTeam ? ['MP', 'W', 'L', 'PTS', 'GW', 'GL', 'GD', 'PW', 'PL', 'PD'] : ['MP', 'W', 'L', 'PTS', 'PW', 'PL', 'PD']).map((h) => (
-                            <TableHead key={h} className="text-center w-8 sm:w-12 font-semibold text-xs sm:text-sm">{h}</TableHead>
+                            <TableHead key={h} className="text-center w-8 sm:w-12">{h}</TableHead>
                           ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {rows.map((row) => (
-                          <TableRow key={row.name}>
-                            <TableCell className="font-medium text-primary text-xs sm:text-sm py-2">{row.name}</TableCell>
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.played}</TableCell>
-                            <TableCell className="text-center font-semibold text-green-600 text-xs sm:text-sm py-2">{row.won}</TableCell>
-                            <TableCell className="text-center font-semibold text-red-600 text-xs sm:text-sm py-2">{row.lost}</TableCell>
-                            <TableCell className="text-center font-semibold text-amber-600 text-xs sm:text-sm py-2">{row.pts}</TableCell>
+                        {rows.map((row, index) => (
+                          <TableRow key={row.name} className={dataTableRowClass(index)}>
+                            <TableCell className="font-medium text-primary text-xs sm:text-sm py-3">{row.name}</TableCell>
+                            <TableCell className="text-center text-xs sm:text-sm py-3">{row.played}</TableCell>
+                            <TableCell className="text-center font-semibold text-green-600 text-xs sm:text-sm py-3">{row.won}</TableCell>
+                            <TableCell className="text-center font-semibold text-red-600 text-xs sm:text-sm py-3">{row.lost}</TableCell>
+                            <TableCell className="text-center font-semibold text-amber-600 text-xs sm:text-sm py-3">{row.pts}</TableCell>
                             {isTeam && (
                               <>
-                                <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-2">{row.gw}</TableCell>
-                                <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-2">{row.gl}</TableCell>
-                                <TableCell className="text-center text-xs sm:text-sm py-2">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
+                                <TableCell className="text-center text-purple-600 text-xs sm:text-sm py-3">{row.gw}</TableCell>
+                                <TableCell className="text-center text-orange-600 text-xs sm:text-sm py-3">{row.gl}</TableCell>
+                                <TableCell className="text-center text-xs sm:text-sm py-3">{row.gd >= 0 ? `+${row.gd}` : row.gd}</TableCell>
                               </>
                             )}
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.pw}</TableCell>
-                            <TableCell className="text-center text-xs sm:text-sm py-2">{row.pl}</TableCell>
-                            <TableCell className={`text-center font-medium text-xs sm:text-sm py-2 ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
+                            <TableCell className="text-center text-xs sm:text-sm py-3">{row.pw}</TableCell>
+                            <TableCell className="text-center text-xs sm:text-sm py-3">{row.pl}</TableCell>
+                            <TableCell className={`text-center font-medium text-xs sm:text-sm py-3 ${row.pd >= 0 ? 'text-sky-600' : 'text-red-600'}`}>
                               {row.pd >= 0 ? `+${row.pd}` : row.pd}
                             </TableCell>
                           </TableRow>
@@ -124,8 +130,7 @@ export default function ResultsPage() {
                       </TableBody>
                     </Table>
                   </div>
-                </CardContent>
-              </Card>
+              </DataTableCard>
             );
           })}
         </div>

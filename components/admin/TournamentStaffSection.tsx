@@ -10,7 +10,15 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DataTableCard,
+  DataTableEmpty,
+  DataTableSearch,
+  dataTableButtonClass,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+} from '@/components/admin/DataTableCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,7 +57,7 @@ import {
   setTournamentRolesForUser,
   stripTournamentFromUser,
 } from '@/lib/tournament-access';
-import { Plus, UserCog, Trash2, Eye, EyeOff, UserPlus, Users2 } from 'lucide-react';
+import { Plus, Search, UserCog, Trash2, Eye, EyeOff, UserPlus, Users2 } from 'lucide-react';
 
 type DialogMode = 'new' | 'existing';
 
@@ -125,6 +133,15 @@ export function TournamentStaffSection({
     () => getStaffForTournament(users, tournamentId),
     [users, tournamentId]
   );
+
+  const [staffSearch, setStaffSearch] = useState('');
+  const filteredStaff = useMemo(() => {
+    const q = staffSearch.trim().toLowerCase();
+    if (!q) return inTournament;
+    return inTournament.filter(
+      (u) => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
+    );
+  }, [inTournament, staffSearch]);
 
   const available = useMemo(
     () => users.filter((u) => !(u.assignedTournaments || []).includes(tournamentId)),
@@ -371,28 +388,28 @@ export function TournamentStaffSection({
 
   return (
     <>
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle className="text-sm font-semibold sm:text-base">
-              Tournament Staff ({inTournament.length})
-            </CardTitle>
-            <Button onClick={openAdd} size="sm" variant="outline">
+      <DataTableCard
+        title="Tournament Staff"
+        description={`Showing ${filteredStaff.length} of ${inTournament.length}`}
+        toolbar={
+          <>
+            <DataTableSearch value={staffSearch} onChange={setStaffSearch} placeholder="Search by name or email" />
+            <Button onClick={openAdd} className={`${dataTableButtonClass} bg-slate-900 hover:bg-slate-800`}>
               <Plus className="h-4 w-4 mr-1.5" />
               Add Staff
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+          </>
+        }
+      >
           <div className="overflow-x-auto">
-            <Table className="min-w-[640px]">
+            <Table className={`min-w-[640px] ${dataTableClass}`}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
-                  <TableHead className="text-xs sm:text-sm">Name</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Email</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Roles</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Actions</TableHead>
+                <TableRow className={dataTableHeadRowClass}>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -402,26 +419,38 @@ export function TournamentStaffSection({
                       Loading staff...
                     </TableCell>
                   </TableRow>
-                ) : inTournament.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
-                      <Users2 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                      No staff assigned to this tournament yet.
+                ) : filteredStaff.length === 0 ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="p-0">
+                      {inTournament.length === 0 ? (
+                        <DataTableEmpty icon={Users2} title="No staff yet" description="No staff assigned to this tournament yet." />
+                      ) : (
+                        <DataTableEmpty
+                          icon={Search}
+                          title="No staff found"
+                          description="Try adjusting your search"
+                          action={
+                            <Button variant="outline" className="rounded-xl" onClick={() => setStaffSearch('')}>
+                              Clear Search
+                            </Button>
+                          }
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  inTournament.map((u) => {
+                  filteredStaff.map((u, index) => {
                     const slugs = getRoleSlugsDisplay(u, tournamentId);
                     return (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-medium text-xs sm:text-sm py-2">
+                      <TableRow key={u.id} className={dataTableRowClass(index)}>
+                        <TableCell className="font-medium text-foreground py-3">
                           {u.name}
                           {u.id === currentUserId && (
                             <Badge variant="outline" className="ml-2 text-[10px]">You</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs sm:text-sm py-2">{u.email}</TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="text-sm text-foreground/80 py-3">{u.email}</TableCell>
+                        <TableCell className="py-3">
                           <div className="flex flex-wrap gap-1">
                             {slugs.map((slug) => (
                               <Badge key={slug} variant="secondary" className="text-[10px]">
@@ -430,7 +459,7 @@ export function TournamentStaffSection({
                             ))}
                           </div>
                         </TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="py-3">
                           <Badge
                             className={
                               u.isActive !== false
@@ -441,12 +470,12 @@ export function TournamentStaffSection({
                             {u.isActive !== false ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="py-3">
                           <div className="flex justify-end gap-1">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-2 text-xs"
+                              className="h-8 rounded-lg px-2 text-xs"
                               onClick={() => openEditRoles(u)}
                             >
                               <UserCog className="h-3.5 w-3.5 mr-1" />
@@ -454,27 +483,27 @@ export function TournamentStaffSection({
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                               title={u.isActive !== false ? 'Deactivate' : 'Activate'}
                               onClick={() => toggleActive(u)}
                               disabled={u.id === currentUserId}
                             >
                               {u.isActive !== false ? (
-                                <EyeOff className="h-3.5 w-3.5" />
+                                <EyeOff className="h-4 w-4" />
                               ) : (
-                                <Eye className="h-3.5 w-3.5" />
+                                <Eye className="h-4 w-4" />
                               )}
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                               title="Remove from tournament"
                               onClick={() => removeFromTournament(u)}
                               disabled={u.id === currentUserId}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -485,8 +514,7 @@ export function TournamentStaffSection({
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </DataTableCard>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">

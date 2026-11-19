@@ -39,6 +39,12 @@ import {
 } from '@/lib/poolAssignment';
 import { ProfilePhotoUpload } from '@/components/ui/profile-photo-upload';
 import { TeamLogo } from '@/components/TeamLogo';
+import {
+  dataTableCardClass,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+} from '@/components/admin/DataTableCard';
 import { Users, Plus, Edit, Trash2, Crown, Target, UserPlus, Shuffle, X, Search } from 'lucide-react';
 
 const normalizePoolCategory = (category: string) =>
@@ -771,7 +777,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
         {/* Teams Table */}
         <TabsContent value="teams" className="mt-4">
           {filteredTeams.length === 0 ? (
-            <div className="text-center py-12 border rounded-lg">
+            <div className={`text-center py-12 border ${dataTableCardClass}`}>
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No teams created</h3>
               <p className="text-gray-600 mb-4">Create teams to organize players for the tournament</p>
@@ -781,10 +787,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               </Button>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
+            <div className={`border bg-card ${dataTableCardClass}`}>
+              <Table className={dataTableClass}>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className={dataTableHeadRowClass}>
                     <TableHead>#</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
@@ -805,7 +811,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                       p => p.category === team.category && isTeamCategory(team.category)
                     );
                     return (
-                      <TableRow key={team.id}>
+                      <TableRow key={team.id} className={dataTableRowClass(idx)}>
                         <TableCell className="text-gray-500 text-sm">{idx + 1}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -1087,7 +1093,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           })()}
 
           {filteredPools.length === 0 ? (
-            <div className="text-center py-12 border rounded-lg">
+            <div className={`text-center py-12 border ${dataTableCardClass}`}>
               <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No pools created</h3>
               <p className="text-gray-600 mb-4">Create pools to organize teams or players into groups</p>
@@ -1097,10 +1103,10 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
               </Button>
             </div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
+            <div className={`border bg-card ${dataTableCardClass}`}>
+              <Table className={dataTableClass}>
                 <TableHeader>
-                  <TableRow className="text-xs">
+                  <TableRow className={dataTableHeadRowClass}>
                     <TableHead className="py-2 w-8">#</TableHead>
                     <TableHead className="py-2">Name</TableHead>
                     <TableHead className="py-2">Category</TableHead>
@@ -1117,7 +1123,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
                     const poolPlayers = teamPool ? [] : getPlayersForPool(pool);
                     const members = teamPool ? poolTeams : poolPlayers;
                     return (
-                      <TableRow key={pool.id} className="text-sm">
+                      <TableRow key={pool.id} className={dataTableRowClass(idx, 'text-sm')}>
                         <TableCell className="py-1.5 text-gray-400 text-xs">{idx + 1}</TableCell>
                         <TableCell className="py-1.5 font-medium">{pool.name}</TableCell>
                         <TableCell className="py-1.5">
@@ -1208,7 +1214,7 @@ export default function TeamManagement({ tournament, user }: TeamManagementProps
           return (
             <TabsContent key={category} value={`roster:${category}`} className="mt-4">
               {rosterTeams.length === 0 ? (
-                <div className="text-center py-12 border rounded-lg">
+                <div className={`text-center py-12 border ${dataTableCardClass}`}>
                   <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No {label} teams yet</h3>
                   <p className="text-gray-600">Players will appear here once assigned to {label.toLowerCase()} teams.</p>

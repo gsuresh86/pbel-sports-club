@@ -10,13 +10,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DataTableCard,
+  DataTableEmpty,
+  DataTableSearch,
+  dataTableButtonClass,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+  dataTableSelectClass,
+} from '@/components/admin/DataTableCard';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tournament, Registration, Player } from '@/types';
 import { useAlertDialog } from '@/components/ui/alert-dialog-component';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Filter, Search, Users, CheckCircle, XCircle, Clock, Download, Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Eye, Pencil, Trash2 } from 'lucide-react';
 import RegistrationReviewDrawer from '@/components/admin/RegistrationReviewDrawer';
 import RegistrationEditDrawer, { RegistrationEditValues } from '@/components/admin/RegistrationEditDrawer';
 import Papa from 'papaparse';
@@ -30,11 +39,11 @@ import {
   isTournamentStaff,
 } from '@/lib/permissions';
 
-const STICKY_HEAD = 'sticky top-0 z-30 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL = 'sticky z-20 bg-card shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
-const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
-const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-card shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)] group-hover:bg-white';
+const STICKY_HEAD = 'sticky top-0 z-30 bg-inherit';
+const STICKY_HEAD_CORNER = 'sticky top-0 z-40 bg-inherit shadow-[2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL = 'sticky z-20 bg-inherit shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]';
+const STICKY_HEAD_RIGHT = 'sticky top-0 right-0 z-40 bg-inherit shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.1)]';
+const STICKY_CELL_RIGHT = 'sticky right-0 z-20 bg-inherit shadow-[-2px_0_6px_-2px_rgba(0,0,0,0.08)]';
 
 interface RegistrationsManagerProps {
   /** When set, scope all data and filters to this tournament only. */
@@ -614,6 +623,11 @@ export function RegistrationsManager({
     return matchesTournament && matchesSearch && matchesStatus && matchesCategory;
   });
 
+  const tableScopeCount =
+    selectedTournament === 'all'
+      ? registrations.length
+      : registrations.filter((p) => p.tournamentId === selectedTournament).length;
+
   const statsScope = registrations.filter((participant) => {
     const matchesTournament = selectedTournament === 'all' || participant.tournamentId === selectedTournament;
     const matchesCategory = categoryFilter === 'all' || categoriesMatch(participant.selectedCategory, categoryFilter);
@@ -1001,15 +1015,21 @@ export function RegistrationsManager({
         </div>
 
         {/* Registrations Table */}
-        <Card className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden py-3">
-          <CardHeader className="shrink-0 pb-0">
-            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1">
-              <CardTitle className="shrink-0 whitespace-nowrap text-base">
-                Registrations ({filteredParticipants.length})
-              </CardTitle>
+        <DataTableCard
+          className="flex min-h-0 flex-1 flex-col"
+          title="Registrations"
+          description={`Showing ${filteredParticipants.length} of ${tableScopeCount}`}
+          toolbar={
+            <>
+              <DataTableSearch
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Search name, email, phone"
+                aria-label="Search registrations"
+              />
               {!fixedTournamentId && (
                 <Select value={selectedTournament} onValueChange={setSelectedTournament}>
-                  <SelectTrigger className="h-9 w-[min(200px,28vw)] shrink-0" aria-label="Filter by tournament">
+                  <SelectTrigger className={`${dataTableSelectClass} sm:w-48`} aria-label="Filter by tournament">
                     <SelectValue placeholder="Tournament" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1023,7 +1043,8 @@ export function RegistrationsManager({
                 </Select>
               )}
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-[130px] shrink-0" aria-label="Filter by status">
+                <SelectTrigger className={dataTableSelectClass} aria-label="Filter by status">
+                  <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1034,7 +1055,7 @@ export function RegistrationsManager({
                 </SelectContent>
               </Select>
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-9 w-[min(180px,28vw)] shrink-0 capitalize" aria-label="Filter by category">
+                <SelectTrigger className={`${dataTableSelectClass} sm:w-44 capitalize`} aria-label="Filter by category">
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1046,18 +1067,7 @@ export function RegistrationsManager({
                   ))}
                 </SelectContent>
               </Select>
-              <div className="relative min-w-[200px] flex-1">
-                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search name, email, phone..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-9 pl-9"
-                  aria-label="Search registrations"
-                />
-              </div>
-              <Button onClick={exportParticipants} variant="outline" size="sm" className="h-9 shrink-0 whitespace-nowrap">
+              <Button onClick={exportParticipants} variant="outline" className={dataTableButtonClass}>
                 <Download className="h-4 w-4 mr-1.5" />
                 Export
               </Button>
@@ -1067,28 +1077,45 @@ export function RegistrationsManager({
                   setShowImportModal(true);
                 }}
                 variant="outline"
-                size="sm"
-                className="h-9 shrink-0 whitespace-nowrap"
+                className={dataTableButtonClass}
               >
                 <Upload className="h-4 w-4 mr-1.5" />
                 Import
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden pt-1 pb-4">
+            </>
+          }
+        >
             {filteredParticipants.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center text-center">
-                <div>
-                  <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="mb-2 text-lg font-medium text-foreground">No registrations found</h3>
-                  <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
-                </div>
-              </div>
+              <DataTableEmpty
+                className="flex flex-1 flex-col items-center justify-center"
+                icon={tableScopeCount === 0 ? Users : Search}
+                title={tableScopeCount === 0 ? 'No registrations yet' : 'No registrations found'}
+                description={
+                  tableScopeCount === 0
+                    ? 'Registrations will appear here once players sign up.'
+                    : 'Try adjusting your search or filters'
+                }
+                action={
+                  tableScopeCount > 0 && (
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setStatusFilter('all');
+                        setCategoryFilter('all');
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )
+                }
+              />
             ) : (
-            <div className="registrations-table-scroll min-h-0 flex-1 border">
-              <table className="w-max min-w-full caption-bottom text-sm [&_td]:py-1 [&_th]:h-8">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+            <div className="registrations-table-scroll min-h-0 flex-1">
+              <table className={`w-max min-w-full caption-bottom text-sm [&_td]:py-2 ${dataTableClass}`}>
+                <TableHeader className="bg-transparent shadow-none">
+                  <TableRow className={dataTableHeadRowClass}>
                     <TableHead className={`${STICKY_HEAD_CORNER} left-0 w-14`}>Photo</TableHead>
                     <TableHead className={`${STICKY_HEAD_CORNER} left-14 min-w-[140px]`}>Name</TableHead>
                     <TableHead className={STICKY_HEAD}>Email</TableHead>
@@ -1108,11 +1135,11 @@ export function RegistrationsManager({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredParticipants.map((participant) => {
+                  {filteredParticipants.map((participant, index) => {
                     const paymentRecipient = parsePaymentRecipient(participant.selectedPaymentAccount);
 
                     return (
-                      <TableRow key={participant.id} className="group">
+                      <TableRow key={participant.id} className={dataTableRowClass(index)}>
                         <TableCell className={`${STICKY_CELL} left-0 w-14`}>
                           {participant.partnerName?.trim() ? (
                             <div className="relative h-8 w-11">
@@ -1335,8 +1362,7 @@ export function RegistrationsManager({
               </table>
             </div>
             )}
-          </CardContent>
-        </Card>
+        </DataTableCard>
 
         {/* Import Modal */}
         {showImportModal && (

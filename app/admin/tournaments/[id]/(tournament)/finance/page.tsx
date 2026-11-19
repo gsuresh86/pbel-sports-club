@@ -11,7 +11,13 @@ import {
   useUpdateFinanceEntry,
   useDeleteFinanceEntry,
 } from '@/hooks/use-finance-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  DataTableCard,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+} from '@/components/admin/DataTableCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -242,42 +248,49 @@ export default function FinancePage() {
   const renderEntryRows = (entries: FinanceEntry[], emptyText: string) => {
     if (entries.length === 0) {
       return (
-        <TableRow>
-          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-6">
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
             {emptyText}
           </TableCell>
         </TableRow>
       );
     }
-    return entries.map((entry) => (
-      <TableRow key={entry.id}>
-        <TableCell className="text-xs sm:text-sm py-2 whitespace-nowrap">
+    return entries.map((entry, index) => (
+      <TableRow key={entry.id} className={dataTableRowClass(index)}>
+        <TableCell className="py-3 text-sm text-foreground/80 whitespace-nowrap">
           {formatDisplayDate(entry.date)}
         </TableCell>
-        <TableCell className="py-2">
-          <Badge variant="outline" className="text-xs">
+        <TableCell className="py-3">
+          <Badge variant="outline" className="rounded-full text-xs">
             {categoryLabel(entry.type, entry.category)}
           </Badge>
         </TableCell>
-        <TableCell className="text-xs sm:text-sm py-2">
-          <div className="font-medium">{entry.description}</div>
+        <TableCell className="py-3 text-sm">
+          <div className="font-medium text-foreground">{entry.description}</div>
           {entry.note && <div className="text-xs text-muted-foreground">{entry.note}</div>}
         </TableCell>
-        <TableCell className="text-right font-semibold text-xs sm:text-sm py-2 whitespace-nowrap">
+        <TableCell className="py-3 text-right text-sm font-semibold whitespace-nowrap">
           {formatCurrency(entry.amount)}
         </TableCell>
-        <TableCell className="py-2">
-          <div className="flex justify-end gap-1">
-            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => openEdit(entry)}>
-              <Pencil className="h-3.5 w-3.5" />
+        <TableCell className="py-3">
+          <div className="flex justify-end gap-0.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => openEdit(entry)}
+              title="Edit entry"
+            >
+              <Pencil className="h-4 w-4" />
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
               onClick={() => handleDelete(entry)}
+              title="Delete entry"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </TableCell>
@@ -305,8 +318,8 @@ export default function FinancePage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <Card className="rounded-none">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className="rounded-full bg-green-100 p-2.5">
               <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
@@ -316,8 +329,8 @@ export default function FinancePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className="rounded-full bg-red-100 p-2.5">
               <TrendingDown className="h-5 w-5 text-red-600" />
             </div>
@@ -327,8 +340,8 @@ export default function FinancePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-none">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-2xl border-border shadow-none gap-0 py-0">
+          <CardContent className="p-5 flex items-center gap-3">
             <div className={`rounded-full p-2.5 ${net >= 0 ? 'bg-blue-100' : 'bg-amber-100'}`}>
               <Wallet className={`h-5 w-5 ${net >= 0 ? 'text-blue-600' : 'text-amber-600'}`} />
             </div>
@@ -343,13 +356,12 @@ export default function FinancePage() {
       </div>
 
       {/* Income */}
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <CardTitle className="text-sm font-semibold sm:text-base">Income</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <DataTableCard
+        title="Income"
+        description={`Registrations + ${incomeEntries.length} manual entr${incomeEntries.length === 1 ? 'y' : 'ies'} · ${formatCurrency(totalIncome)}`}
+      >
           {/* Auto registration income */}
-          <div className="flex items-center justify-between gap-3 border-y bg-green-50/60 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border bg-green-50/60 px-5 py-3">
             <div className="flex items-center gap-2 min-w-0">
               <Users className="h-4 w-4 text-green-600 flex-shrink-0" />
               <div className="min-w-0">
@@ -368,14 +380,14 @@ export default function FinancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table className="min-w-[560px]">
+            <Table className={`min-w-[560px] ${dataTableClass}`}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
-                  <TableHead className="text-xs sm:text-sm">Date</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Category</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Description</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Amount</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Actions</TableHead>
+                <TableRow className={dataTableHeadRowClass}>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -385,17 +397,15 @@ export default function FinancePage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </DataTableCard>
 
       {/* Expenses */}
-      <Card className="rounded-none">
-        <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3">
-          <CardTitle className="text-sm font-semibold sm:text-base">Expenses</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <DataTableCard
+        title="Expenses"
+        description={`${expenseEntries.length} entr${expenseEntries.length === 1 ? 'y' : 'ies'} · ${formatCurrency(totalExpense)}`}
+      >
           {expenseByCategory.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-4 py-3 border-b">
+            <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-border">
               {expenseByCategory.map(([cat, amt]) => (
                 <Badge key={cat} variant="outline" className="text-xs font-normal">
                   {categoryLabel('expense', cat)}: {formatCurrency(amt)}
@@ -404,14 +414,14 @@ export default function FinancePage() {
             </div>
           )}
           <div className="overflow-x-auto">
-            <Table className="min-w-[560px]">
+            <Table className={`min-w-[560px] ${dataTableClass}`}>
               <TableHeader>
-                <TableRow className="bg-muted/60">
-                  <TableHead className="text-xs sm:text-sm">Date</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Category</TableHead>
-                  <TableHead className="text-xs sm:text-sm">Description</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Amount</TableHead>
-                  <TableHead className="text-right text-xs sm:text-sm">Actions</TableHead>
+                <TableRow className={dataTableHeadRowClass}>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -424,8 +434,7 @@ export default function FinancePage() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+      </DataTableCard>
 
       {/* Add / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

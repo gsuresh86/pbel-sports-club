@@ -26,7 +26,6 @@ import { Label } from '@/components/ui/label';
 import { DatePickerInput, DateTimePickerInput } from '@/components/ui/date-picker-input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -69,9 +68,19 @@ import {
 import { cn, formatMatchSideLabel, getMatchLiveDisplayNames } from '@/lib/utils';
 import {
   Activity, ArrowDown, ArrowUp, ArrowUpDown,
-  CheckCircle, ChevronDown, Edit, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
+  CheckCircle, ChevronDown, Edit, Filter, FilterX, Monitor, Play, Search, Swords, Trash2, X, ClipboardList, ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
+import {
+  DataTableCard,
+  DataTableEmpty,
+  DataTableSearch,
+  dataTableButtonClass,
+  dataTableClass,
+  dataTableHeadRowClass,
+  dataTableRowClass,
+  dataTableSelectClass,
+} from '@/components/admin/DataTableCard';
 
 const MATCH_FORMAT_ORDER: MatchFormat[] = [
   'single-set-11',
@@ -706,174 +715,159 @@ export default function MatchesPage() {
     <div className="space-y-4 sm:space-y-6">
       {AlertDialogComponent}
 
-      {/* Title row */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold sm:text-lg">
-            Matches ({filteredMatches.length}{filteredMatches.length !== totalMatches ? ` of ${totalMatches}` : ''})
-          </h3>
-          <p className="text-xs text-muted-foreground sm:text-sm">Start matches and enter scores below.</p>
-        </div>
-        {isFullAdmin && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button size="sm" className="h-8 text-xs" onClick={() => setGenDrawerOpen(true)}>
-              <Swords className="h-3.5 w-3.5 mr-1" />
-              Generate
-            </Button>
-            {totalMatches > 0 && (
+      <DataTableCard
+        title="Matches"
+        description={`Showing ${filteredMatches.length} of ${totalMatches} · start matches and enter scores`}
+        toolbar={
+          <>
+            <DataTableSearch value={search} onChange={setSearch} placeholder="Search players, rounds" />
+
+            <Select value={roundFilter} onValueChange={setRoundFilter}>
+              <SelectTrigger className={dataTableSelectClass}>
+                <SelectValue placeholder="Round / Pool" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Rounds</SelectItem>
+                {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            {distinctCategories.length > 0 && (
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className={dataTableSelectClass}>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {distinctCategories.map(c => (
+                    <SelectItem key={c} value={c}>
+                      {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {distinctFormats.length > 0 && (
+              <Select value={formatFilter} onValueChange={setFormatFilter}>
+                <SelectTrigger className={cn(dataTableSelectClass, 'sm:w-40')}>
+                  <SelectValue placeholder="Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Formats</SelectItem>
+                  {distinctFormats.map(format => (
+                    <SelectItem key={format} value={format}>
+                      {getFormatLabel(format)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className={dataTableSelectClass}>
+                <Filter className="h-3 w-3 mr-1 text-muted-foreground" />
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="not-scheduled">Not scheduled</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="live">Live</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="postponed">Postponed</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <DatePickerInput
+              value={dateFilter}
+              onChange={setDateFilter}
+              placeholder="Filter by date"
+              className="w-full sm:w-auto space-y-0"
+              triggerClassName="h-9 w-full sm:w-auto rounded-xl border-border px-3 text-sm"
+            />
+
+            {anyFilterActive && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                title="Clear all filters"
+                className={cn(dataTableButtonClass, 'w-full sm:w-9 sm:p-0')}
+              >
+                <FilterX className="h-3.5 w-3.5" />
+                <span className="sm:hidden">Clear filters</span>
+              </Button>
+            )}
+
+            {isFullAdmin && (
+              <>
+                <Button className={cn(dataTableButtonClass, 'bg-slate-900 hover:bg-slate-800')} onClick={() => setGenDrawerOpen(true)}>
+                  <Swords className="h-4 w-4 mr-1.5" />
+                  Generate
+                </Button>
+                {totalMatches > 0 && (
+                  <Button
+                    variant="outline"
+                    className={cn(dataTableButtonClass, 'text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300')}
+                    onClick={async () => {
+                      if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
+                      try {
+                        await Promise.all(matches.map((m) => deleteDoc(tournamentMatchRef(tournamentId, m.id))));
+                        invalidateTournament(tournamentId);
+                      } catch (e) {
+                        console.error(e);
+                        alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Clear All
+                  </Button>
+                )}
+              </>
+            )}
+          </>
+        }
+        subheader={
+          isFullAdmin && selectedVisible.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 border-b border-blue-200 bg-blue-50 px-5 py-2">
+              <span className="text-xs font-medium text-blue-900">{selectedVisible.length} selected</span>
+              <Select
+                value={bulkStatus}
+                onValueChange={(v: Match['status']) => { setBulkStatus(v); applyBulkStatus(v); }}
+                disabled={bulkWorking}
+              >
+                <SelectTrigger className="h-8 w-40 rounded-xl text-xs bg-card">
+                  <SelectValue placeholder="Set status…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MATCH_STATUSES.map(s => (
+                    <SelectItem key={s} value={s}>{getMatchStatusLabel(s)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                onClick={async () => {
-                  if (!confirm(`Delete all ${totalMatches} match${totalMatches === 1 ? '' : 'es'} for this tournament? This cannot be undone.`)) return;
-                  try {
-                    await Promise.all(matches.map((m) => deleteDoc(tournamentMatchRef(tournamentId, m.id))));
-                    invalidateTournament(tournamentId);
-                  } catch (e) {
-                    console.error(e);
-                    alert({ title: 'Error', description: 'Failed to clear matches', variant: 'error' });
-                  }
-                }}
+                className="h-8 rounded-xl text-xs text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300"
+                onClick={bulkDelete}
+                disabled={bulkWorking}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Clear All
+                Delete
               </Button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Search + filters */}
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-        <div className="relative col-span-2 min-w-0 sm:min-w-[140px] sm:flex-none sm:w-48">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search players, rounds…"
-            className="h-10 sm:h-8 pl-7 pr-3 w-full text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-
-        <Select value={roundFilter} onValueChange={setRoundFilter}>
-          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
-            <SelectValue placeholder="Round / Pool" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rounds</SelectItem>
-            {distinctRounds.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        {distinctCategories.length > 0 && (
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[130px] text-xs">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {distinctCategories.map(c => (
-                <SelectItem key={c} value={c}>
-                  {c.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {distinctFormats.length > 0 && (
-          <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[150px] text-xs">
-              <SelectValue placeholder="Format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Formats</SelectItem>
-              {distinctFormats.map(format => (
-                <SelectItem key={format} value={format}>
-                  {getFormatLabel(format)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[120px] text-xs">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="not-scheduled">Not scheduled</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="live">Live</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-            <SelectItem value="postponed">Postponed</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <DatePickerInput
-          value={dateFilter}
-          onChange={setDateFilter}
-          placeholder="Filter by date"
-          className="col-span-2 sm:col-auto w-full sm:w-auto space-y-0"
-          triggerClassName="h-10 sm:h-8 w-full sm:w-auto px-2 text-xs"
-        />
-
-        {anyFilterActive && (
-          <button
-            onClick={clearFilters}
-            title="Clear all filters"
-            className="h-10 w-10 sm:h-8 sm:w-8 flex-shrink-0 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-gray-800 transition-colors"
-          >
-            <FilterX className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
-
-      {/* Bulk action bar */}
-      {isFullAdmin && selectedVisible.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
-          <span className="text-xs font-medium text-blue-900">{selectedVisible.length} selected</span>
-          <Select
-            value={bulkStatus}
-            onValueChange={(v: Match['status']) => { setBulkStatus(v); applyBulkStatus(v); }}
-            disabled={bulkWorking}
-          >
-            <SelectTrigger className="h-8 w-40 text-xs bg-card">
-              <SelectValue placeholder="Set status…" />
-            </SelectTrigger>
-            <SelectContent>
-              {MATCH_STATUSES.map(s => (
-                <SelectItem key={s} value={s}>{getMatchStatusLabel(s)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-            onClick={bulkDelete}
-            disabled={bulkWorking}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Delete
-          </Button>
-          <button
-            onClick={clearSelection}
-            disabled={bulkWorking}
-            className="text-xs text-muted-foreground hover:text-gray-800 hover:underline"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
-      <Card className="rounded-none">
-        <CardContent className="p-0">
-
+              <button
+                onClick={clearSelection}
+                disabled={bulkWorking}
+                className="text-xs text-muted-foreground hover:text-gray-800 hover:underline"
+              >
+                Clear
+              </button>
+            </div>
+          ) : null
+        }
+      >
           {/* ── Mobile card list (hidden md+) ── */}
           <div className="md:hidden divide-y divide-gray-100">
             {sortedMatches.map((match) => (
@@ -987,10 +981,10 @@ export default function MatchesPage() {
           </div>
 
           {/* ── Desktop table (hidden below md) ── */}
-          <div className="hidden md:block overflow-auto max-h-[calc(100vh-16rem)]">
-            <Table className="min-w-[720px]">
+          <div className={cn('hidden overflow-auto max-h-[calc(100vh-16rem)]', sortedMatches.length > 0 && 'md:block')}>
+            <Table className={cn('min-w-[720px]', dataTableClass)}>
               <TableHeader>
-                <TableRow>
+                <TableRow className={dataTableHeadRowClass}>
                   {isFullAdmin && (
                     <TableHead className="w-8">
                       <Checkbox
@@ -1031,8 +1025,12 @@ export default function MatchesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedMatches.map((match) => (
-                  <TableRow key={match.id} data-state={selectedIds.has(match.id) ? 'selected' : undefined}>
+                {sortedMatches.map((match, index) => (
+                  <TableRow
+                    key={match.id}
+                    data-state={selectedIds.has(match.id) ? 'selected' : undefined}
+                    className={dataTableRowClass(index, 'data-[state=selected]:bg-blue-50')}
+                  >
                     {isFullAdmin && (
                       <TableCell className="py-2">
                         <Checkbox
@@ -1135,27 +1133,30 @@ export default function MatchesPage() {
 
           {/* Empty state */}
           {filteredMatches.length === 0 && (
-            <div className="text-center py-8">
-              <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              {totalMatches === 0 ? (
-                <>
-                  <h3 className="text-lg font-medium text-foreground mb-2">No matches scheduled</h3>
-                  <p className="text-muted-foreground">
-                    {isMatchStaffOnly
-                      ? 'No matches have been scheduled for this tournament yet.'
-                      : <>Click <strong>Generate</strong> to create matches from pools.</>}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-lg font-medium text-foreground mb-2">No matches match your filters</h3>
-                  <button className="text-sm text-blue-600 hover:underline" onClick={clearFilters}>Clear filters</button>
-                </>
-              )}
-            </div>
+            totalMatches === 0 ? (
+              <DataTableEmpty
+                icon={Activity}
+                title="No matches scheduled"
+                description={
+                  isMatchStaffOnly
+                    ? 'No matches have been scheduled for this tournament yet.'
+                    : <>Click <strong>Generate</strong> to create matches from pools.</>
+                }
+              />
+            ) : (
+              <DataTableEmpty
+                icon={Search}
+                title="No matches found"
+                description="Try adjusting your search or filters"
+                action={
+                  <Button variant="outline" className="rounded-xl" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                }
+              />
+            )
           )}
-        </CardContent>
-      </Card>
+      </DataTableCard>
 
       {/* Generate Matches Panel */}
       {isFullAdmin && genDrawerOpen && (
